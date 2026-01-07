@@ -125,6 +125,8 @@ export async function POST(request: NextRequest) {
         // Clarify generic "User not found" errors from OpenRouter
         if (errorMessage.includes('User not found')) {
             errorMessage = 'OpenRouter Key Invalid: Ensure the key in Vercel matches your OpenRouter dashboard.';
+        } else if (errorMessage.includes('No endpoints found')) {
+            errorMessage = `No providers online for model "${targetModel}". Try a different model.`;
         }
         
         return respondWithSimulation(errorMessage);
