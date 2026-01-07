@@ -6,12 +6,12 @@ import { Send, Sparkles, Zap, Settings, X, Globe, Cloud, ChevronDown } from 'luc
 
 const MODELS = [
   { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
-  { id: 'gemini-flash', name: 'Gemini Flash', apiId: 'google/gemini-flash-1.5', category: 'Standard', description: 'Fast, efficient, google-powered.' },
-  { id: 'mistral-7b', name: 'Mistral 7B', apiId: 'mistralai/mistral-7b-instruct', category: 'Standard', description: 'Fast, efficient, open.' },
+  { id: 'gemini-flash', name: 'Gemini 2.0 Flash', apiId: 'google/gemini-2.0-flash-001', category: 'Standard', description: 'Fast, efficient, google-powered.' },
+  { id: 'mistral-7b', name: 'Mistral 7B', apiId: 'mistralai/mistral-7b-instruct:free', category: 'Standard', description: 'Fast, efficient, open.' },
   { id: 'deepseek-chat', name: 'DeepSeek V3', apiId: 'deepseek/deepseek-chat', category: 'Standard', description: 'High reasoning capability.' },
   { id: 'gpt-4o', name: 'GPT-4o', apiId: 'openai/gpt-4o', category: 'Advanced', description: 'Top-tier general intelligence.' },
   { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', apiId: 'anthropic/claude-3.5-sonnet', category: 'Advanced', description: 'Nuanced and articulate.' },
-  { id: 'perplexity', name: 'Perplexity', apiId: 'perplexity/llama-3.1-sonar-large-128k-online', category: 'Advanced', description: 'Real-time search engine.' },
+  { id: 'perplexity', name: 'Perplexity', apiId: 'perplexity/sonar', category: 'Advanced', description: 'Real-time search engine.' },
 ];
 
 const THEMES = [
