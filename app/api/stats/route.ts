@@ -13,7 +13,7 @@ export async function GET() {
 
   const stats = {
     queriesProcessed: baseQueries + timeComponent + randomComponent,
-    activeUsers: Math.floor(Math.random() * 300) + 8500,
+    activeUsers: Math.floor(Math.random() * 10) + 1, // Realistic live user count
     uniqueMinds: baseUsers + userGrowth, // New stat for total unique visitors
     accuracy: (99.1 + Math.random() * 0.8).toFixed(2),
     uptime: '99.99%',

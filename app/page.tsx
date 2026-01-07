@@ -406,19 +406,21 @@ export default function Home() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="mt-6 bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8"
+                  className="mt-6 bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 shadow-xl"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-[var(--accent)]/10">
+                    <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
                       <Sparkles className="w-5 h-5 text-[var(--accent)]" />
                     </div>
-                    <div className="space-y-2 flex-1">
-                      <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider">
+                    <div className="space-y-3 flex-1 min-w-0">
+                      <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
                         Response from {selectedModel.name}
                       </div>
-                      <p className="text-[var(--foreground)]/90 font-light leading-relaxed whitespace-pre-wrap text-lg">
-                        {response}
-                      </p>
+                      <div className="prose prose-invert max-w-none">
+                        <p className="text-[var(--foreground)] text-lg leading-relaxed whitespace-pre-wrap font-light">
+                          {response}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
