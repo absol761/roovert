@@ -1,215 +1,326 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, Sparkles, TrendingUp, Zap, CheckCircle2 } from 'lucide-react';
 
-// Live Mission Clock Component
-function LiveMissionClock() {
-  const [time, setTime] = useState('00:00:00:00');
-  
+// Real-time Stats Component
+function LiveStats() {
+  const [stats, setStats] = useState({
+    queriesProcessed: 0,
+    activeUsers: 0,
+    accuracy: '0.00',
+    uptime: '99.9%',
+  });
+
   useEffect(() => {
-    // Placeholder calculation for "Time to AGI"
-    const calculateTimeToAGI = () => {
-      const now = new Date();
-      const targetDate = new Date('2030-01-01'); // Placeholder target
-      const diff = targetDate.getTime() - now.getTime();
-      
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      
-      return `${String(days).padStart(2, '0')}:${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    const fetchStats = async () => {
+      try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        setStats(data);
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      }
     };
-    
-    setTime(calculateTimeToAGI());
-    const interval = setInterval(() => {
-      setTime(calculateTimeToAGI());
-    }, 1000);
-    
+
+    fetchStats();
+    const interval = setInterval(fetchStats, 5000); // Update every 5 seconds
     return () => clearInterval(interval);
   }, []);
-  
+
   return (
     <div className="fixed top-6 right-6 z-50">
-      <div className="bg-[#050505]/80 backdrop-blur-md border border-[#008080]/30 rounded-lg px-4 py-2">
-        <div className="text-xs text-[#008080]/60 uppercase tracking-wider mb-1">Time to AGI</div>
-        <div className="font-mono text-lg text-[#008080] font-bold tabular-nums">{time}</div>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl"
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-[#008080] animate-pulse"></div>
+          <span className="text-xs text-white/60 uppercase tracking-wider font-mono">Live Stats</span>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-4 text-sm">
+            <span className="text-white/70">Queries</span>
+            <span className="text-[#008080] font-mono font-bold">
+              {stats.queriesProcessed.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4 text-sm">
+            <span className="text-white/70">Active</span>
+            <span className="text-[#008080] font-mono font-bold">
+              {stats.activeUsers.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4 text-sm">
+            <span className="text-white/70">Accuracy</span>
+            <span className="text-[#008080] font-mono font-bold">{stats.accuracy}%</span>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }
 
-// Verified Quote Feed Component
-function VerifiedQuoteFeed() {
-  const quotes = [
-    { id: 1, text: "Truth is not a destination, it's a direction.", verified: true },
-    { id: 2, text: "Every query is a step closer to understanding.", verified: true },
-    { id: 3, text: "Rigor requires courage.", verified: true },
-    { id: 4, text: "The unfiltered path is the only path.", verified: true },
-    { id: 5, text: "Reality doesn't negotiate.", verified: true },
-  ];
-  
-  const [displayedQuotes, setDisplayedQuotes] = useState<typeof quotes>([]);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-      setDisplayedQuotes(prev => {
-        const newQuotes = [...prev, { ...randomQuote, id: Date.now() }];
-        return newQuotes.slice(-3); // Keep only last 3
+// Interactive Query Interface
+function QueryInterface() {
+  const [query, setQuery] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [response, setResponse] = useState<string | null>(null);
+  const [history, setHistory] = useState<Array<{ query: string; response: string }>>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim() || isProcessing) return;
+
+    setIsProcessing(true);
+    setResponse(null);
+
+    try {
+      const res = await fetch('/api/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
       });
-    }, 3000);
-    
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  
+
+      const data = await res.json();
+      setResponse(data.response);
+      setHistory(prev => [{ query, response: data.response }, ...prev.slice(0, 4)]);
+      setQuery('');
+    } catch (error) {
+      setResponse('Error processing query. Please try again.');
+    } finally {
+      setIsProcessing(false);
+      inputRef.current?.focus();
+    }
+  };
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-32 overflow-hidden pointer-events-none z-40">
-      <div className="relative h-full">
-        {displayedQuotes.map((quote, index) => (
-          <div
-            key={quote.id}
-            className="absolute w-full text-center"
-            style={{
-              animation: `stream-flow 8s linear ${index * 2}s forwards`,
-              bottom: `${index * 40}px`,
-            }}
-          >
-            <div className="inline-flex items-center gap-2 bg-[#050505]/90 backdrop-blur-sm border border-[#008080]/20 rounded-full px-4 py-2">
-              {quote.verified && (
-                <svg className="w-4 h-4 text-[#008080]" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-              )}
-              <span className="text-sm text-white/80 font-medium">{quote.text}</span>
-            </div>
+    <div className="w-full max-w-4xl mx-auto space-y-6">
+      {/* Main Input */}
+      <motion.form
+        onSubmit={handleSubmit}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="relative"
+      >
+        <div className="relative bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl hover:border-white/20 transition-all duration-300">
+          <div className="flex items-center gap-3 mb-4">
+            <Sparkles className="w-5 h-5 text-[#008080]" />
+            <span className="text-sm text-white/60 uppercase tracking-wider font-mono">
+              Query Reality
+            </span>
           </div>
-        ))}
-      </div>
+          
+          <div className="flex items-center gap-4">
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ask anything... The truth awaits."
+              className="flex-1 bg-transparent border-none outline-none text-white text-xl placeholder:text-white/30 focus:placeholder:text-white/10 transition-colors font-light"
+              disabled={isProcessing}
+            />
+            <motion.button
+              type="submit"
+              disabled={!query.trim() || isProcessing}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="p-3 bg-[#008080] hover:bg-[#009999] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isProcessing ? (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                >
+                  <Zap className="w-5 h-5 text-white" />
+                </motion.div>
+              ) : (
+                <Send className="w-5 h-5 text-white" />
+              )}
+            </motion.button>
+          </div>
+        </div>
+      </motion.form>
+
+      {/* Response Display */}
+      <AnimatePresence>
+        {response && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="bg-white/5 backdrop-blur-xl border border-[#008080]/30 rounded-2xl p-6"
+          >
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-[#008080] mt-1 flex-shrink-0" />
+              <p className="text-white/90 font-light leading-relaxed">{response}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Query History */}
+      {history.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="space-y-3"
+        >
+          <h3 className="text-sm text-white/60 uppercase tracking-wider font-mono mb-4">
+            Recent Queries
+          </h3>
+          <div className="space-y-2">
+            {history.map((item, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                className="bg-white/5 border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors"
+              >
+                <p className="text-white/70 text-sm mb-1 font-mono">Q: {item.query}</p>
+                <p className="text-white/50 text-xs">{item.response}</p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// Feature Cards
+function FeatureCards() {
+  const features = [
+    {
+      icon: Sparkles,
+      title: 'Rigorous Analysis',
+      description: 'Every query undergoes systematic truth-seeking protocols.',
+    },
+    {
+      icon: TrendingUp,
+      title: 'Real-Time Processing',
+      description: 'Instant responses powered by advanced reasoning engines.',
+    },
+    {
+      icon: Zap,
+      title: 'Unfiltered Truth',
+      description: 'No censorship. No bias. Just the raw pursuit of understanding.',
+    },
+  ];
+
+  return (
+    <div className="grid md:grid-cols-3 gap-6 mt-20">
+      {features.map((feature, idx) => (
+        <motion.div
+          key={idx}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 + idx * 0.1 }}
+          className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:border-[#008080]/50 transition-all duration-300"
+        >
+          <feature.icon className="w-8 h-8 text-[#008080] mb-4" />
+          <h3 className="text-xl font-semibold text-white mb-2">{feature.title}</h3>
+          <p className="text-white/60 text-sm leading-relaxed">{feature.description}</p>
+        </motion.div>
+      ))}
     </div>
   );
 }
 
 export default function Home() {
-  const [query, setQuery] = useState('');
-  
   return (
-    <div className="min-h-screen bg-[#050505] text-white relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-[#050505] via-[#0a0a0a] to-[#050505] text-white relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#008080]/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#008080]/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
+      </div>
+
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#050505]/80 backdrop-blur-md border-b border-[#008080]/10">
+      <motion.nav
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="fixed top-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-2xl border-b border-white/10"
+      >
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="text-xl font-bold text-[#008080]">ROOVERT</div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="text-2xl font-bold bg-gradient-to-r from-white to-[#008080] bg-clip-text text-transparent"
+            >
+              ROOVERT
+            </motion.div>
             <div className="flex items-center gap-8">
-              <a href="#mission" className="text-sm text-white/70 hover:text-[#008080] transition-colors uppercase tracking-wider">Mission</a>
-              <a href="#research" className="text-sm text-white/70 hover:text-[#008080] transition-colors uppercase tracking-wider">Research</a>
-              <a href="#api" className="text-sm text-white/70 hover:text-[#008080] transition-colors uppercase tracking-wider">API</a>
-              <a href="#careers" className="text-sm text-white/70 hover:text-[#008080] transition-colors uppercase tracking-wider">Careers</a>
+              {['Mission', 'Research', 'API', 'Careers'].map((item, idx) => (
+                <motion.a
+                  key={item}
+                  href={`#${item.toLowerCase()}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1 * idx }}
+                  whileHover={{ scale: 1.05 }}
+                  className="text-sm text-white/70 hover:text-[#008080] transition-colors uppercase tracking-wider"
+                >
+                  {item}
+                </motion.a>
+              ))}
             </div>
           </div>
         </div>
-      </nav>
-      
-      {/* Live Mission Clock */}
-      <LiveMissionClock />
-      
+      </motion.nav>
+
+      {/* Live Stats */}
+      <LiveStats />
+
       {/* Hero Section */}
-      <main className="flex min-h-screen items-center justify-center px-6 pt-24 pb-32">
-        <div className="max-w-4xl w-full text-center space-y-12">
-          {/* Kinetic Typography Headline */}
-          <h1 
-            className="text-6xl md:text-8xl font-bold leading-tight"
-            style={{
-              animation: 'kinetic-pulse 3s ease-in-out infinite',
-              textShadow: '0 0 40px rgba(0, 128, 128, 0.5), 0 0 80px rgba(0, 128, 128, 0.3)',
-            }}
+      <main className="relative z-10 flex min-h-screen items-center justify-center px-6 pt-32 pb-20">
+        <div className="w-full max-w-6xl mx-auto space-y-16">
+          {/* Headline */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center space-y-6"
           >
-            <span className="text-white">Roovert:</span>
-            <br />
-            <span className="text-[#008080]">The Truth, Unfiltered.</span>
-          </h1>
-          
-          {/* Glassmorphic Input Command Line */}
-          <div className="relative max-w-2xl mx-auto">
-            <div 
-              className="relative bg-[#050505]/40 backdrop-blur-xl border border-[#008080]/30 rounded-2xl p-6 shadow-2xl"
-              style={{
-                animation: 'glow-pulse 4s ease-in-out infinite',
-              }}
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-2 h-2 rounded-full bg-[#008080] animate-pulse"></div>
-                <span className="text-xs text-[#008080]/60 uppercase tracking-wider font-mono">Query the Reality</span>
-              </div>
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Enter your command..."
-                className="w-full bg-transparent border-none outline-none text-white text-lg font-mono placeholder:text-white/30 focus:placeholder:text-white/10 transition-colors"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && query.trim()) {
-                    // Handle query submission
-                    console.log('Query:', query);
-                  }
-                }}
-              />
-              <div className="absolute bottom-2 right-4 text-xs text-[#008080]/40 font-mono">
-                Press Enter to execute
-              </div>
-            </div>
-          </div>
-          
-          {/* Subheading */}
-          <p className="text-xl text-white/60 max-w-2xl mx-auto font-light">
-            Rigorously Pursuing Truth. Your AI isn't just a helper—it's an <span className="text-[#008080] font-semibold">Engine of Truth</span>.
-          </p>
+            <h1 className="text-7xl md:text-9xl font-light leading-tight">
+              <span className="block text-white">Roovert</span>
+              <span className="block bg-gradient-to-r from-white via-[#008080] to-white bg-clip-text text-transparent">
+                The Truth, Unfiltered
+              </span>
+            </h1>
+            <p className="text-xl md:text-2xl text-white/60 font-light max-w-2xl mx-auto">
+              Rigorously pursuing truth through advanced AI. 
+              <span className="text-[#008080]"> No filters. No bias. Just reality.</span>
+            </p>
+          </motion.div>
+
+          {/* Query Interface */}
+          <QueryInterface />
+
+          {/* Feature Cards */}
+          <FeatureCards />
         </div>
       </main>
-      
-      {/* Verified Quote Feed */}
-      <VerifiedQuoteFeed />
-      
-      {/* Add styles for animations */}
-      <style jsx>{`
-        @keyframes kinetic-pulse {
-          0%, 100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.95;
-            transform: scale(1.01);
-          }
-        }
-        
-        @keyframes stream-flow {
-          0% {
-            transform: translateY(100%);
-            opacity: 0;
-          }
-          10% {
-            opacity: 1;
-          }
-          90% {
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(-100%);
-            opacity: 0;
-          }
-        }
-        
-        @keyframes glow-pulse {
-          0%, 100% {
-            box-shadow: 0 0 20px rgba(0, 128, 128, 0.3);
-          }
-          50% {
-            box-shadow: 0 0 40px rgba(0, 128, 128, 0.5), 0 0 60px rgba(0, 128, 128, 0.3);
-          }
-        }
-      `}</style>
+
+      {/* Footer */}
+      <motion.footer
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+        className="relative z-10 border-t border-white/10 py-8"
+      >
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <p className="text-white/40 text-sm">
+            © 2026 Roovert. Rigorously Pursuing Truth.
+          </p>
+        </div>
+      </motion.footer>
     </div>
   );
 }
