@@ -18,7 +18,7 @@ export async function POST(request: Request) {
         const seenKey = `visitor:${visitorId}`;
         const isNew = await kv.set(seenKey, '1', { ex: 86400 * 365, nx: true }); // Expire after 1 year, only set if not exists
 
-        if (isNew === 'OK' || isNew === 1) {
+        if (isNew === 'OK') {
           // New visitor - increment counter
           const count = await kv.incr('unique_visitors');
           
