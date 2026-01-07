@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, Cloud, ChevronDown } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, Cloud, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor } from 'lucide-react';
 
 const MODELS = [
   { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
@@ -59,9 +59,20 @@ function SettingsModal({
   currentTheme, setTheme, 
   currentModelId, setModelId,
   layout, setLayout,
-  animationSpeed, setAnimationSpeed
+  animationSpeed, setAnimationSpeed,
+  fontSize, setFontSize,
+  dataSaver, setDataSaver
 }: any) {
   if (!isOpen) return null;
+
+  const handleReset = () => {
+    setTheme('default');
+    setLayout('standard');
+    setAnimationSpeed('normal');
+    setFontSize('normal');
+    setDataSaver(false);
+    setModelId('ooverta');
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 text-[var(--foreground)]">
@@ -70,16 +81,24 @@ function SettingsModal({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-2xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col text-[var(--foreground)]"
+        className="relative w-full max-w-2xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col text-[var(--foreground)]"
       >
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
           <h2 className="text-xl font-light tracking-wide flex items-center gap-2 text-[var(--foreground)]">
             <Settings className="w-5 h-5 text-[var(--accent)]" />
             System Configuration
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+                onClick={handleReset}
+                className="text-xs text-[var(--muted)] hover:text-[var(--accent)] transition-colors px-3 py-1.5 rounded-lg border border-transparent hover:border-[var(--border)] hover:bg-[var(--surface)]"
+            >
+                Reset Defaults
+            </button>
+            <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
+                <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
@@ -104,46 +123,98 @@ function SettingsModal({
             </div>
           </section>
 
-          {/* Layout & Animation */}
+          {/* Interface & Performance */}
           <div className="grid md:grid-cols-2 gap-8">
             <section>
-              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Layout Density</h3>
-              <div className="grid grid-cols-3 gap-2">
+                <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Visual Density</h3>
+                <div className="grid grid-cols-3 gap-2">
                 {LAYOUTS.map(l => (
-                  <button
+                    <button
                     key={l.id}
                     onClick={() => setLayout(l.id)}
                     className={`px-3 py-2 rounded-lg border text-sm transition-all ${
-                      layout === l.id
+                        layout === l.id
                         ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
                         : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
                     }`}
-                  >
+                    >
                     {l.name}
-                  </button>
+                    </button>
                 ))}
-              </div>
+                </div>
             </section>
             
             <section>
-              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Motion Speed</h3>
-              <div className="grid grid-cols-2 gap-2">
+                <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Motion Speed</h3>
+                <div className="grid grid-cols-2 gap-2">
                 {ANIMATIONS.map(a => (
-                  <button
+                    <button
                     key={a.id}
                     onClick={() => setAnimationSpeed(a.id)}
+                    disabled={dataSaver}
                     className={`px-3 py-2 rounded-lg border text-sm transition-all ${
-                      animationSpeed === a.id
+                        dataSaver ? 'opacity-50 cursor-not-allowed border-[var(--border)]' : 
+                        animationSpeed === a.id
                         ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
                         : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
                     }`}
-                  >
+                    >
                     {a.name}
-                  </button>
+                    </button>
                 ))}
-              </div>
+                </div>
             </section>
           </div>
+
+          {/* Advanced Settings */}
+          <section className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
+            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono flex items-center gap-2">
+                <Monitor className="w-4 h-4" /> Advanced Display
+            </h3>
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <div className="text-sm font-medium">Text Size</div>
+                        <div className="text-xs text-[var(--muted)]">Adjust reading comfort</div>
+                    </div>
+                    <div className="flex gap-2">
+                        {['small', 'normal', 'large'].map((size) => (
+                            <button
+                                key={size}
+                                onClick={() => setFontSize(size)}
+                                className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                                    fontSize === size 
+                                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]' 
+                                    : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                                }`}
+                            >
+                                {size.charAt(0).toUpperCase() + size.slice(1)}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                    <div>
+                        <div className="text-sm font-medium flex items-center gap-2">
+                            Data Saver Mode
+                            {dataSaver && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20">ACTIVE</span>}
+                        </div>
+                        <div className="text-xs text-[var(--muted)]">Reduces animations & blur effects</div>
+                    </div>
+                    <button
+                        onClick={() => setDataSaver(!dataSaver)}
+                        className={`relative w-11 h-6 rounded-full transition-colors ${
+                            dataSaver ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
+                        }`}
+                    >
+                        <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                            dataSaver ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
+                    </button>
+                </div>
+            </div>
+          </section>
 
           {/* Model Section */}
           <section>
@@ -185,14 +256,44 @@ function SettingsModal({
 function Widgets() {
   const [weather, setWeather] = useState<any>(null);
   const [news, setNews] = useState<any[]>([]);
+  const [clock, setClock] = useState<any>(null);
 
   useEffect(() => {
     fetch('/api/weather').then(res => res.json()).then(setWeather).catch(() => {});
     fetch('/api/news').then(res => res.json()).then(setNews).catch(() => {});
+    
+    const fetchClock = () => fetch('/api/clock').then(res => res.json()).then(setClock).catch(() => {});
+    fetchClock();
+    const interval = setInterval(fetchClock, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="widgets-stack flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
+      {/* Clock Widget */}
+      <motion.div 
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="widget-card flex-shrink-0 min-w-[200px] p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md"
+      >
+        <div className="flex items-center gap-2 mb-2 text-[var(--muted)]">
+          <Clock className="w-4 h-4" />
+          <span className="text-xs uppercase font-mono">System Time</span>
+        </div>
+        {clock ? (
+          <div>
+            <div className="text-2xl font-light font-mono">{clock.time}</div>
+            <div className="text-xs text-[var(--muted)]">{clock.date}</div>
+            <div className="text-[10px] text-[var(--muted)]/60 mt-1 uppercase tracking-wider">{clock.timezone}</div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="h-8 w-24 bg-[var(--surface-strong)] rounded animate-pulse" />
+            <div className="h-3 w-32 bg-[var(--surface-strong)] rounded animate-pulse" />
+          </div>
+        )}
+      </motion.div>
+
       {/* Weather Widget */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
@@ -344,6 +445,8 @@ export default function Page() {
   const [theme, setTheme] = useState('default');
   const [layout, setLayout] = useState('standard');
   const [animationSpeed, setAnimationSpeed] = useState('normal');
+  const [fontSize, setFontSize] = useState('normal');
+  const [dataSaver, setDataSaver] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
@@ -352,8 +455,15 @@ export default function Page() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-layout', layout);
-    document.documentElement.setAttribute('data-speed', animationSpeed);
-  }, [theme, layout, animationSpeed]);
+    document.documentElement.setAttribute('data-speed', dataSaver ? 'none' : animationSpeed);
+    document.documentElement.setAttribute('data-size', fontSize);
+    
+    if (dataSaver) {
+        document.documentElement.classList.add('data-saver');
+    } else {
+        document.documentElement.classList.remove('data-saver');
+    }
+  }, [theme, layout, animationSpeed, fontSize, dataSaver]);
 
   const selectedModel = MODELS.find(m => m.id === selectedModelId) || MODELS[0];
 
@@ -479,6 +589,10 @@ export default function Page() {
             setLayout={setLayout}
             animationSpeed={animationSpeed}
             setAnimationSpeed={setAnimationSpeed}
+            fontSize={fontSize}
+            setFontSize={setFontSize}
+            dataSaver={dataSaver}
+            setDataSaver={setDataSaver}
           />
         )}
       </AnimatePresence>
