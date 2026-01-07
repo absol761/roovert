@@ -104,11 +104,11 @@ function SettingsModal({ isOpen, onClose, currentTheme, setTheme, currentModelId
 // Widgets Component
 function Widgets() {
   const [weather, setWeather] = useState<any>(null);
-  const [crypto, setCrypto] = useState<any>(null);
+  const [news, setNews] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('/api/weather').then(res => res.json()).then(setWeather).catch(() => {});
-    fetch('/api/crypto').then(res => res.json()).then(setCrypto).catch(() => {});
+    fetch('/api/news').then(res => res.json()).then(setNews).catch(() => {});
   }, []);
 
   return (
@@ -133,30 +133,36 @@ function Widgets() {
         )}
       </motion.div>
 
-      {/* Crypto Widget */}
+      {/* News Widget */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.1 }}
-        className="flex-shrink-0 min-w-[200px] p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md"
+        className="flex-shrink-0 min-w-[300px] max-w-[400px] p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md"
       >
         <div className="flex items-center gap-2 mb-2 text-white/60">
-          <BarChart2 className="w-4 h-4" />
-          <span className="text-xs uppercase font-mono">Markets</span>
+          <Globe className="w-4 h-4" />
+          <span className="text-xs uppercase font-mono">Global Feed</span>
         </div>
-        {crypto ? (
-          <div className="space-y-1">
-            <div className="flex justify-between text-sm">
-              <span>BTC</span>
-              <span className="text-[var(--accent)]">${crypto.bitcoin?.usd.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>ETH</span>
-              <span className="text-[var(--accent)]">${crypto.ethereum?.usd.toLocaleString()}</span>
-            </div>
+        {news.length > 0 ? (
+          <div className="space-y-3">
+            {news.map((story: any) => (
+              <a 
+                key={story.id} 
+                href={story.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block text-sm hover:text-[var(--accent)] transition-colors truncate"
+              >
+                • {story.title}
+              </a>
+            ))}
           </div>
         ) : (
-          <div className="h-8 w-24 bg-white/5 rounded animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-4 w-3/4 bg-white/5 rounded animate-pulse" />
+            <div className="h-4 w-1/2 bg-white/5 rounded animate-pulse" />
+          </div>
         )}
       </motion.div>
     </div>
@@ -175,10 +181,12 @@ function LiveStats() {
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
-    // Unique Visitor Logic
+    // Unique Visitor Logic (Real Count)
     const visitorKey = 'roovert_visitor_id';
     if (typeof window !== 'undefined' && !localStorage.getItem(visitorKey)) {
       localStorage.setItem(visitorKey, Date.now().toString());
+      // Trigger real counter increment
+      fetch('/api/visit', { method: 'POST' }).catch(() => {});
     }
 
     const fetchStats = async () => {
