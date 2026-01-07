@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, Cloud, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, Cloud, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize } from 'lucide-react';
 
 const MODELS = [
   { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
@@ -448,6 +448,7 @@ export default function Page() {
   const [fontSize, setFontSize] = useState('normal');
   const [dataSaver, setDataSaver] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -660,10 +661,11 @@ export default function Page() {
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="theme-content w-full max-w-6xl mx-auto h-full flex flex-col"
+              className={`theme-content w-full mx-auto h-full flex flex-col transition-all duration-500 ${isFullscreen ? 'max-w-full px-4' : 'max-w-6xl'}`}
             >
               <div className="interface-grid h-full">
-                {/* Intel Panel (Left) */}
+                {/* Intel Panel (Left) - Hidden in Fullscreen */}
+                {!isFullscreen && (
                 <section className="intel-panel hidden lg:grid content-start">
                   <div className="intel-card">
                     <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Active Intelligence</span>
@@ -689,9 +691,10 @@ export default function Page() {
                     </div>
                   </div>
                 </section>
+                )}
 
                 {/* Main Chat Stack (Right/Center) */}
-                <section className="chat-stack flex flex-col h-full justify-between">
+                <section className={`chat-stack flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen ? 'col-span-full' : ''}`}>
                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 min-h-[40vh]">
                     {/* Response Area */}
                     <AnimatePresence mode="popLayout">
@@ -784,6 +787,16 @@ export default function Page() {
                               )}
                             </AnimatePresence>
                           </div>
+
+                          {/* Fullscreen Toggle */}
+                          <button
+                            type="button"
+                            onClick={() => setIsFullscreen(!isFullscreen)}
+                            className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                          >
+                            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                          </button>
 
                           <input
                             ref={inputRef}
