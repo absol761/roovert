@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, Zap, Settings, X, Globe, Cloud } from 'lucide-react';
 
 const MODELS = [
-  { id: 'ooberta', name: 'Ooberta (Default)', apiId: 'ooberta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
+  { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
   { id: 'mistral-7b', name: 'Mistral 7B', apiId: 'mistralai/mistral-7b-instruct', category: 'Standard', description: 'Fast, efficient, open.' },
   { id: 'deepseek-chat', name: 'DeepSeek V3', apiId: 'deepseek/deepseek-chat', category: 'Standard', description: 'High reasoning capability.' },
   { id: 'gpt-4o', name: 'GPT-4o', apiId: 'openai/gpt-4o', category: 'Advanced', description: 'Top-tier general intelligence.' },

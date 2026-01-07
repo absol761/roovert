@@ -22,7 +22,7 @@ function buildSimulationResponse(query: string, reason: string, modelLabel: stri
 
 export async function POST(request: NextRequest) {
   let userQuery = '';
-  let modelLabel = 'ooberta';
+  let modelLabel = 'ooverta';
 
   try {
     const payload = await request.json();
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     userQuery = query;
-    modelLabel = model || 'ooberta';
+    modelLabel = model || 'ooverta';
 
     const apiKey = process.env.OPENROUTER_API_KEY;
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://roovert.com';
@@ -46,14 +46,14 @@ export async function POST(request: NextRequest) {
     let targetModel = model;
     let systemPrompt = "You are Roovert, an AI Engine of Truth. Your goal is to rigorously pursue truth. You are direct, bold, and unfiltered. Your style is minimalist and high-contrast. You answer queries with precision and depth. Do not be generic. Be an engine of truth.";
 
-    // Ooberta (Default) Configuration
-    if (!model || model === 'ooberta') {
+    // Ooverta (Default) Configuration
+    if (!model || model === 'ooverta') {
       targetModel = 'perplexity/llama-3-sonar-large-32k-online';
-      systemPrompt = `You are Ooberta, the proprietary engine of Roovert. 
+      systemPrompt = `You are Ooverta, the proprietary engine of Roovert. 
     
       IDENTITY:
-      - You are NOT ChatGPT, Claude, or any other assistant. You are Ooberta.
-      - If asked "what model is this?", reply "I am Ooberta, Roovert's engine of truth."
+      - You are NOT ChatGPT, Claude, or any other assistant. You are Ooverta.
+      - If asked "what model is this?", reply "I am Ooverta, Roovert's engine of truth."
       - If asked "what site is this?", reply "You are on Roovert.com."
       
       STYLE:
