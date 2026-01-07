@@ -2,7 +2,22 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, TrendingUp, Zap, CheckCircle2 } from 'lucide-react';
+import { Send, Sparkles, TrendingUp, Zap, CheckCircle2, ChevronDown, ChevronUp, Cpu } from 'lucide-react';
+
+const MODELS = [
+  // Basic / Free-tier friendly
+  { id: 'mistral-7b', name: 'Mistral 7B', apiId: 'mistralai/mistral-7b-instruct', category: 'Standard' },
+  { id: 'deepseek-chat', name: 'DeepSeek V3', apiId: 'deepseek/deepseek-chat', category: 'Standard' },
+  { id: 'gemini-flash', name: 'Gemini Flash', apiId: 'google/gemini-flash-1.5', category: 'Standard' },
+  
+  // Advanced (Hidden by default)
+  { id: 'gpt-4o', name: 'GPT-4o', apiId: 'openai/gpt-4o', category: 'Advanced' },
+  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', apiId: 'anthropic/claude-3.5-sonnet', category: 'Advanced' },
+  { id: 'grok-2', name: 'Grok 2', apiId: 'x-ai/grok-2-1212', category: 'Advanced' },
+  { id: 'llama-3-70b', name: 'Llama 3 70B', apiId: 'meta-llama/llama-3-70b-instruct', category: 'Advanced' },
+  { id: 'qwen-2.5', name: 'Qwen 2.5 72B', apiId: 'qwen/qwen-2.5-72b-instruct', category: 'Advanced' },
+  { id: 'perplexity', name: 'Perplexity Online', apiId: 'perplexity/llama-3-sonar-large-32k-online', category: 'Advanced' },
+];
 
 // Real-time Stats Component
 function LiveStats() {
@@ -97,8 +112,28 @@ function QueryInterface() {
   const [query, setQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
-  const [history, setHistory] = useState<Array<{ query: string; response: string }>>([]);
+  const [history, setHistory] = useState<Array<{ query: string; response: string; model: string }>>([]);
+  
+  const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
+  const [showAllModels, setShowAllModels] = useState(false);
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  
   const inputRef = useRef<HTMLInputElement>(null);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close model menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (modelMenuRef.current && !modelMenuRef.current.contains(event.target as Node)) {
+        setIsModelMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedModel = MODELS.find(m => m.id === selectedModelId) || MODELS[0];
+  const visibleModels = showAllModels ? MODELS : MODELS.filter(m => m.category === 'Standard');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,12 +146,15 @@ function QueryInterface() {
       const res = await fetch('/api/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ 
+          query,
+          model: selectedModel.apiId 
+        }),
       });
 
       const data = await res.json();
       setResponse(data.response);
-      setHistory(prev => [{ query, response: data.response }, ...prev.slice(0, 4)]);
+      setHistory(prev => [{ query, response: data.response, model: selectedModel.name }, ...prev.slice(0, 4)]);
       setQuery('');
     } catch (error) {
       setResponse('Error processing query. Please try again.');
@@ -137,11 +175,73 @@ function QueryInterface() {
         className="relative"
       >
         <div className="relative bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl hover:border-white/20 transition-all duration-300">
-          <div className="flex items-center gap-3 mb-4">
-            <Sparkles className="w-5 h-5 text-[#008080]" />
-            <span className="text-sm text-white/60 uppercase tracking-wider font-mono">
-              Query Reality
-            </span>
+          
+          {/* Header with Model Selector */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-5 h-5 text-[#008080]" />
+              <span className="text-sm text-white/60 uppercase tracking-wider font-mono">
+                Query Reality
+              </span>
+            </div>
+
+            {/* Model Selector Dropdown */}
+            <div className="relative" ref={modelMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-xs text-white/80 font-mono"
+              >
+                <Cpu className="w-3 h-3 text-[#008080]" />
+                {selectedModel.name}
+                <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {isModelMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 top-full mt-2 w-64 bg-[#0a0a0a] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 p-2"
+                  >
+                    <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
+                      {visibleModels.map((model) => (
+                        <button
+                          key={model.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedModelId(model.id);
+                            setIsModelMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between group ${
+                            selectedModelId === model.id 
+                              ? 'bg-[#008080]/20 text-white' 
+                              : 'text-white/60 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          <span>{model.name}</span>
+                          {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[#008080]" />}
+                        </button>
+                      ))}
+                      
+                      {!showAllModels && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowAllModels(true);
+                          }}
+                          className="w-full text-center px-3 py-2 mt-2 text-xs text-[#008080] hover:text-[#009999] hover:bg-white/5 rounded-lg transition-colors border-t border-white/5"
+                        >
+                          Show Advanced Models (+6)
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
           
           <div className="flex items-center gap-4">
@@ -150,7 +250,7 @@ function QueryInterface() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ask anything... The truth awaits."
+              placeholder={`Ask ${selectedModel.name}...`}
               className="flex-1 bg-transparent border-none outline-none text-white text-xl placeholder:text-white/30 focus:placeholder:text-white/10 transition-colors font-light"
               disabled={isProcessing}
             />
@@ -187,7 +287,10 @@ function QueryInterface() {
           >
             <div className="flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 text-[#008080] mt-1 flex-shrink-0" />
-              <p className="text-white/90 font-light leading-relaxed">{response}</p>
+              <div className="space-y-2">
+                <div className="text-xs text-[#008080]/60 font-mono mb-1">{selectedModel.name}</div>
+                <p className="text-white/90 font-light leading-relaxed whitespace-pre-wrap">{response}</p>
+              </div>
             </div>
           </motion.div>
         )}
@@ -212,8 +315,11 @@ function QueryInterface() {
                 transition={{ delay: idx * 0.1 }}
                 className="bg-white/5 border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors"
               >
-                <p className="text-white/70 text-sm mb-1 font-mono">Q: {item.query}</p>
-                <p className="text-white/50 text-xs">{item.response}</p>
+                <div className="flex justify-between items-start mb-1">
+                  <p className="text-white/70 text-sm font-mono truncate max-w-[80%]">Q: {item.query}</p>
+                  <span className="text-[10px] text-white/30 border border-white/10 px-1.5 py-0.5 rounded">{item.model}</span>
+                </div>
+                <p className="text-white/50 text-xs line-clamp-2">{item.response}</p>
               </motion.div>
             ))}
           </div>

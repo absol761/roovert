@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { query } = await request.json();
+    const { query, model } = await request.json();
     
     if (!query || typeof query !== 'string') {
       return NextResponse.json(
@@ -15,17 +15,14 @@ export async function POST(request: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://roovert.com';
     const siteName = 'Roovert';
 
+    // Default model if none specified
+    const targetModel = model || 'mistralai/mistral-7b-instruct';
+
     if (!apiKey) {
       console.error('OPENROUTER_API_KEY is missing');
-      // Fallback for development/demo if no key is present (simulated response)
-      // This ensures the site doesn't break if the user hasn't added the key to Vercel yet
-      console.warn('Using simulated response due to missing API key');
-      const responses = [
-        `[SIMULATION] Analyzing: "${query}"... The truth requires rigorous examination. (Add your API key to Vercel to activate real AI)`,
-        `[SIMULATION] Query processed. Reality is complex. (Add your API key to Vercel to activate real AI)`,
-      ];
+      // Fallback for development/demo if no key is present
       return NextResponse.json({
-        response: responses[Math.floor(Math.random() * responses.length)],
+        response: `[SIMULATION using ${targetModel}] Analysis of "${query}": The truth requires rigorous examination. (Add API key to Vercel)`,
         timestamp: new Date().toISOString(),
         query: query,
       });
@@ -40,7 +37,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct',
+        model: targetModel,
         messages: [
           {
             role: 'system',
@@ -52,7 +49,7 @@ export async function POST(request: NextRequest) {
           },
         ],
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 1000,
       }),
     });
 
