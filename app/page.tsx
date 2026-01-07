@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, Cloud, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, Cloud, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Wrench, FileJson, Hash, Type, Ruler, Download, Eye, EyeOff } from 'lucide-react';
 
 const MODELS = [
   { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
@@ -52,6 +52,127 @@ const ANIMATIONS = [
   { id: 'none', name: 'Disabled' },
 ];
 
+// Tools Modal Component
+function ToolsModal({ isOpen, onClose }: any) {
+  const [activeTool, setActiveTool] = useState('json');
+  const [inputText, setInputText] = useState('');
+  const [outputText, setOutputText] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleToolAction = () => {
+    try {
+      switch (activeTool) {
+        case 'json':
+          setOutputText(JSON.stringify(JSON.parse(inputText), null, 2));
+          break;
+        case 'base64_encode':
+          setOutputText(btoa(inputText));
+          break;
+        case 'base64_decode':
+          setOutputText(atob(inputText));
+          break;
+        case 'count':
+          const words = inputText.trim() ? inputText.trim().split(/\s+/).length : 0;
+          const chars = inputText.length;
+          setOutputText(`Words: ${words}\nCharacters: ${chars}`);
+          break;
+        case 'unit':
+            // Simple logic for demo purposes (e.g., C to F)
+            const val = parseFloat(inputText);
+            if (!isNaN(val)) {
+                setOutputText(`${val}°C = ${(val * 9/5 + 32).toFixed(2)}°F\n${val}kg = ${(val * 2.20462).toFixed(2)}lbs\n${val}km = ${(val * 0.621371).toFixed(2)}mi`);
+            } else {
+                setOutputText('Invalid number input');
+            }
+            break;
+      }
+    } catch (e) {
+      setOutputText('Error: Invalid input for this operation.');
+    }
+  };
+
+  const tools = [
+    { id: 'json', name: 'JSON Formatter', icon: FileJson },
+    { id: 'base64_encode', name: 'Base64 Encode', icon: Hash },
+    { id: 'base64_decode', name: 'Base64 Decode', icon: Hash },
+    { id: 'count', name: 'Word Counter', icon: Type },
+    { id: 'unit', name: 'Unit Converter', icon: Ruler },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 text-[var(--foreground)]">
+      <div className="absolute inset-0 bg-[var(--background)]/70 backdrop-blur-sm" onClick={onClose} />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative w-full max-w-3xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
+      >
+        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
+          <h2 className="text-xl font-light tracking-wide flex items-center gap-2">
+            <Wrench className="w-5 h-5 text-[var(--accent)]" />
+            Utility Belt
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex flex-1 min-h-0">
+          {/* Sidebar */}
+          <div className="w-48 border-r border-[var(--border)] p-4 space-y-2 overflow-y-auto">
+            {tools.map(tool => (
+              <button
+                key={tool.id}
+                onClick={() => { setActiveTool(tool.id); setInputText(''); setOutputText(''); }}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors ${
+                  activeTool === tool.id 
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20' 
+                    : 'text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]'
+                }`}
+              >
+                <tool.icon className="w-4 h-4" />
+                {tool.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 p-6 flex flex-col gap-4 overflow-y-auto">
+            <div className="flex-1 flex flex-col gap-2">
+              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">Input</label>
+              <textarea 
+                className="flex-1 w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 font-mono text-sm resize-none focus:border-[var(--accent)] outline-none"
+                placeholder="Paste content here..."
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+              />
+            </div>
+            
+            <button 
+              onClick={handleToolAction}
+              className="w-full py-3 bg-[var(--accent)] hover:opacity-90 text-white rounded-xl font-medium transition-all"
+            >
+              Process
+            </button>
+
+            <div className="flex-1 flex flex-col gap-2">
+              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">Output</label>
+              <textarea 
+                readOnly
+                className="flex-1 w-full bg-[var(--surface-strong)] border border-[var(--border)] rounded-xl p-4 font-mono text-sm resize-none outline-none"
+                value={outputText}
+                placeholder="Result will appear here..."
+              />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // Settings Modal Component
 function SettingsModal({ 
   isOpen, 
@@ -61,7 +182,10 @@ function SettingsModal({
   layout, setLayout,
   animationSpeed, setAnimationSpeed,
   fontSize, setFontSize,
-  dataSaver, setDataSaver
+  dataSaver, setDataSaver,
+  focusMode, setFocusMode,
+  systemPrompt, setSystemPrompt,
+  onExportChat
 }: any) {
   if (!isOpen) return null;
 
@@ -71,6 +195,8 @@ function SettingsModal({
     setAnimationSpeed('normal');
     setFontSize('normal');
     setDataSaver(false);
+    setFocusMode(false);
+    setSystemPrompt('');
     setModelId('ooverta');
   };
 
@@ -213,6 +339,48 @@ function SettingsModal({
                         }`} />
                     </button>
                 </div>
+
+                <div className="flex items-center justify-between">
+                    <div>
+                        <div className="text-sm font-medium flex items-center gap-2">
+                            Focus Mode
+                            {focusMode && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20">ACTIVE</span>}
+                        </div>
+                        <div className="text-xs text-[var(--muted)]">Hide all distractions during chat</div>
+                    </div>
+                    <button
+                        onClick={() => setFocusMode(!focusMode)}
+                        className={`p-2 rounded-lg border transition-colors ${
+                            focusMode ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]' : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]'
+                        }`}
+                    >
+                        {focusMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                </div>
+            </div>
+          </section>
+
+          {/* AI Configuration */}
+          <section className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
+            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono flex items-center gap-2">
+                <Zap className="w-4 h-4" /> Intelligence Override
+            </h3>
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <label className="text-xs text-[var(--muted)] uppercase">Custom System Prompt</label>
+                    <textarea 
+                        value={systemPrompt}
+                        onChange={(e) => setSystemPrompt(e.target.value)}
+                        placeholder="e.g., 'You are a pirate...' or 'Explain like I'm 5'"
+                        className="w-full h-24 bg-[var(--background)] border border-[var(--border)] rounded-xl p-3 text-sm resize-none focus:border-[var(--accent)] outline-none"
+                    />
+                </div>
+                <button
+                    onClick={onExportChat}
+                    className="w-full flex items-center justify-center gap-2 py-2 bg-[var(--surface-strong)] hover:bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm transition-colors"
+                >
+                    <Download className="w-4 h-4" /> Export Conversation Log
+                </button>
             </div>
           </section>
 
@@ -442,11 +610,14 @@ export default function Page() {
   
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [theme, setTheme] = useState('default');
   const [layout, setLayout] = useState('standard');
   const [animationSpeed, setAnimationSpeed] = useState('normal');
   const [fontSize, setFontSize] = useState('normal');
   const [dataSaver, setDataSaver] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [systemPrompt, setSystemPrompt] = useState('');
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   
@@ -484,6 +655,16 @@ export default function Page() {
     });
   };
 
+  const handleExportChat = () => {
+    const text = history.map(h => `User: ${h.query}\nAI (${h.model}): ${h.response}\n\n`).join('---\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `roovert-chat-${new Date().toISOString()}.txt`;
+    a.click();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -506,6 +687,7 @@ export default function Page() {
         body: JSON.stringify({
           query: trimmedQuery,
           model: selectedModel.apiId,
+          systemPrompt: systemPrompt || undefined
         }),
       });
 
@@ -541,7 +723,7 @@ export default function Page() {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-all duration-500">
+      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-all duration-500 ${focusMode ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}>
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
@@ -551,14 +733,22 @@ export default function Page() {
               >
                 ROOVERT
               </button>
-              {/* Settings Trigger */}
-              <button 
-                onClick={() => setIsSettingsOpen(true)}
-                className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--accent)]"
-              >
-                <Settings className="w-3 h-3" />
-                <span>Config</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                    onClick={() => setIsToolsOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--accent)]"
+                >
+                    <Wrench className="w-3 h-3" />
+                    <span>Tools</span>
+                </button>
+                <button 
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--accent)]"
+                >
+                    <Settings className="w-3 h-3" />
+                    <span>Config</span>
+                </button>
+              </div>
             </div>
             
             <div className="hidden md:flex items-center gap-8">
@@ -575,6 +765,11 @@ export default function Page() {
           </div>
         </div>
       </nav>
+
+      {/* Tools Modal */}
+      <AnimatePresence>
+        {isToolsOpen && <ToolsModal isOpen={isToolsOpen} onClose={() => setIsToolsOpen(false)} />}
+      </AnimatePresence>
 
       {/* Settings Modal */}
       <AnimatePresence>
@@ -594,11 +789,16 @@ export default function Page() {
             setFontSize={setFontSize}
             dataSaver={dataSaver}
             setDataSaver={setDataSaver}
+            focusMode={focusMode}
+            setFocusMode={setFocusMode}
+            systemPrompt={systemPrompt}
+            setSystemPrompt={setSystemPrompt}
+            onExportChat={handleExportChat}
           />
         )}
       </AnimatePresence>
 
-      <LiveStats />
+      {!focusMode && <LiveStats />}
 
       {/* Main Content Area */}
       <main className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-hidden">

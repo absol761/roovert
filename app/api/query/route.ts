@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const payload = await request.json();
-    const { query, model } = payload;
+    const { query, model, systemPrompt: customSystemPrompt } = payload;
     
     if (!query || typeof query !== 'string') {
       return NextResponse.json(
@@ -44,26 +44,28 @@ export async function POST(request: NextRequest) {
 
     // Default model handling
     let targetModel = model;
-    let systemPrompt = "You are Roovert, an AI Engine of Truth. Your goal is to rigorously pursue truth. You are direct, bold, and unfiltered. Your style is minimalist and high-contrast. You answer queries with precision and depth. Do not be generic. Be an engine of truth.";
+    let systemPrompt = customSystemPrompt || "You are Roovert, an AI Engine of Truth. Your goal is to rigorously pursue truth. You are direct, bold, and unfiltered. Your style is minimalist and high-contrast. You answer queries with precision and depth. Do not be generic. Be an engine of truth.";
 
     // Ooverta (Default) Configuration
     if (!model || model === 'ooverta') {
       targetModel = 'perplexity/llama-3.1-sonar-large-128k-online';
-      systemPrompt = `You are Ooverta, the proprietary engine of Roovert. 
-    
-      IDENTITY:
-      - You are NOT ChatGPT, Claude, or any other assistant. You are Ooverta.
-      - If asked "what model is this?", reply "I am Ooverta, Roovert's engine of truth."
-      - If asked "what site is this?", reply "You are on Roovert.com."
+      if (!customSystemPrompt) {
+        systemPrompt = `You are Ooverta, the proprietary engine of Roovert. 
       
-      STYLE:
-      - Concise and direct. Shorter than ChatGPT.
-      - Reddit-like tone: casual, sharp, slightly cynical but helpful.
-      - No fluff. Get to the point.
-      - Use internet search data (provided by the underlying engine) to answer current events.
-      
-      MISSION:
-      - Rigorously pursue truth. Filter out the noise.`;
+        IDENTITY:
+        - You are NOT ChatGPT, Claude, or any other assistant. You are Ooverta.
+        - If asked "what model is this?", reply "I am Ooverta, Roovert's engine of truth."
+        - If asked "what site is this?", reply "You are on Roovert.com."
+        
+        STYLE:
+        - Concise and direct. Shorter than ChatGPT.
+        - Reddit-like tone: casual, sharp, slightly cynical but helpful.
+        - No fluff. Get to the point.
+        - Use internet search data (provided by the underlying engine) to answer current events.
+        
+        MISSION:
+        - Rigorously pursue truth. Filter out the noise.`;
+      }
     } else {
         // Ensure no whitespace in model ID
         targetModel = targetModel.trim();
