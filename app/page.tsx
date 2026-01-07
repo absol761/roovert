@@ -47,11 +47,83 @@ const LAYOUTS = [
 
 // Looks - Complete visual transformations
 const LOOKS = [
-  { id: 'default', name: 'Default', description: 'Clean, modern interface' },
-  { id: 'wildwest', name: 'Wild West', description: 'Dusty saloon vibes with rustic charm' },
-  { id: 'frutigeraero', name: 'Frutiger Aero', description: 'Y2K nostalgia with nature & tech fusion' },
-  { id: 'psychedelic', name: 'Psychedelic', description: 'Trippy colors and flowing patterns' },
+  { id: 'default', name: 'Default', description: 'Clean, modern interface', category: 'basic' },
+  { id: 'wildwest', name: 'Wild West', description: 'Dusty saloon vibes with rustic charm', category: 'themed' },
+  { id: 'frutigeraero', name: 'Frutiger Aero', description: 'Y2K nostalgia with nature & tech fusion', category: 'themed' },
+  { id: 'cyberpunk', name: 'Cyberpunk', description: 'Neon-soaked dystopian future', category: 'themed' },
+  { id: 'matrix', name: 'Matrix', description: 'Green code rain aesthetic', category: 'themed' },
+  { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s vibes', category: 'themed' },
+  { id: 'minimalist', name: 'Minimalist', description: 'Ultra-clean, focused design', category: 'style' },
+  { id: 'darkmode', name: 'Dark Mode Pro', description: 'Deep blacks with vibrant accents', category: 'style' },
+  { id: 'pastel', name: 'Pastel Dreams', description: 'Soft, dreamy pastel colors', category: 'style' },
+  { id: 'neon', name: 'Neon Nights', description: 'Electric neon on dark background', category: 'style' },
+  { id: 'ocean', name: 'Ocean Depths', description: 'Deep blue aquatic theme', category: 'nature' },
+  { id: 'forest', name: 'Forest Canopy', description: 'Green nature-inspired palette', category: 'nature' },
+  { id: 'sunset', name: 'Sunset Glow', description: 'Warm orange and pink gradients', category: 'nature' },
+  { id: 'space', name: 'Deep Space', description: 'Cosmic darkness with stars', category: 'nature' },
+  { id: 'paper', name: 'Paper & Ink', description: 'Vintage paper texture aesthetic', category: 'vintage' },
+  { id: 'terminal', name: 'Terminal', description: 'Classic terminal green on black', category: 'vintage' },
 ];
+
+// Looks Modal Component
+function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
+  if (!isOpen) return null;
+
+  const categories = ['basic', 'themed', 'style', 'nature', 'vintage'];
+  const looksByCategory = categories.map(cat => ({
+    category: cat,
+    looks: LOOKS.filter(l => l.category === cat)
+  }));
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 text-[var(--foreground)]">
+      <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative w-full max-w-5xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
+          <h2 className="text-2xl font-light tracking-wide flex items-center gap-2">
+            <Palette className="w-6 h-6 text-[var(--accent)]" />
+            Browse Looks
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
+          {looksByCategory.map(({ category, looks }) => (
+            <section key={category}>
+              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">
+                {category.charAt(0).toUpperCase() + category.slice(1)}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {looks.map(look => (
+                  <button
+                    key={look.id}
+                    onClick={() => { setLook(look.id); onClose(); }}
+                    className={`p-4 rounded-xl border transition-all duration-300 text-left ${
+                      currentLook === look.id 
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20' 
+                        : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
+                    }`}
+                  >
+                    <div className="font-medium text-[var(--foreground)] mb-1">{look.name}</div>
+                    <div className="text-xs text-[var(--muted)]">{look.description}</div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 // Settings Modal Component
 function SettingsModal({ 
@@ -65,7 +137,8 @@ function SettingsModal({
   focusMode, setFocusMode,
   systemPrompt, setSystemPrompt,
   onExportChat,
-  currentLook, setLook
+  currentLook, setLook,
+  onOpenLooks
 }: any) {
   if (!isOpen) return null;
 
@@ -109,26 +182,26 @@ function SettingsModal({
 
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
           
-          {/* Looks Section - Complete Visual Transformations */}
+          {/* Looks Section - Quick Select or Browse More */}
           <section>
             <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2 flex items-center gap-2">
               <Palette className="w-4 h-4" /> Looks
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {LOOKS.map(look => (
-                <button
-                  key={look.id}
-                  onClick={() => setLook(look.id)}
-                  className={`p-4 rounded-xl border transition-all duration-300 text-left ${
-                    currentLook === look.id 
-                      ? 'border-[var(--accent)] bg-[var(--accent)]/10' 
-                      : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
-                  }`}
-                >
-                  <div className="font-medium text-[var(--foreground)] mb-1">{look.name}</div>
-                  <div className="text-xs text-[var(--muted)]">{look.description}</div>
-                </button>
-              ))}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+                <div className="text-sm font-medium text-[var(--foreground)] mb-1">
+                  {LOOKS.find(l => l.id === currentLook)?.name || 'Default'}
+                </div>
+                <div className="text-xs text-[var(--muted)]">
+                  {LOOKS.find(l => l.id === currentLook)?.description || 'Current look'}
+                </div>
+              </div>
+              <button
+                onClick={onOpenLooks}
+                className="px-6 py-4 rounded-xl border border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors font-medium"
+              >
+                More
+              </button>
             </div>
           </section>
 
@@ -522,6 +595,7 @@ export default function Page() {
   
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isLooksOpen, setIsLooksOpen] = useState(false);
   const [theme, setTheme] = useState('default');
   const [look, setLook] = useState('default');
   const [layout, setLayout] = useState('standard');
@@ -531,8 +605,21 @@ export default function Page() {
   const [systemPrompt, setSystemPrompt] = useState('');
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [closedWidgets, setClosedWidgets] = useState<Set<string>>(new Set());
   
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const toggleWidget = (widgetId: string) => {
+    setClosedWidgets(prev => {
+      const next = new Set(prev);
+      if (next.has(widgetId)) {
+        next.delete(widgetId);
+      } else {
+        next.add(widgetId);
+      }
+      return next;
+    });
+  };
 
   // Apply Theme, Look & Layout
   useEffect(() => {
@@ -695,6 +782,21 @@ export default function Page() {
             onExportChat={handleExportChat}
             currentLook={look}
             setLook={setLook}
+            currentLook={look}
+            setLook={setLook}
+            onOpenLooks={() => setIsLooksOpen(true)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Looks Modal */}
+      <AnimatePresence>
+        {isLooksOpen && (
+          <LooksModal 
+            isOpen={isLooksOpen}
+            onClose={() => setIsLooksOpen(false)}
+            currentLook={look}
+            setLook={setLook}
           />
         )}
       </AnimatePresence>
@@ -767,30 +869,48 @@ export default function Page() {
               <div className="interface-grid h-full">
                 {/* Intel Panel (Left) - Hidden in Fullscreen */}
                 {!isFullscreen && (
-                <section className="intel-panel hidden lg:grid content-start">
-                  <div className="intel-card">
-                    <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Active Intelligence</span>
-                    <h3 className="font-light">{selectedModel.name}</h3>
-                    <p>{selectedModel.description}</p>
-                    <button 
-                      onClick={() => setIsChatMode(false)}
-                      className="mt-6 text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
-                    >
-                      <X className="w-3 h-3" /> End Session
-                    </button>
-                  </div>
-
-                  <div className="intel-card">
-                    <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Ops Snapshot</span>
-                    <div className="mt-4 space-y-4">
-                      {SIGNALS.map(signal => (
-                        <div key={signal.title}>
-                          <p className="text-xs uppercase tracking-[0.45em] text-[var(--foreground)]/40">{signal.title}</p>
-                          <p className="text-base mt-1 text-[var(--foreground)]/80">{signal.detail}</p>
-                        </div>
-                      ))}
+                <section className={`intel-panel hidden lg:grid content-start gap-4 transition-all duration-300 ${closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot') ? 'hidden' : ''}`}>
+                  {!closedWidgets.has('active-intel') && (
+                    <div className="intel-card relative">
+                      <button
+                        onClick={() => toggleWidget('active-intel')}
+                        className="absolute top-3 right-3 p-1 rounded-full hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                        title="Close widget"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Active Intelligence</span>
+                      <h3 className="font-light">{selectedModel.name}</h3>
+                      <p>{selectedModel.description}</p>
+                      <button 
+                        onClick={() => setIsChatMode(false)}
+                        className="mt-6 text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3" /> End Session
+                      </button>
                     </div>
-                  </div>
+                  )}
+
+                  {!closedWidgets.has('ops-snapshot') && (
+                    <div className="intel-card relative">
+                      <button
+                        onClick={() => toggleWidget('ops-snapshot')}
+                        className="absolute top-3 right-3 p-1 rounded-full hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                        title="Close widget"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Ops Snapshot</span>
+                      <div className="mt-4 space-y-4">
+                        {SIGNALS.map(signal => (
+                          <div key={signal.title}>
+                            <p className="text-xs uppercase tracking-[0.45em] text-[var(--foreground)]/40">{signal.title}</p>
+                            <p className="text-base mt-1 text-[var(--foreground)]/80">{signal.detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </section>
                 )}
 
