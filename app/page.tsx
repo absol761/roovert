@@ -15,9 +15,11 @@ const MODELS = [
 
 const THEMES = [
   { id: 'default', name: 'Deep Space', color: '#008080' },
+  { id: 'obsidian', name: 'Obsidian', color: '#8b5cf6' },
+  { id: 'midnight', name: 'Midnight', color: '#38bdf8' },
   { id: 'cyberpunk', name: 'Neon City', color: '#f700ff' },
   { id: 'matrix', name: 'The Source', color: '#00ff00' },
-  { id: 'minimal', name: 'Clean Slate', color: '#000000' },
+  { id: 'minimal', name: 'Clean Slate', color: '#e4e4e7' }, // Changed color to represent light gray/white
 ];
 
 // Settings Modal Component
