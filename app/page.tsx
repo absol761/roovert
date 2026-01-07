@@ -397,13 +397,35 @@ function LiveStats() {
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
-    // Unique Visitor Logic (Real Count)
-    const visitorKey = 'roovert_visitor_id';
-    if (typeof window !== 'undefined' && !localStorage.getItem(visitorKey)) {
-      localStorage.setItem(visitorKey, Date.now().toString());
-      // Trigger real counter increment
-      fetch('/api/visit', { method: 'POST' }).catch(() => {});
-    }
+    // Unique Visitor Tracking with Fingerprinting
+    const trackVisitor = async () => {
+      if (typeof window === 'undefined') return;
+
+      try {
+        // Dynamic import to avoid SSR issues
+        const { getOrCreateVisitorId, generateFingerprint } = await import('./lib/fingerprint');
+        const visitorId = getOrCreateVisitorId();
+        const fingerprint = generateFingerprint();
+
+        // Check if we've already tracked this session
+        const sessionKey = 'roovert_tracked_session';
+        const tracked = sessionStorage.getItem(sessionKey);
+
+        if (!tracked && visitorId) {
+          // Track this visitor
+          await fetch('/api/visit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ visitorId, fingerprint }),
+          });
+          sessionStorage.setItem(sessionKey, 'true');
+        }
+      } catch (error) {
+        console.error('Visitor tracking error:', error);
+      }
+    };
+
+    trackVisitor();
 
     const fetchStats = async () => {
       try {
@@ -740,7 +762,7 @@ export default function Page() {
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className={`theme-content w-full mx-auto h-full flex flex-col transition-all duration-500 ${isFullscreen ? 'max-w-full px-4' : 'max-w-6xl'}`}
+              className={`theme-content w-full mx-auto h-full flex flex-col transition-all duration-500 ${isFullscreen ? 'max-w-full px-4' : ''}`}
             >
               <div className="interface-grid h-full">
                 {/* Intel Panel (Left) - Hidden in Fullscreen */}
