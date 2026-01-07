@@ -96,14 +96,16 @@ function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
                   <button
                     key={look.id}
                     onClick={() => { setLook(look.id); onClose(); }}
-                    className={`p-4 rounded-xl border transition-all duration-300 text-left ${
+                    data-look-preview={look.id}
+                    className={`look-preview-button p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden ${
                       currentLook === look.id 
                         ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20' 
                         : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
                     }`}
                   >
-                    <div className="font-medium text-[var(--foreground)] mb-1">{look.name}</div>
-                    <div className="text-xs text-[var(--muted)]">{look.description}</div>
+                    <div className="font-medium text-[var(--foreground)] mb-1 relative z-10">{look.name}</div>
+                    <div className="text-xs text-[var(--muted)] relative z-10">{look.description}</div>
+                    <div className="look-preview-animation absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                   </button>
                 ))}
               </div>

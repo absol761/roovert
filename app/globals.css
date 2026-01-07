@@ -1442,3 +1442,433 @@ html {
   border-bottom: 1px solid var(--border);
   box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
 }
+
+/* ============================================
+   LOOK PREVIEW ANIMATIONS (Hover Effects)
+   ============================================ */
+
+.look-preview-button {
+  position: relative;
+}
+
+.look-preview-animation {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Wild West - Desert/Tumbleweed Animation */
+[data-look-preview='wildwest']:hover .look-preview-animation {
+  background: 
+    radial-gradient(circle at 20% 50%, rgba(212, 165, 116, 0.2), transparent 40%),
+    radial-gradient(circle at 80% 50%, rgba(139, 69, 19, 0.15), transparent 40%);
+  animation: wildwest-tumbleweed 3s ease-in-out infinite;
+}
+
+@keyframes wildwest-tumbleweed {
+  0% { transform: translateX(-20px) rotate(0deg); }
+  100% { transform: translateX(calc(100% + 20px)) rotate(360deg); }
+}
+
+[data-look-preview='wildwest']:hover .look-preview-animation::before {
+  content: '🌵';
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 20px;
+  animation: wildwest-cactus 2s ease-in-out infinite;
+}
+
+[data-look-preview='wildwest']:hover .look-preview-animation::after {
+  content: '🤠';
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  font-size: 18px;
+  animation: wildwest-cowboy 2.5s ease-in-out infinite;
+}
+
+@keyframes wildwest-cactus {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.1) rotate(5deg); }
+}
+
+@keyframes wildwest-cowboy {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-5px) rotate(10deg); }
+}
+
+/* Frutiger Aero - Water Ripples */
+[data-look-preview='frutigeraero']:hover .look-preview-animation {
+  background: 
+    radial-gradient(circle at 50% 50%, rgba(0, 168, 204, 0.2), transparent 60%);
+  animation: frutiger-ripple 2s ease-out infinite;
+}
+
+@keyframes frutiger-ripple {
+  0% { 
+    background: radial-gradient(circle at 50% 50%, rgba(0, 168, 204, 0.3), transparent 40%);
+    transform: scale(0.8);
+  }
+  100% { 
+    background: radial-gradient(circle at 50% 50%, rgba(0, 168, 204, 0.1), transparent 80%);
+    transform: scale(1.2);
+  }
+}
+
+[data-look-preview='frutigeraero']:hover .look-preview-animation::before {
+  content: '🌊';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  animation: frutiger-wave 1.5s ease-in-out infinite;
+}
+
+@keyframes frutiger-wave {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.2); }
+}
+
+/* Cyberpunk - Neon Grid */
+[data-look-preview='cyberpunk']:hover .look-preview-animation {
+  background: 
+    repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(0, 255, 65, 0.1) 10px, rgba(0, 255, 65, 0.1) 12px),
+    repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(255, 0, 128, 0.1) 10px, rgba(255, 0, 128, 0.1) 12px);
+  animation: cyberpunk-scan 2s linear infinite;
+}
+
+@keyframes cyberpunk-scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+[data-look-preview='cyberpunk']:hover .look-preview-animation::before {
+  content: '⚡';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 20px;
+  animation: cyberpunk-zap 1s ease-in-out infinite;
+}
+
+@keyframes cyberpunk-zap {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* Matrix - Code Rain */
+[data-look-preview='matrix']:hover .look-preview-animation {
+  background: 
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 0, 0.1) 2px, rgba(0, 255, 0, 0.1) 4px);
+  animation: matrix-rain 1.5s linear infinite;
+}
+
+@keyframes matrix-rain {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+[data-look-preview='matrix']:hover .look-preview-animation::before {
+  content: '0101';
+  position: absolute;
+  top: 0;
+  left: 10px;
+  font-family: monospace;
+  font-size: 10px;
+  color: rgba(0, 255, 0, 0.6);
+  animation: matrix-fall 2s linear infinite;
+}
+
+@keyframes matrix-fall {
+  0% { transform: translateY(-20px); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateY(100px); opacity: 0; }
+}
+
+/* Retrowave - Sunset Strip */
+[data-look-preview='retrowave']:hover .look-preview-animation {
+  background: 
+    linear-gradient(180deg, rgba(255, 0, 255, 0.3) 0%, rgba(0, 255, 255, 0.3) 100%);
+  animation: retrowave-pulse 2s ease-in-out infinite;
+}
+
+@keyframes retrowave-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
+[data-look-preview='retrowave']:hover .look-preview-animation::before {
+  content: '🌆';
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  animation: retrowave-glow 2s ease-in-out infinite;
+}
+
+@keyframes retrowave-glow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.5); }
+}
+
+/* Minimalist - Clean Fade */
+[data-look-preview='minimalist']:hover .look-preview-animation {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.02));
+  animation: minimalist-fade 2s ease-in-out infinite;
+}
+
+@keyframes minimalist-fade {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+/* Dark Mode Pro - Spotlight */
+[data-look-preview='darkmode']:hover .look-preview-animation {
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1), transparent 70%);
+  animation: darkmode-spotlight 3s ease-in-out infinite;
+}
+
+@keyframes darkmode-spotlight {
+  0%, 100% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+}
+
+/* Pastel Dreams - Floating Hearts */
+[data-look-preview='pastel']:hover .look-preview-animation {
+  background: radial-gradient(circle at 30% 30%, rgba(255, 182, 193, 0.2), transparent 50%);
+  animation: pastel-float 3s ease-in-out infinite;
+}
+
+@keyframes pastel-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+[data-look-preview='pastel']:hover .look-preview-animation::before {
+  content: '💕';
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  font-size: 18px;
+  animation: pastel-heart 2s ease-in-out infinite;
+}
+
+@keyframes pastel-heart {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.2) rotate(10deg); }
+}
+
+/* Neon Nights - Electric Pulse */
+[data-look-preview='neon']:hover .look-preview-animation {
+  background: 
+    radial-gradient(circle at 50% 50%, rgba(0, 255, 255, 0.3), transparent 60%);
+  animation: neon-pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+}
+
+@keyframes neon-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    transform: scale(1);
+  }
+  50% { 
+    box-shadow: 0 0 40px rgba(255, 0, 255, 0.7);
+    transform: scale(1.05);
+  }
+}
+
+/* Ocean Depths - Wave Motion */
+[data-look-preview='ocean']:hover .look-preview-animation {
+  background: 
+    repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(0, 212, 255, 0.1) 8px, rgba(0, 212, 255, 0.1) 10px);
+  animation: ocean-wave 2s ease-in-out infinite;
+}
+
+@keyframes ocean-wave {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+[data-look-preview='ocean']:hover .look-preview-animation::before {
+  content: '🌊';
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  animation: ocean-ripple 2s ease-in-out infinite;
+}
+
+@keyframes ocean-ripple {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.2); }
+}
+
+/* Forest Canopy - Leaves Falling */
+[data-look-preview='forest']:hover .look-preview-animation {
+  background: 
+    radial-gradient(circle at 50% 0%, rgba(50, 205, 50, 0.2), transparent 60%);
+  animation: forest-sway 3s ease-in-out infinite;
+}
+
+@keyframes forest-sway {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(5px); }
+}
+
+[data-look-preview='forest']:hover .look-preview-animation::before {
+  content: '🍃';
+  position: absolute;
+  top: 10px;
+  left: 20px;
+  font-size: 16px;
+  animation: forest-leaf 3s ease-in-out infinite;
+}
+
+@keyframes forest-leaf {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(60px) rotate(180deg); opacity: 0; }
+}
+
+/* Sunset Glow - Sun Setting */
+[data-look-preview='sunset']:hover .look-preview-animation {
+  background: 
+    radial-gradient(circle at 50% 0%, rgba(255, 215, 0, 0.4), rgba(255, 99, 71, 0.3) 50%, transparent 80%);
+  animation: sunset-glow 3s ease-in-out infinite;
+}
+
+@keyframes sunset-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.9; }
+}
+
+[data-look-preview='sunset']:hover .look-preview-animation::before {
+  content: '🌅';
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 22px;
+  animation: sunset-sun 3s ease-in-out infinite;
+}
+
+@keyframes sunset-sun {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(5px); }
+}
+
+/* Deep Space - Stars Twinkling */
+[data-look-preview='space']:hover .look-preview-animation {
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.2), transparent 20%),
+    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.15), transparent 20%);
+  animation: space-twinkle 2s ease-in-out infinite;
+}
+
+@keyframes space-twinkle {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+[data-look-preview='space']:hover .look-preview-animation::before {
+  content: '⭐';
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  font-size: 16px;
+  animation: space-star 2s ease-in-out infinite;
+}
+
+@keyframes space-star {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.7; }
+  50% { transform: scale(1.3) rotate(180deg); opacity: 1; }
+}
+
+/* Paper & Ink - Ink Blot */
+[data-look-preview='paper']:hover .look-preview-animation {
+  background: 
+    radial-gradient(circle at 50% 50%, rgba(139, 69, 19, 0.15), transparent 60%);
+  animation: paper-ink 2s ease-in-out infinite;
+}
+
+@keyframes paper-ink {
+  0%, 100% { transform: scale(0.9); opacity: 0.4; }
+  50% { transform: scale(1.1); opacity: 0.7; }
+}
+
+[data-look-preview='paper']:hover .look-preview-animation::before {
+  content: '✍️';
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  font-size: 18px;
+  animation: paper-write 2s ease-in-out infinite;
+}
+
+@keyframes paper-write {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(5deg); }
+}
+
+/* Terminal - Cursor Blink */
+[data-look-preview='terminal']:hover .look-preview-animation {
+  background: 
+    repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0, 255, 0, 0.05) 1px, rgba(0, 255, 0, 0.05) 2px);
+  animation: terminal-scan 1.5s linear infinite;
+}
+
+@keyframes terminal-scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+[data-look-preview='terminal']:hover .look-preview-animation::before {
+  content: '_';
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  font-family: monospace;
+  font-size: 16px;
+  color: rgba(0, 255, 0, 0.8);
+  animation: terminal-cursor 1s step-end infinite;
+}
+
+@keyframes terminal-cursor {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Psychedelic - Color Shift */
+[data-look-preview='psychedelic']:hover .look-preview-animation {
+  background: 
+    radial-gradient(circle at 30% 30%, rgba(255, 0, 255, 0.4), transparent 50%),
+    radial-gradient(circle at 70% 70%, rgba(0, 255, 255, 0.4), transparent 50%);
+  animation: psychedelic-shift 2s ease-in-out infinite;
+  filter: hue-rotate(0deg);
+}
+
+@keyframes psychedelic-shift {
+  0% { filter: hue-rotate(0deg); transform: scale(1); }
+  33% { filter: hue-rotate(120deg); transform: scale(1.05); }
+  66% { filter: hue-rotate(240deg); transform: scale(1.05); }
+  100% { filter: hue-rotate(360deg); transform: scale(1); }
+}
+
+[data-look-preview='psychedelic']:hover .look-preview-animation::before {
+  content: '🌈';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  animation: psychedelic-rainbow 2s ease-in-out infinite;
+}
+
+@keyframes psychedelic-rainbow {
+  0%, 100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
+  50% { transform: translate(-50%, -50%) rotate(180deg) scale(1.2); }
+}
