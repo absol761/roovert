@@ -1,36 +1,132 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Roovert: The Truth, Unfiltered
 
-## Getting Started
+> Rigorously Pursuing Truth. An AI Engine of Truth.
 
-First, run the development server:
+A minimalist, high-performance AI startup homepage built with Next.js, Tailwind CSS, and Vercel.
 
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm, yarn, pnpm, or bun
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/absol761/roovert.git
+cd roovert
+```
+
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+# or
+pnpm install
+```
+
+3. Set up environment variables:
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local` with your actual values. **Never commit `.env.local` or any file containing secrets.**
+
+4. Run the development server:
 ```bash
 npm run dev
 # or
 yarn dev
 # or
 pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🔒 Security
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This project follows security best practices:
 
-## Learn More
+### Environment Variables
+- **Never commit** `.env.local` or any file containing actual secrets
+- Use `.env.example` as a template for required variables
+- All environment files are excluded via `.gitignore`
 
-To learn more about Next.js, take a look at the following resources:
+### Security Headers
+The application includes comprehensive security headers:
+- Strict Transport Security (HSTS)
+- X-Frame-Options
+- X-Content-Type-Options
+- X-XSS-Protection
+- Content Security Policy (CSP)
+- Referrer Policy
+- Permissions Policy
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Best Practices
+- Source maps are disabled in production
+- React Strict Mode enabled
+- All sensitive files excluded from version control
+- Security headers configured in `next.config.ts`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🛠️ Tech Stack
 
-## Deploy on Vercel
+- **Framework:** [Next.js 16](https://nextjs.org) with App Router
+- **Styling:** [Tailwind CSS 4](https://tailwindcss.com)
+- **Language:** TypeScript
+- **Deployment:** Optimized for [Vercel](https://vercel.com)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📁 Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+roovert/
+├── app/
+│   ├── globals.css      # Global styles and theme
+│   ├── layout.tsx       # Root layout
+│   └── page.tsx         # Homepage
+├── public/              # Static assets
+├── .env.example         # Environment variables template
+├── .gitignore          # Git ignore rules
+├── next.config.ts      # Next.js configuration with security headers
+└── package.json        # Dependencies
+```
+
+## 🎨 Design Philosophy
+
+- **Minimalist:** High-contrast, kinetic typography
+- **Dark Mode:** Deep Space Black (#050505) background
+- **Accent Color:** Transformative Teal (#008080)
+- **Tone:** Bold, direct, elite - no generic helper text
+
+## 🚢 Deployment
+
+### Deploy on Vercel
+
+The easiest way to deploy is using the [Vercel Platform](https://vercel.com/new):
+
+1. Push your code to GitHub
+2. Import your repository on Vercel
+3. Add environment variables in Vercel dashboard
+4. Deploy!
+
+### Environment Variables for Production
+
+Make sure to set all required environment variables in your deployment platform (Vercel, etc.):
+
+- `NEXT_PUBLIC_API_URL` - Your API endpoint
+- `NEXT_PUBLIC_APP_URL` - Your application URL
+
+## 📝 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🔗 Links
+
+- Repository: [https://github.com/absol761/roovert](https://github.com/absol761/roovert)
+- Website: [https://roovert.com](https://roovert.com) (coming soon)
+
+---
+
+Built with precision. Designed for truth.
