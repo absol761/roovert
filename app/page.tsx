@@ -45,13 +45,6 @@ const LAYOUTS = [
   { id: 'wide', name: 'Spacious' },
 ];
 
-const ANIMATIONS = [
-  { id: 'fast', name: 'Fast' },
-  { id: 'normal', name: 'Normal' },
-  { id: 'slow', name: 'Cinematic' },
-  { id: 'none', name: 'Disabled' },
-];
-
 // Tools Modal Component
 function ToolsModal({ isOpen, onClose }: any) {
   const [activeTool, setActiveTool] = useState('json');
@@ -180,7 +173,6 @@ function SettingsModal({
   currentTheme, setTheme, 
   currentModelId, setModelId,
   layout, setLayout,
-  animationSpeed, setAnimationSpeed,
   fontSize, setFontSize,
   dataSaver, setDataSaver,
   focusMode, setFocusMode,
@@ -192,7 +184,6 @@ function SettingsModal({
   const handleReset = () => {
     setTheme('default');
     setLayout('standard');
-    setAnimationSpeed('normal');
     setFontSize('normal');
     setDataSaver(false);
     setFocusMode(false);
@@ -270,31 +261,10 @@ function SettingsModal({
             </div>
           </section>
 
-          {/* Styles / Appearance Section - Motion, Size, Density */}
+          {/* Styles / Appearance Section - Size, Density */}
           <section>
             <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Appearance & Style</h3>
-            <div className="grid md:grid-cols-2 gap-8">
-                <div>
-                    <h4 className="text-xs text-[var(--muted)] mb-2 uppercase">Motion Speed</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                        {ANIMATIONS.map(a => (
-                            <button
-                            key={a.id}
-                            onClick={() => setAnimationSpeed(a.id)}
-                            disabled={dataSaver}
-                            className={`px-3 py-2 rounded-lg border text-sm transition-all ${
-                                dataSaver ? 'opacity-50 cursor-not-allowed border-[var(--border)]' : 
-                                animationSpeed === a.id
-                                ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
-                                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
-                            }`}
-                            >
-                            {a.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-                
+            <div className="grid gap-8">
                 <div>
                     <h4 className="text-xs text-[var(--muted)] mb-2 uppercase">Text Size</h4>
                     <div className="flex gap-2">
@@ -641,7 +611,6 @@ export default function Page() {
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [theme, setTheme] = useState('default');
   const [layout, setLayout] = useState('standard');
-  const [animationSpeed, setAnimationSpeed] = useState('normal');
   const [fontSize, setFontSize] = useState('normal');
   const [dataSaver, setDataSaver] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -655,7 +624,7 @@ export default function Page() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-layout', layout);
-    document.documentElement.setAttribute('data-speed', dataSaver ? 'none' : animationSpeed);
+    document.documentElement.setAttribute('data-speed', dataSaver ? 'none' : 'normal');
     document.documentElement.setAttribute('data-size', fontSize);
     
     if (dataSaver) {
@@ -663,7 +632,7 @@ export default function Page() {
     } else {
         document.documentElement.classList.remove('data-saver');
     }
-  }, [theme, layout, animationSpeed, fontSize, dataSaver]);
+  }, [theme, layout, fontSize, dataSaver]);
 
   const selectedModel = MODELS.find(m => m.id === selectedModelId) || MODELS[0];
 
@@ -812,8 +781,6 @@ export default function Page() {
             setModelId={setSelectedModelId}
             layout={layout}
             setLayout={setLayout}
-            animationSpeed={animationSpeed}
-            setAnimationSpeed={setAnimationSpeed}
             fontSize={fontSize}
             setFontSize={setFontSize}
             dataSaver={dataSaver}
