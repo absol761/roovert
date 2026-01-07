@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, Cloud, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Wrench, FileJson, Hash, Type, Ruler, Download, Eye, EyeOff } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, Cloud, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette } from 'lucide-react';
 
 const MODELS = [
   { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
@@ -45,126 +45,13 @@ const LAYOUTS = [
   { id: 'wide', name: 'Spacious' },
 ];
 
-// Tools Modal Component
-function ToolsModal({ isOpen, onClose }: any) {
-  const [activeTool, setActiveTool] = useState('json');
-  const [inputText, setInputText] = useState('');
-  const [outputText, setOutputText] = useState('');
-
-  if (!isOpen) return null;
-
-  const handleToolAction = () => {
-    try {
-      switch (activeTool) {
-        case 'json':
-          setOutputText(JSON.stringify(JSON.parse(inputText), null, 2));
-          break;
-        case 'base64_encode':
-          setOutputText(btoa(inputText));
-          break;
-        case 'base64_decode':
-          setOutputText(atob(inputText));
-          break;
-        case 'count':
-          const words = inputText.trim() ? inputText.trim().split(/\s+/).length : 0;
-          const chars = inputText.length;
-          setOutputText(`Words: ${words}\nCharacters: ${chars}`);
-          break;
-        case 'unit':
-            // Simple logic for demo purposes (e.g., C to F)
-            const val = parseFloat(inputText);
-            if (!isNaN(val)) {
-                setOutputText(`${val}°C = ${(val * 9/5 + 32).toFixed(2)}°F\n${val}kg = ${(val * 2.20462).toFixed(2)}lbs\n${val}km = ${(val * 0.621371).toFixed(2)}mi`);
-            } else {
-                setOutputText('Invalid number input');
-            }
-            break;
-      }
-    } catch (e) {
-      setOutputText('Error: Invalid input for this operation.');
-    }
-  };
-
-  const tools = [
-    { id: 'json', name: 'JSON Formatter', icon: FileJson },
-    { id: 'base64_encode', name: 'Base64 Encode', icon: Hash },
-    { id: 'base64_decode', name: 'Base64 Decode', icon: Hash },
-    { id: 'count', name: 'Word Counter', icon: Type },
-    { id: 'unit', name: 'Unit Converter', icon: Ruler },
-  ];
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 text-[var(--foreground)]">
-      <div className="absolute inset-0 bg-[var(--background)]/70 backdrop-blur-sm" onClick={onClose} />
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-3xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
-      >
-        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <h2 className="text-xl font-light tracking-wide flex items-center gap-2">
-            <Wrench className="w-5 h-5 text-[var(--accent)]" />
-            Utility Belt
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="flex flex-1 min-h-0">
-          {/* Sidebar */}
-          <div className="w-48 border-r border-[var(--border)] p-4 space-y-2 overflow-y-auto">
-            {tools.map(tool => (
-              <button
-                key={tool.id}
-                onClick={() => { setActiveTool(tool.id); setInputText(''); setOutputText(''); }}
-                className={`w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors ${
-                  activeTool === tool.id 
-                    ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20' 
-                    : 'text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)]'
-                }`}
-              >
-                <tool.icon className="w-4 h-4" />
-                {tool.name}
-              </button>
-            ))}
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 p-6 flex flex-col gap-4 overflow-y-auto">
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">Input</label>
-              <textarea 
-                className="flex-1 w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 font-mono text-sm resize-none focus:border-[var(--accent)] outline-none"
-                placeholder="Paste content here..."
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-              />
-            </div>
-            
-            <button 
-              onClick={handleToolAction}
-              className="w-full py-3 bg-[var(--accent)] hover:opacity-90 text-white rounded-xl font-medium transition-all"
-            >
-              Process
-            </button>
-
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-xs uppercase tracking-wider text-[var(--muted)]">Output</label>
-              <textarea 
-                readOnly
-                className="flex-1 w-full bg-[var(--surface-strong)] border border-[var(--border)] rounded-xl p-4 font-mono text-sm resize-none outline-none"
-                value={outputText}
-                placeholder="Result will appear here..."
-              />
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
+// Looks - Complete visual transformations
+const LOOKS = [
+  { id: 'default', name: 'Default', description: 'Clean, modern interface' },
+  { id: 'wildwest', name: 'Wild West', description: 'Dusty saloon vibes with rustic charm' },
+  { id: 'frutigeraero', name: 'Frutiger Aero', description: 'Y2K nostalgia with nature & tech fusion' },
+  { id: 'psychedelic', name: 'Psychedelic', description: 'Trippy colors and flowing patterns' },
+];
 
 // Settings Modal Component
 function SettingsModal({ 
@@ -177,7 +64,8 @@ function SettingsModal({
   dataSaver, setDataSaver,
   focusMode, setFocusMode,
   systemPrompt, setSystemPrompt,
-  onExportChat
+  onExportChat,
+  currentLook, setLook
 }: any) {
   if (!isOpen) return null;
 
@@ -189,6 +77,7 @@ function SettingsModal({
     setFocusMode(false);
     setSystemPrompt('');
     setModelId('ooverta');
+    setLook('default');
   };
 
   return (
@@ -220,6 +109,29 @@ function SettingsModal({
 
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
           
+          {/* Looks Section - Complete Visual Transformations */}
+          <section>
+            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2 flex items-center gap-2">
+              <Palette className="w-4 h-4" /> Looks
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {LOOKS.map(look => (
+                <button
+                  key={look.id}
+                  onClick={() => setLook(look.id)}
+                  className={`p-4 rounded-xl border transition-all duration-300 text-left ${
+                    currentLook === look.id 
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10' 
+                      : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
+                  }`}
+                >
+                  <div className="font-medium text-[var(--foreground)] mb-1">{look.name}</div>
+                  <div className="text-xs text-[var(--muted)]">{look.description}</div>
+                </button>
+              ))}
+            </div>
+          </section>
+
           {/* Theme Section - Colors Only */}
           <section>
             <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Themes</h3>
@@ -608,8 +520,8 @@ export default function Page() {
   
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [theme, setTheme] = useState('default');
+  const [look, setLook] = useState('default');
   const [layout, setLayout] = useState('standard');
   const [fontSize, setFontSize] = useState('normal');
   const [dataSaver, setDataSaver] = useState(false);
@@ -620,9 +532,10 @@ export default function Page() {
   
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Apply Theme & Layout
+  // Apply Theme, Look & Layout
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-look', look);
     document.documentElement.setAttribute('data-layout', layout);
     document.documentElement.setAttribute('data-speed', dataSaver ? 'none' : 'normal');
     document.documentElement.setAttribute('data-size', fontSize);
@@ -632,7 +545,7 @@ export default function Page() {
     } else {
         document.documentElement.classList.remove('data-saver');
     }
-  }, [theme, layout, fontSize, dataSaver]);
+  }, [theme, look, layout, fontSize, dataSaver]);
 
   const selectedModel = MODELS.find(m => m.id === selectedModelId) || MODELS[0];
 
@@ -732,13 +645,6 @@ export default function Page() {
               </button>
               <div className="flex items-center gap-2">
                 <button 
-                    onClick={() => setIsToolsOpen(true)}
-                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--accent)]"
-                >
-                    <Wrench className="w-3 h-3" />
-                    <span>Tools</span>
-                </button>
-                <button 
                     onClick={() => setIsSettingsOpen(true)}
                     className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--accent)]"
                 >
@@ -764,11 +670,6 @@ export default function Page() {
         </div>
       </nav>
 
-      {/* Tools Modal */}
-      <AnimatePresence>
-        {isToolsOpen && <ToolsModal isOpen={isToolsOpen} onClose={() => setIsToolsOpen(false)} />}
-      </AnimatePresence>
-
       {/* Settings Modal */}
       <AnimatePresence>
         {isSettingsOpen && (
@@ -790,6 +691,8 @@ export default function Page() {
             systemPrompt={systemPrompt}
             setSystemPrompt={setSystemPrompt}
             onExportChat={handleExportChat}
+            currentLook={look}
+            setLook={setLook}
           />
         )}
       </AnimatePresence>
