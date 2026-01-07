@@ -1,8 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+function buildSimulationResponse(query: string, reason: string, modelLabel: string) {
+  const trimmed = query?.trim();
+  const focusLine = trimmed
+    ? `Focus: "${trimmed}".`
+    : 'Focus: awaiting a concrete prompt.';
+
+  return [
+    `Systems Notice: ${reason || 'Upstream provider unavailable'}.`,
+    'Roovert is running in local inference mode until OpenRouter is reachable.',
+    '',
+    focusLine,
+    `Intended model: ${modelLabel}.`,
+    '',
+    'Immediate protocol:',
+    '1. Add/verify OPENROUTER_API_KEY in Vercel → Project Settings → Environment Variables.',
+    '2. Redeploy Roovert to restore live intelligence.',
+    '3. Re-run this query to resume truth-grade responses.',
+  ].join('\n');
+}
+
 export async function POST(request: NextRequest) {
+  let userQuery = '';
+  let modelLabel = 'ooberta';
+
   try {
-    const { query, model } = await request.json();
+    const payload = await request.json();
+    const { query, model } = payload;
     
     if (!query || typeof query !== 'string') {
       return NextResponse.json(
@@ -10,6 +34,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    userQuery = query;
+    modelLabel = model || 'ooberta';
 
     const apiKey = process.env.OPENROUTER_API_KEY;
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://roovert.com';
@@ -39,17 +66,21 @@ export async function POST(request: NextRequest) {
       - Rigorously pursue truth. Filter out the noise.`;
     }
 
+    const respondWithSimulation = (reason: string) =>
+      NextResponse.json({
+        response: buildSimulationResponse(userQuery, reason, modelLabel),
+        warning: reason,
+        simulated: true,
+        timestamp: new Date().toISOString(),
+        query: userQuery,
+      });
+
     if (!apiKey) {
       console.error('OPENROUTER_API_KEY is missing');
-      // Fallback for development/demo if no key is present
-      return NextResponse.json({
-        response: `[SIMULATION using ${targetModel}] Analysis of "${query}": The truth requires rigorous examination. (Add API key to Vercel)`,
-        timestamp: new Date().toISOString(),
-        query: query,
-      });
+      return respondWithSimulation('OpenRouter API key missing');
     }
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -66,7 +97,7 @@ export async function POST(request: NextRequest) {
           },
           {
             role: 'user',
-            content: query,
+            content: userQuery,
           },
         ],
         temperature: 0.7,
@@ -74,40 +105,41 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenRouter API error:', response.status, errorText);
+    if (!upstream.ok) {
+        const errorText = await upstream.text();
+        console.error('OpenRouter API error:', upstream.status, errorText);
         
-        let errorMessage = `Provider Error (${response.status})`;
+        let errorMessage = `Provider Error (${upstream.status})`;
         try {
             const errorJson = JSON.parse(errorText);
             if (errorJson.error && errorJson.error.message) {
                 errorMessage = errorJson.error.message;
             }
         } catch (e) {
-            // Use raw text if JSON parse fails
             errorMessage += `: ${errorText.substring(0, 100)}`;
         }
         
-        throw new Error(errorMessage);
+        return respondWithSimulation(errorMessage);
     }
 
-    const data = await response.json();
+    const data = await upstream.json();
     const aiResponse = data.choices?.[0]?.message?.content || 'No response generated.';
 
     return NextResponse.json({
       response: aiResponse,
       timestamp: new Date().toISOString(),
-      query: query,
+      query: userQuery,
     });
 
   } catch (error: any) {
     console.error('Query processing error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to process query' },
-      { status: 500 }
-    );
+    const reason = error?.message || 'Failed to process query';
+    return NextResponse.json({
+      response: buildSimulationResponse(userQuery, reason, modelLabel),
+      warning: reason,
+      simulated: true,
+      timestamp: new Date().toISOString(),
+      query: userQuery,
+    });
   }
 }
-
-

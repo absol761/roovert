@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, TrendingUp, Zap, CheckCircle2, ChevronDown, Settings, X, Sun, Moon, Monitor, Globe, BarChart2, Cloud } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, Cloud } from 'lucide-react';
 
 const MODELS = [
   { id: 'ooberta', name: 'Ooberta (Default)', apiId: 'ooberta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
@@ -41,28 +41,28 @@ function SettingsModal({ isOpen, onClose, currentTheme, setTheme, currentModelId
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 text-[var(--foreground)]">
+      <div className="absolute inset-0 bg-[var(--background)]/70 backdrop-blur-sm" onClick={onClose} />
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-2xl bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col text-[var(--foreground)]"
       >
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
-          <h2 className="text-xl font-light tracking-wide flex items-center gap-2">
+        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
+          <h2 className="text-xl font-light tracking-wide flex items-center gap-2 text-[var(--foreground)]">
             <Settings className="w-5 h-5 text-[var(--accent)]" />
             System Configuration
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
-            <X className="w-5 h-5 text-white/60" />
+          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
           {/* Theme Section */}
           <section>
-            <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4 font-mono">Interface Theme</h3>
+            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Interface Theme</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {THEMES.map(theme => (
                 <button
@@ -71,11 +71,11 @@ function SettingsModal({ isOpen, onClose, currentTheme, setTheme, currentModelId
                   className={`p-3 rounded-xl border transition-all duration-300 flex flex-col items-center gap-2 ${
                     currentTheme === theme.id 
                       ? 'border-[var(--accent)] bg-[var(--accent)]/10' 
-                      : 'border-white/5 hover:border-white/20 bg-white/5'
+                      : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
                   }`}
                 >
                   <div className="w-6 h-6 rounded-full" style={{ backgroundColor: theme.color }} />
-                  <span className="text-sm font-medium">{theme.name}</span>
+                  <span className="text-sm font-medium text-[var(--foreground)]">{theme.name}</span>
                 </button>
               ))}
             </div>
@@ -83,7 +83,7 @@ function SettingsModal({ isOpen, onClose, currentTheme, setTheme, currentModelId
 
           {/* Model Section */}
           <section>
-            <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4 font-mono">Default Intelligence</h3>
+            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Default Intelligence</h3>
             <div className="grid gap-2">
               {MODELS.map(model => (
                 <button
@@ -92,17 +92,17 @@ function SettingsModal({ isOpen, onClose, currentTheme, setTheme, currentModelId
                   className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
                     currentModelId === model.id 
                       ? 'border-[var(--accent)] bg-[var(--accent)]/10' 
-                      : 'border-white/5 hover:border-white/20 bg-white/5'
+                      : 'border-[var(--border)] hover:border-[var(--accent)]/30 bg-[var(--surface)]'
                   }`}
                 >
                   <div className="text-left">
-                    <div className="font-medium flex items-center gap-2">
+                    <div className="font-medium flex items-center gap-2 text-[var(--foreground)]">
                       {model.name}
                       {model.category === 'Advanced' && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-white/40">PRO</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]">PRO</span>
                       )}
                     </div>
-                    <div className="text-xs text-white/40 mt-1">{model.description}</div>
+                    <div className="text-xs text-[var(--muted)] mt-1">{model.description}</div>
                   </div>
                   {currentModelId === model.id && (
                     <div className="w-2 h-2 rounded-full bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]" />
@@ -133,19 +133,19 @@ function Widgets() {
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="widget-card flex-shrink-0 min-w-[220px] p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md"
+        className="widget-card flex-shrink-0 min-w-[220px] p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md"
       >
-        <div className="flex items-center gap-2 mb-2 text-white/60">
+        <div className="flex items-center gap-2 mb-2 text-[var(--muted)]">
           <Cloud className="w-4 h-4" />
           <span className="text-xs uppercase font-mono">Atmosphere</span>
         </div>
         {weather ? (
           <div>
             <div className="text-2xl font-light">{weather.temp}°C</div>
-            <div className="text-xs text-white/40">Wind: {weather.wind} km/h</div>
+            <div className="text-xs text-[var(--muted)]">Wind: {weather.wind} km/h</div>
           </div>
         ) : (
-          <div className="h-8 w-24 bg-white/5 rounded animate-pulse" />
+          <div className="h-8 w-24 bg-[var(--surface-strong)] rounded animate-pulse" />
         )}
       </motion.div>
 
@@ -154,9 +154,9 @@ function Widgets() {
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.1 }}
-        className="widget-card flex-shrink-0 min-w-[280px] max-w-[360px] p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md"
+        className="widget-card flex-shrink-0 min-w-[280px] max-w-[360px] p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md"
       >
-        <div className="flex items-center gap-2 mb-2 text-white/60">
+        <div className="flex items-center gap-2 mb-2 text-[var(--muted)]">
           <Globe className="w-4 h-4" />
           <span className="text-xs uppercase font-mono">Global Feed</span>
         </div>
@@ -176,8 +176,8 @@ function Widgets() {
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="h-4 w-3/4 bg-white/5 rounded animate-pulse" />
-            <div className="h-4 w-1/2 bg-white/5 rounded animate-pulse" />
+            <div className="h-4 w-3/4 bg-[var(--surface-strong)] rounded animate-pulse" />
+            <div className="h-4 w-1/2 bg-[var(--surface-strong)] rounded animate-pulse" />
           </div>
         )}
       </motion.div>
@@ -228,29 +228,29 @@ function LiveStats() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="mb-4 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl min-w-[240px]"
+            className="mb-4 bg-[var(--hud-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-4 shadow-2xl min-w-[240px]"
           >
             <div className="space-y-3">
                <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-white/70">Unique Minds</span>
+                <span className="text-[var(--muted)]">Unique Minds</span>
                 <span className="text-[var(--accent)] font-mono font-bold">
                   {stats.uniqueMinds.toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-white/70">Queries</span>
+                <span className="text-[var(--muted)]">Queries</span>
                 <span className="text-[var(--accent)] font-mono font-bold">
                   {stats.queriesProcessed.toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-white/70">Active</span>
+                <span className="text-[var(--muted)]">Active</span>
                 <span className="text-[var(--accent)] font-mono font-bold">
                   {stats.activeUsers.toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-white/70">Accuracy</span>
+                <span className="text-[var(--muted)]">Accuracy</span>
                 <span className="text-[var(--accent)] font-mono font-bold">{stats.accuracy}%</span>
               </div>
             </div>
@@ -262,10 +262,10 @@ function LiveStats() {
         onClick={() => setIsExpanded(!isExpanded)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="flex items-center gap-2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full px-4 py-2 shadow-lg hover:bg-black/80 transition-colors"
+        className="flex items-center gap-2 bg-[var(--chip-bg)] backdrop-blur-xl border border-[var(--border)] rounded-full px-4 py-2 shadow-lg hover:bg-[var(--surface-strong)] transition-colors"
       >
         <div className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse"></div>
-        <span className="text-xs text-white/80 uppercase tracking-wider font-mono">
+        <span className="text-xs text-[var(--muted-strong)] uppercase tracking-wider font-mono">
           System Status {isExpanded ? '[-]' : '[+]'}
         </span>
       </motion.button>
@@ -278,6 +278,7 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
   const [history, setHistory] = useState<Array<{ query: string; response: string; model: string }>>([]);
+  const [statusNote, setStatusNote] = useState<string | null>(null);
   
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -306,6 +307,7 @@ export default function Home() {
 
     setIsProcessing(true);
     setResponse(null);
+    setStatusNote(null);
 
     try {
       const res = await fetch('/api/query', {
@@ -324,11 +326,13 @@ export default function Home() {
       }
 
       setResponse(data.response);
+      setStatusNote(data.warning || null);
       setHistory(prev => [{ query, response: data.response, model: selectedModel.name }, ...prev.slice(0, 4)]);
       setQuery('');
     } catch (error: any) {
       console.error('Frontend Query Error:', error);
       setResponse(`System Alert: ${error.message || 'Connection interrupted.'}`);
+      setStatusNote(null);
     } finally {
       setIsProcessing(false);
       inputRef.current?.focus();
@@ -354,7 +358,7 @@ export default function Home() {
               {/* Settings Trigger */}
               <button 
                 onClick={() => setIsSettingsOpen(true)}
-                className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-xs text-white/60 hover:text-[var(--accent)]"
+                className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--accent)]"
               >
                 <Settings className="w-3 h-3" />
                 <span>Config</span>
@@ -496,6 +500,11 @@ export default function Home() {
                       <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
                         {isProcessing ? 'Processing Query...' : `Response from ${selectedModel.name}`}
                       </div>
+                      {!isProcessing && statusNote && (
+                        <div className="text-[10px] text-[var(--muted)] uppercase tracking-[0.35em]">
+                          {statusNote}
+                        </div>
+                      )}
                       <div className="prose prose-invert max-w-none">
                         {isProcessing ? (
                           <div className="flex space-x-1 h-6 items-center">

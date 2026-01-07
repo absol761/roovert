@@ -11,6 +11,12 @@
   --panel-radius: 28px;
   --panel-border-style: solid;
   --panel-border-width: 1px;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-strong: rgba(255, 255, 255, 0.12);
+  --chip-bg: rgba(255, 255, 255, 0.08);
+  --muted: rgba(255, 255, 255, 0.65);
+  --muted-strong: rgba(255, 255, 255, 0.85);
+  --hud-bg: rgba(5, 5, 5, 0.85);
 }
 
 /* Revised Clean Slate (High Contrast Light Mode) */
@@ -22,6 +28,12 @@
   --panel-bg: #f4f4f5; /* Zinc-100 */
   --border: #e4e4e7;   /* Zinc-200 */
   --panel-radius: 26px;
+  --surface: rgba(0, 0, 0, 0.05);
+  --surface-strong: rgba(0, 0, 0, 0.08);
+  --chip-bg: rgba(0, 0, 0, 0.08);
+  --muted: rgba(0, 0, 0, 0.55);
+  --muted-strong: rgba(0, 0, 0, 0.8);
+  --hud-bg: rgba(255, 255, 255, 0.9);
 }
 
 /* Obsidian (Deep Violet/Dark) */
@@ -33,6 +45,12 @@
   --panel-bg: rgba(17, 10, 40, 0.6);
   --border: rgba(139, 92, 246, 0.2);
   --panel-radius: 32px;
+  --surface: rgba(35, 17, 58, 0.55);
+  --surface-strong: rgba(35, 17, 58, 0.78);
+  --chip-bg: rgba(139, 92, 246, 0.12);
+  --muted: rgba(233, 213, 255, 0.7);
+  --muted-strong: rgba(233, 213, 255, 0.9);
+  --hud-bg: rgba(8, 4, 18, 0.92);
 }
 
 /* Midnight (Deep Blue/Slate) */
@@ -44,6 +62,12 @@
   --panel-bg: rgba(30, 41, 59, 0.6);
   --border: rgba(56, 189, 248, 0.2);
   --panel-radius: 30px;
+  --surface: rgba(30, 41, 59, 0.6);
+  --surface-strong: rgba(30, 41, 59, 0.85);
+  --chip-bg: rgba(15, 23, 42, 0.75);
+  --muted: rgba(248, 250, 252, 0.7);
+  --muted-strong: rgba(248, 250, 252, 0.9);
+  --hud-bg: rgba(15, 23, 42, 0.94);
 }
 
 /* Aether Field (Split-grid light) */
@@ -55,6 +79,12 @@
   --panel-bg: rgba(255, 255, 255, 0.92);
   --border: rgba(99, 102, 241, 0.2);
   --panel-radius: 20px;
+  --surface: rgba(255, 255, 255, 0.8);
+  --surface-strong: rgba(255, 255, 255, 0.95);
+  --chip-bg: rgba(99, 102, 241, 0.08);
+  --muted: rgba(11, 18, 32, 0.55);
+  --muted-strong: rgba(11, 18, 32, 0.75);
+  --hud-bg: rgba(255, 255, 255, 0.9);
 }
 
 /* Nocturne Circuit (Neo-noir) */
@@ -68,6 +98,12 @@
   --panel-radius: 10px;
   --panel-border-style: double;
   --panel-border-width: 2px;
+  --surface: rgba(2, 8, 23, 0.85);
+  --surface-strong: rgba(2, 6, 18, 0.95);
+  --chip-bg: rgba(249, 115, 22, 0.12);
+  --muted: rgba(248, 250, 252, 0.7);
+  --muted-strong: rgba(248, 250, 252, 0.9);
+  --hud-bg: rgba(2, 6, 18, 0.95);
 }
 
 /* Atlas Grid (Brutalist blueprint) */
@@ -81,6 +117,12 @@
   --panel-radius: 6px;
   --panel-border-style: solid;
   --panel-border-width: 1px;
+  --surface: rgba(255, 255, 255, 0.9);
+  --surface-strong: rgba(15, 23, 42, 0.08);
+  --chip-bg: rgba(15, 23, 42, 0.08);
+  --muted: rgba(31, 27, 22, 0.6);
+  --muted-strong: rgba(31, 27, 22, 0.8);
+  --hud-bg: rgba(255, 255, 255, 0.95);
 }
 
 @theme inline {
