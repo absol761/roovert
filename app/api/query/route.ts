@@ -118,6 +118,11 @@ export async function POST(request: NextRequest) {
         } catch (e) {
             errorMessage += `: ${errorText.substring(0, 100)}`;
         }
+
+        // Clarify generic "User not found" errors from OpenRouter
+        if (errorMessage.includes('User not found')) {
+            errorMessage = 'OpenRouter Key Invalid: Ensure the key in Vercel matches your OpenRouter dashboard.';
+        }
         
         return respondWithSimulation(errorMessage);
     }
