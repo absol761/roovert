@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     userQuery = query;
     modelLabel = model || 'ooverta';
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY?.trim();
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://roovert.com';
     const siteName = 'Roovert';
 
