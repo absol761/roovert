@@ -84,31 +84,41 @@ function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8" style={{ scrollBehavior: 'smooth' }}>
           {looksByCategory.map(({ category, looks }) => (
-            <section key={category}>
+            <motion.section 
+              key={category}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            >
               <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">
                 {category.charAt(0).toUpperCase() + category.slice(1)}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {looks.map(look => (
-                  <button
+                {looks.map((look, idx) => (
+                  <motion.button
                     key={look.id}
                     onClick={() => { setLook(look.id); onClose(); }}
                     data-look-preview={look.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2, delay: idx * 0.03, ease: 'easeOut' }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     className={`look-preview-button p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden ${
                       currentLook === look.id 
                         ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20' 
                         : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
                     }`}
                   >
-                    <div className="font-medium text-[var(--foreground)] mb-1 relative z-10">{look.name}</div>
+                    <div className="font-medium text-[var(--foreground)] mb-1 relative z-10 transition-transform duration-300">{look.name}</div>
                     <div className="text-xs text-[var(--muted)] relative z-10">{look.description}</div>
-                    <div className="look-preview-animation absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-                  </button>
+                    <div className="look-preview-animation absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-500 ease-out pointer-events-none"></div>
+                  </motion.button>
                 ))}
               </div>
-            </section>
+            </motion.section>
           ))}
         </div>
       </motion.div>
@@ -514,7 +524,7 @@ function ParticleBackground() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Particle system
+    // Particle system - Optimized for smoothness
     const particles: Array<{
       x: number;
       y: number;
@@ -522,25 +532,28 @@ function ParticleBackground() {
       vy: number;
       size: number;
       opacity: number;
+      targetOpacity: number;
     }> = [];
 
-    const particleCount = 150;
-    const connectionDistance = 150;
+    const particleCount = 120;
+    const connectionDistance = 120;
+    let lastTime = performance.now();
 
     // Initialize particles
     for (let i = 0; i < particleCount; i++) {
       particles.push({
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.5,
-        vy: (Math.random() - 0.5) * 0.5,
-        size: Math.random() * 2 + 1,
-        opacity: Math.random() * 0.5 + 0.2,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        size: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.4 + 0.3,
+        targetOpacity: Math.random() * 0.4 + 0.3,
       });
     }
 
-    let mouseX = 0;
-    let mouseY = 0;
+    let mouseX = canvas.width / 2;
+    let mouseY = canvas.height / 2;
     let animationFrameId: number;
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -550,47 +563,76 @@ function ParticleBackground() {
 
     window.addEventListener('mousemove', handleMouseMove);
 
-    const animate = () => {
+    const animate = (currentTime: number) => {
+      const deltaTime = Math.min((currentTime - lastTime) / 16, 2); // Cap delta for smoothness
+      lastTime = currentTime;
+
+      // Use requestAnimationFrame for smooth rendering
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
       // Update and draw particles
       particles.forEach((particle, i) => {
-        // Update position
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-
-        // Wrap around edges
-        if (particle.x < 0) particle.x = canvas.width;
-        if (particle.x > canvas.width) particle.x = 0;
-        if (particle.y < 0) particle.y = canvas.height;
-        if (particle.y > canvas.height) particle.y = 0;
-
-        // Mouse interaction
+        // Smooth mouse interaction
         const dx = mouseX - particle.x;
         const dy = mouseY - particle.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < 100) {
-          particle.vx -= dx * 0.0001;
-          particle.vy -= dy * 0.0001;
+        
+        if (distance < 120) {
+          const force = (120 - distance) / 120;
+          particle.vx += (dx * force * 0.0005) * deltaTime;
+          particle.vy += (dy * force * 0.0005) * deltaTime;
         }
 
-        // Draw particle
+        // Update position with delta time for consistent speed
+        particle.x += particle.vx * deltaTime;
+        particle.y += particle.vy * deltaTime;
+
+        // Smooth velocity damping
+        particle.vx *= 0.98;
+        particle.vy *= 0.98;
+
+        // Wrap around edges smoothly
+        if (particle.x < -10) particle.x = canvas.width + 10;
+        if (particle.x > canvas.width + 10) particle.x = -10;
+        if (particle.y < -10) particle.y = canvas.height + 10;
+        if (particle.y > canvas.height + 10) particle.y = -10;
+
+        // Smooth opacity transitions
+        particle.opacity += (particle.targetOpacity - particle.opacity) * 0.05;
+
+        // Draw particle with smooth rendering
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 212, 255, ${particle.opacity})`;
+        const gradient = ctx.createRadialGradient(
+          particle.x, particle.y, 0,
+          particle.x, particle.y, particle.size * 2
+        );
+        gradient.addColorStop(0, `rgba(0, 212, 255, ${particle.opacity})`);
+        gradient.addColorStop(1, `rgba(0, 212, 255, 0)`);
+        ctx.fillStyle = gradient;
         ctx.fill();
 
-        // Draw connections
+        // Draw connections with smooth gradients
         particles.slice(i + 1).forEach(otherParticle => {
           const dx = otherParticle.x - particle.x;
           const dy = otherParticle.y - particle.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance < connectionDistance) {
+            const opacity = 0.15 * (1 - distance / connectionDistance);
+            const gradient = ctx.createLinearGradient(
+              particle.x, particle.y,
+              otherParticle.x, otherParticle.y
+            );
+            gradient.addColorStop(0, `rgba(0, 212, 255, ${opacity})`);
+            gradient.addColorStop(1, `rgba(0, 212, 255, ${opacity * 0.5})`);
+            
             ctx.beginPath();
             ctx.moveTo(particle.x, particle.y);
             ctx.lineTo(otherParticle.x, otherParticle.y);
-            ctx.strokeStyle = `rgba(0, 212, 255, ${0.2 * (1 - distance / connectionDistance)})`;
+            ctx.strokeStyle = gradient;
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }
@@ -600,7 +642,7 @@ function ParticleBackground() {
       animationFrameId = requestAnimationFrame(animate);
     };
 
-    animate();
+    animationFrameId = requestAnimationFrame(animate);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
