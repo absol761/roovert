@@ -15,16 +15,6 @@ const MODELS = [
   { id: 'perplexity', name: 'Perplexity', apiId: 'perplexity/sonar-reasoning', category: 'Advanced', description: 'Real-time search engine.' },
 ];
 
-const THEMES = [
-  { id: 'default', name: 'Deep Space', color: '#008080' },
-  { id: 'obsidian', name: 'Obsidian', color: '#8b5cf6' },
-  { id: 'midnight', name: 'Midnight', color: '#38bdf8' },
-  { id: 'aether', name: 'Aether Field', color: '#6366f1' },
-  { id: 'nocturne', name: 'Nocturne Circuit', color: '#f97316' },
-  { id: 'atlas', name: 'Atlas Grid', color: '#16a34a' },
-  { id: 'minimal', name: 'Clean Slate', color: '#e4e4e7' },
-];
-
 const QUICK_PROMPTS = [
   'Stress test this assumption about AGI timelines.',
   'Summarize the latest x-risk research with citations.',
@@ -129,7 +119,6 @@ function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
 function SettingsModal({ 
   isOpen, 
   onClose, 
-  currentTheme, setTheme, 
   currentModelId, setModelId,
   layout, setLayout,
   fontSize, setFontSize,
@@ -143,7 +132,6 @@ function SettingsModal({
   if (!isOpen) return null;
 
   const handleReset = () => {
-    setTheme('default');
     setLayout('standard');
     setFontSize('normal');
     setDataSaver(false);
@@ -202,27 +190,6 @@ function SettingsModal({
               >
                 More
               </button>
-            </div>
-          </section>
-
-          {/* Theme Section - Colors Only */}
-          <section>
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Themes</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {THEMES.map(theme => (
-                <button
-                  key={theme.id}
-                  onClick={() => setTheme(theme.id)}
-                  className={`p-3 rounded-xl border transition-all duration-300 flex flex-col items-center gap-2 ${
-                    currentTheme === theme.id 
-                      ? 'border-[var(--accent)] bg-[var(--accent)]/10' 
-                      : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
-                  }`}
-                >
-                  <div className="w-6 h-6 rounded-full" style={{ backgroundColor: theme.color }} />
-                  <span className="text-sm font-medium text-[var(--foreground)]">{theme.name}</span>
-                </button>
-              ))}
             </div>
           </section>
 
@@ -379,49 +346,14 @@ function SettingsModal({
 
 // Widgets Component
 function Widgets() {
-  const [weather, setWeather] = useState<any>(null);
   const [news, setNews] = useState<any[]>([]);
-  const [time, setTime] = useState<string>('');
-  const [date, setDate] = useState<string>('');
 
   useEffect(() => {
-    fetch('/api/weather').then(res => res.json()).then(setWeather).catch(() => {});
     fetch('/api/news').then(res => res.json()).then(setNews).catch(() => {});
-    
-    // Client-side clock logic
-    const updateTime = () => {
-      const now = new Date();
-      setTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
-      setDate(now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' }));
-    };
-    
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="widgets-stack flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
-      {/* Weather Widget */}
-      <motion.div 
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="widget-card flex-shrink-0 min-w-[220px] p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md"
-      >
-        <div className="flex items-center gap-2 mb-2 text-[var(--muted)]">
-          <Cloud className="w-4 h-4" />
-          <span className="text-xs uppercase font-mono">Atmosphere</span>
-        </div>
-        {weather ? (
-          <div>
-            <div className="text-2xl font-light">{weather.temp}°C</div>
-            <div className="text-xs text-[var(--muted)]">Wind: {weather.wind} km/h</div>
-          </div>
-        ) : (
-          <div className="h-8 w-24 bg-[var(--surface-strong)] rounded animate-pulse" />
-        )}
-      </motion.div>
-
       {/* News Widget */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
@@ -596,7 +528,6 @@ export default function Page() {
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
-  const [theme, setTheme] = useState('default');
   const [look, setLook] = useState('default');
   const [layout, setLayout] = useState('standard');
   const [fontSize, setFontSize] = useState('normal');
@@ -621,9 +552,8 @@ export default function Page() {
     });
   };
 
-  // Apply Theme, Look & Layout
+  // Apply Look & Layout
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.setAttribute('data-look', look);
     document.documentElement.setAttribute('data-layout', layout);
     document.documentElement.setAttribute('data-speed', dataSaver ? 'none' : 'normal');
@@ -634,7 +564,7 @@ export default function Page() {
     } else {
         document.documentElement.classList.remove('data-saver');
     }
-  }, [theme, look, layout, fontSize, dataSaver]);
+  }, [look, layout, fontSize, dataSaver]);
 
   const selectedModel = MODELS.find(m => m.id === selectedModelId) || MODELS[0];
 
