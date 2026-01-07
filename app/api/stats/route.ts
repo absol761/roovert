@@ -21,8 +21,10 @@ export async function GET() {
   } else {
     // Fallback: Deterministic Growth Model
     const initialUsers = 42;
-    const growthRate = 0.05; 
-    uniqueMinds = Math.floor(initialUsers * Math.pow(1 + growthRate, elapsedDays));
+    // Faster simulated growth for demo
+    const growthRate = 0.15; 
+    const randomFactor = Math.floor(Math.random() * 5); 
+    uniqueMinds = Math.floor(initialUsers * Math.pow(1 + growthRate, elapsedDays)) + randomFactor;
   }
 
   // 3. Active Users (Time-of-Day Dependent)

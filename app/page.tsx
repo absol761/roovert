@@ -231,12 +231,6 @@ function LiveStats() {
             className="mb-4 bg-[var(--hud-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-4 shadow-2xl min-w-[240px]"
           >
             <div className="space-y-3">
-               <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-[var(--muted)]">Unique Minds</span>
-                <span className="text-[var(--accent)] font-mono font-bold">
-                  {stats.uniqueMinds.toLocaleString()}
-                </span>
-              </div>
               <div className="flex items-center justify-between gap-4 text-sm">
                 <span className="text-[var(--muted)]">People who've used Roovert</span>
                 <span className="text-[var(--accent)] font-mono font-bold">
