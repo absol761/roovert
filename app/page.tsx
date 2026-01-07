@@ -353,26 +353,6 @@ function Widgets() {
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="widget-card flex-shrink-0 min-w-[220px] p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md"
-      >
-        <div className="flex items-center gap-2 mb-2 text-[var(--muted)]">
-          <Cloud className="w-4 h-4" />
-          <span className="text-xs uppercase font-mono">Atmosphere</span>
-        </div>
-        {weather ? (
-          <div>
-            <div className="text-2xl font-light">{weather.temp}°C</div>
-            <div className="text-xs text-[var(--muted)]">Wind: {weather.wind} km/h</div>
-          </div>
-        ) : (
-          <div className="h-8 w-24 bg-[var(--surface-strong)] rounded animate-pulse" />
-        )}
-      </motion.div>
-
-      {/* News Widget */}
-      <motion.div 
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.1 }}
         className="widget-card flex-shrink-0 min-w-[280px] max-w-[360px] p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md"
       >
