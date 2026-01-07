@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Ooverta (Default) Configuration
     if (!model || model === 'ooverta') {
-      targetModel = 'perplexity/llama-3-sonar-large-32k-online';
+      targetModel = 'perplexity/llama-3.1-sonar-large-128k-online';
       systemPrompt = `You are Ooverta, the proprietary engine of Roovert. 
     
       IDENTITY:
