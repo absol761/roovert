@@ -426,45 +426,48 @@ function SettingsModal({
 function Widgets() {
   const [weather, setWeather] = useState<any>(null);
   const [news, setNews] = useState<any[]>([]);
-  const [clock, setClock] = useState<any>(null);
+  const [time, setTime] = useState<string>('');
+  const [date, setDate] = useState<string>('');
 
   useEffect(() => {
     fetch('/api/weather').then(res => res.json()).then(setWeather).catch(() => {});
     fetch('/api/news').then(res => res.json()).then(setNews).catch(() => {});
     
-    const fetchClock = () => fetch('/api/clock').then(res => res.json()).then(setClock).catch(() => {});
-    fetchClock();
-    const interval = setInterval(fetchClock, 1000);
+    // Client-side clock logic
+    const updateTime = () => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
+      setDate(now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' }));
+    };
+    
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="widgets-stack flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
-      {/* Clock Widget */}
+      {/* Weather Widget */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="widget-card flex-shrink-0 min-w-[200px] p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md"
+        className="widget-card flex-shrink-0 min-w-[220px] p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md"
       >
         <div className="flex items-center gap-2 mb-2 text-[var(--muted)]">
-          <Clock className="w-4 h-4" />
-          <span className="text-xs uppercase font-mono">System Time</span>
+          <Cloud className="w-4 h-4" />
+          <span className="text-xs uppercase font-mono">Atmosphere</span>
         </div>
-        {clock ? (
+        {weather ? (
           <div>
-            <div className="text-2xl font-light font-mono">{clock.time}</div>
-            <div className="text-xs text-[var(--muted)]">{clock.date}</div>
-            <div className="text-[10px] text-[var(--muted)]/60 mt-1 uppercase tracking-wider">{clock.timezone}</div>
+            <div className="text-2xl font-light">{weather.temp}°C</div>
+            <div className="text-xs text-[var(--muted)]">Wind: {weather.wind} km/h</div>
           </div>
         ) : (
-          <div className="space-y-2">
-            <div className="h-8 w-24 bg-[var(--surface-strong)] rounded animate-pulse" />
-            <div className="h-3 w-32 bg-[var(--surface-strong)] rounded animate-pulse" />
-          </div>
+          <div className="h-8 w-24 bg-[var(--surface-strong)] rounded animate-pulse" />
         )}
       </motion.div>
 
-      {/* Weather Widget */}
+      {/* News Widget */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -598,6 +601,29 @@ function LiveStats() {
           System Status {isExpanded ? '[-]' : '[+]'}
         </span>
       </motion.button>
+    </div>
+  );
+}
+
+// Clock Component for Nav
+function NavClock() {
+  const [time, setTime] = useState<string>('');
+  
+  useEffect(() => {
+    const updateTime = () => {
+      setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!time) return null;
+
+  return (
+    <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] border border-[var(--border)] text-xs text-[var(--muted)] font-mono">
+      <Clock className="w-3 h-3" />
+      <span>{time}</span>
     </div>
   );
 }
@@ -750,6 +776,7 @@ export default function Page() {
                     <Settings className="w-3 h-3" />
                     <span>Config</span>
                 </button>
+                <NavClock />
               </div>
             </div>
             

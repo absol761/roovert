@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
 
     // Ooverta (Default) Configuration
     if (!model || model === 'ooverta') {
-      targetModel = 'perplexity/llama-3.1-sonar-large-128k-online';
+      // Use standard sonar-reasoning as the base for Ooverta
+      targetModel = 'perplexity/sonar-reasoning';
       if (!customSystemPrompt) {
         systemPrompt = `You are Ooverta, the proprietary engine of Roovert. 
       
@@ -128,6 +129,37 @@ export async function POST(request: NextRequest) {
         if (errorMessage.includes('User not found')) {
             errorMessage = 'OpenRouter Key Invalid: Ensure the key in Vercel matches your OpenRouter dashboard.';
         } else if (errorMessage.includes('No endpoints found')) {
+            // Auto-fallback if the default model fails
+            if (modelLabel === 'ooverta') {
+                console.warn('Ooverta default model failed, falling back to Llama.');
+                try {
+                    const fallback = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'HTTP-Referer': siteUrl,
+                            'X-Title': siteName,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: 'nousresearch/hermes-3-llama-3.1-405b:free',
+                            messages: [
+                                { role: 'system', content: systemPrompt },
+                                { role: 'user', content: userQuery }
+                            ]
+                        })
+                    });
+                    if (fallback.ok) {
+                        const fallbackData = await fallback.json();
+                        return NextResponse.json({
+                            response: fallbackData.choices?.[0]?.message?.content || 'No response.',
+                            timestamp: new Date().toISOString(),
+                            query: userQuery,
+                            warning: 'Primary engine offline; rerouted to backup intelligence.'
+                        });
+                    }
+                } catch(e) { console.error('Fallback failed', e); }
+            }
             errorMessage = `No providers online for model "${targetModel}". Try a different model.`;
         }
         
