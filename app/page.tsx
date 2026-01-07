@@ -2,22 +2,166 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, TrendingUp, Zap, CheckCircle2, ChevronDown, ChevronUp, Cpu } from 'lucide-react';
+import { Send, Sparkles, TrendingUp, Zap, CheckCircle2, ChevronDown, Settings, X, Sun, Moon, Monitor, Globe, BarChart2, Cloud } from 'lucide-react';
 
 const MODELS = [
-  // Basic / Free-tier friendly
-  { id: 'mistral-7b', name: 'Mistral 7B', apiId: 'mistralai/mistral-7b-instruct', category: 'Standard' },
-  { id: 'deepseek-chat', name: 'DeepSeek V3', apiId: 'deepseek/deepseek-chat', category: 'Standard' },
-  { id: 'gemini-flash', name: 'Gemini Flash', apiId: 'google/gemini-flash-1.5', category: 'Standard' },
-  
-  // Advanced (Hidden by default)
-  { id: 'gpt-4o', name: 'GPT-4o', apiId: 'openai/gpt-4o', category: 'Advanced' },
-  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', apiId: 'anthropic/claude-3.5-sonnet', category: 'Advanced' },
-  { id: 'grok-2', name: 'Grok 2', apiId: 'x-ai/grok-2-1212', category: 'Advanced' },
-  { id: 'llama-3-70b', name: 'Llama 3 70B', apiId: 'meta-llama/llama-3-70b-instruct', category: 'Advanced' },
-  { id: 'qwen-2.5', name: 'Qwen 2.5 72B', apiId: 'qwen/qwen-2.5-72b-instruct', category: 'Advanced' },
-  { id: 'perplexity', name: 'Perplexity Online', apiId: 'perplexity/llama-3-sonar-large-32k-online', category: 'Advanced' },
+  { id: 'ooberta', name: 'Ooberta (Default)', apiId: 'ooberta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
+  { id: 'mistral-7b', name: 'Mistral 7B', apiId: 'mistralai/mistral-7b-instruct', category: 'Standard', description: 'Fast, efficient, open.' },
+  { id: 'deepseek-chat', name: 'DeepSeek V3', apiId: 'deepseek/deepseek-chat', category: 'Standard', description: 'High reasoning capability.' },
+  { id: 'gpt-4o', name: 'GPT-4o', apiId: 'openai/gpt-4o', category: 'Advanced', description: 'Top-tier general intelligence.' },
+  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', apiId: 'anthropic/claude-3.5-sonnet', category: 'Advanced', description: 'Nuanced and articulate.' },
+  { id: 'perplexity', name: 'Perplexity', apiId: 'perplexity/llama-3-sonar-large-32k-online', category: 'Advanced', description: 'Real-time search engine.' },
 ];
+
+const THEMES = [
+  { id: 'default', name: 'Deep Space', color: '#008080' },
+  { id: 'cyberpunk', name: 'Neon City', color: '#f700ff' },
+  { id: 'matrix', name: 'The Source', color: '#00ff00' },
+  { id: 'minimal', name: 'Clean Slate', color: '#000000' },
+];
+
+// Settings Modal Component
+function SettingsModal({ isOpen, onClose, currentTheme, setTheme, currentModelId, setModelId }: any) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative w-full max-w-2xl bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col"
+      >
+        <div className="flex items-center justify-between p-6 border-b border-white/10">
+          <h2 className="text-xl font-light tracking-wide flex items-center gap-2">
+            <Settings className="w-5 h-5 text-[var(--accent)]" />
+            System Configuration
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+            <X className="w-5 h-5 text-white/60" />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
+          {/* Theme Section */}
+          <section>
+            <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4 font-mono">Interface Theme</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {THEMES.map(theme => (
+                <button
+                  key={theme.id}
+                  onClick={() => setTheme(theme.id)}
+                  className={`p-3 rounded-xl border transition-all duration-300 flex flex-col items-center gap-2 ${
+                    currentTheme === theme.id 
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10' 
+                      : 'border-white/5 hover:border-white/20 bg-white/5'
+                  }`}
+                >
+                  <div className="w-6 h-6 rounded-full" style={{ backgroundColor: theme.color }} />
+                  <span className="text-sm font-medium">{theme.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Model Section */}
+          <section>
+            <h3 className="text-sm uppercase tracking-wider text-white/40 mb-4 font-mono">Default Intelligence</h3>
+            <div className="grid gap-2">
+              {MODELS.map(model => (
+                <button
+                  key={model.id}
+                  onClick={() => setModelId(model.id)}
+                  className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                    currentModelId === model.id 
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10' 
+                      : 'border-white/5 hover:border-white/20 bg-white/5'
+                  }`}
+                >
+                  <div className="text-left">
+                    <div className="font-medium flex items-center gap-2">
+                      {model.name}
+                      {model.category === 'Advanced' && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-white/40">PRO</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-white/40 mt-1">{model.description}</div>
+                  </div>
+                  {currentModelId === model.id && (
+                    <div className="w-2 h-2 rounded-full bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// Widgets Component
+function Widgets() {
+  const [weather, setWeather] = useState<any>(null);
+  const [crypto, setCrypto] = useState<any>(null);
+
+  useEffect(() => {
+    fetch('/api/weather').then(res => res.json()).then(setWeather).catch(() => {});
+    fetch('/api/crypto').then(res => res.json()).then(setCrypto).catch(() => {});
+  }, []);
+
+  return (
+    <div className="flex gap-4 mt-8 overflow-x-auto pb-4 custom-scrollbar">
+      {/* Weather Widget */}
+      <motion.div 
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="flex-shrink-0 min-w-[200px] p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md"
+      >
+        <div className="flex items-center gap-2 mb-2 text-white/60">
+          <Cloud className="w-4 h-4" />
+          <span className="text-xs uppercase font-mono">Atmosphere</span>
+        </div>
+        {weather ? (
+          <div>
+            <div className="text-2xl font-light">{weather.temp}°C</div>
+            <div className="text-xs text-white/40">Wind: {weather.wind} km/h</div>
+          </div>
+        ) : (
+          <div className="h-8 w-24 bg-white/5 rounded animate-pulse" />
+        )}
+      </motion.div>
+
+      {/* Crypto Widget */}
+      <motion.div 
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1 }}
+        className="flex-shrink-0 min-w-[200px] p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md"
+      >
+        <div className="flex items-center gap-2 mb-2 text-white/60">
+          <BarChart2 className="w-4 h-4" />
+          <span className="text-xs uppercase font-mono">Markets</span>
+        </div>
+        {crypto ? (
+          <div className="space-y-1">
+            <div className="flex justify-between text-sm">
+              <span>BTC</span>
+              <span className="text-[var(--accent)]">${crypto.bitcoin?.usd.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>ETH</span>
+              <span className="text-[var(--accent)]">${crypto.ethereum?.usd.toLocaleString()}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="h-8 w-24 bg-white/5 rounded animate-pulse" />
+        )}
+      </motion.div>
+    </div>
+  );
+}
 
 // Real-time Stats Component
 function LiveStats() {
@@ -34,9 +178,7 @@ function LiveStats() {
     // Unique Visitor Logic
     const visitorKey = 'roovert_visitor_id';
     if (typeof window !== 'undefined' && !localStorage.getItem(visitorKey)) {
-      // Mark this device as visited
       localStorage.setItem(visitorKey, Date.now().toString());
-      // In a real DB implementation, call POST /api/visit here
     }
 
     const fetchStats = async () => {
@@ -50,7 +192,7 @@ function LiveStats() {
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 5000); // Update every 5 seconds
+    const interval = setInterval(fetchStats, 5000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -67,25 +209,25 @@ function LiveStats() {
             <div className="space-y-3">
                <div className="flex items-center justify-between gap-4 text-sm">
                 <span className="text-white/70">Unique Minds</span>
-                <span className="text-[#008080] font-mono font-bold">
+                <span className="text-[var(--accent)] font-mono font-bold">
                   {stats.uniqueMinds.toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
                 <span className="text-white/70">Queries</span>
-                <span className="text-[#008080] font-mono font-bold">
+                <span className="text-[var(--accent)] font-mono font-bold">
                   {stats.queriesProcessed.toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
                 <span className="text-white/70">Active</span>
-                <span className="text-[#008080] font-mono font-bold">
+                <span className="text-[var(--accent)] font-mono font-bold">
                   {stats.activeUsers.toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
                 <span className="text-white/70">Accuracy</span>
-                <span className="text-[#008080] font-mono font-bold">{stats.accuracy}%</span>
+                <span className="text-[var(--accent)] font-mono font-bold">{stats.accuracy}%</span>
               </div>
             </div>
           </motion.div>
@@ -98,7 +240,7 @@ function LiveStats() {
         whileTap={{ scale: 0.95 }}
         className="flex items-center gap-2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full px-4 py-2 shadow-lg hover:bg-black/80 transition-colors"
       >
-        <div className="w-2 h-2 rounded-full bg-[#008080] animate-pulse"></div>
+        <div className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse"></div>
         <span className="text-xs text-white/80 uppercase tracking-wider font-mono">
           System Status {isExpanded ? '[-]' : '[+]'}
         </span>
@@ -107,33 +249,24 @@ function LiveStats() {
   );
 }
 
-// Interactive Query Interface
-function QueryInterface() {
+export default function Home() {
   const [query, setQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
   const [history, setHistory] = useState<Array<{ query: string; response: string; model: string }>>([]);
   
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
-  const [showAllModels, setShowAllModels] = useState(false);
-  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [theme, setTheme] = useState('default');
   
   const inputRef = useRef<HTMLInputElement>(null);
-  const modelMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close model menu when clicking outside
+  // Apply Theme
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (modelMenuRef.current && !modelMenuRef.current.contains(event.target as Node)) {
-        setIsModelMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   const selectedModel = MODELS.find(m => m.id === selectedModelId) || MODELS[0];
-  const visibleModels = showAllModels ? MODELS : MODELS.filter(m => m.category === 'Standard');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,386 +298,155 @@ function QueryInterface() {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      {/* Main Input */}
-      <motion.form
-        onSubmit={handleSubmit}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="relative"
-      >
-        <div className="relative bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl hover:border-white/20 transition-all duration-300">
-          
-          {/* Header with Model Selector */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Sparkles className="w-5 h-5 text-[#008080]" />
-              <span className="text-sm text-white/60 uppercase tracking-wider font-mono">
-                Query Reality
-              </span>
-            </div>
-
-            {/* Model Selector Dropdown */}
-            <div className="relative" ref={modelMenuRef}>
-              <button
-                type="button"
-                onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-xs text-white/80 font-mono"
-              >
-                <Cpu className="w-3 h-3 text-[#008080]" />
-                {selectedModel.name}
-                <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              <AnimatePresence>
-                {isModelMenuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute right-0 top-full mt-2 w-64 bg-[#0a0a0a] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 p-2"
-                  >
-                    <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1">
-                      {visibleModels.map((model) => (
-                        <button
-                          key={model.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedModelId(model.id);
-                            setIsModelMenuOpen(false);
-                          }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between group ${
-                            selectedModelId === model.id 
-                              ? 'bg-[#008080]/20 text-white' 
-                              : 'text-white/60 hover:bg-white/5 hover:text-white'
-                          }`}
-                        >
-                          <span>{model.name}</span>
-                          {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[#008080]" />}
-                        </button>
-                      ))}
-                      
-                      {!showAllModels && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowAllModels(true);
-                          }}
-                          className="w-full text-center px-3 py-2 mt-2 text-xs text-[#008080] hover:text-[#009999] hover:bg-white/5 rounded-lg transition-colors border-t border-white/5"
-                        >
-                          Show Advanced Models (+6)
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Ask ${selectedModel.name}...`}
-              className="flex-1 bg-transparent border-none outline-none text-white text-xl placeholder:text-white/30 focus:placeholder:text-white/10 transition-colors font-light"
-              disabled={isProcessing}
-            />
-            <motion.button
-              type="submit"
-              disabled={!query.trim() || isProcessing}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="p-3 bg-[#008080] hover:bg-[#009999] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isProcessing ? (
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                >
-                  <Zap className="w-5 h-5 text-white" />
-                </motion.div>
-              ) : (
-                <Send className="w-5 h-5 text-white" />
-              )}
-            </motion.button>
-          </div>
-        </div>
-      </motion.form>
-
-      {/* Response Display */}
-      <AnimatePresence>
-        {response && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="bg-white/5 backdrop-blur-xl border border-[#008080]/30 rounded-2xl p-6"
-          >
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-[#008080] mt-1 flex-shrink-0" />
-              <div className="space-y-2">
-                <div className="text-xs text-[#008080]/60 font-mono mb-1">{selectedModel.name}</div>
-                <p className="text-white/90 font-light leading-relaxed whitespace-pre-wrap">{response}</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Query History */}
-      {history.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="space-y-3"
-        >
-          <h3 className="text-sm text-white/60 uppercase tracking-wider font-mono mb-4">
-            Recent Queries
-          </h3>
-          <div className="space-y-2">
-            {history.map((item, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className="bg-white/5 border border-white/5 rounded-xl p-4 hover:border-white/10 transition-colors"
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <p className="text-white/70 text-sm font-mono truncate max-w-[80%]">Q: {item.query}</p>
-                  <span className="text-[10px] text-white/30 border border-white/10 px-1.5 py-0.5 rounded">{item.model}</span>
-                </div>
-                <p className="text-white/50 text-xs line-clamp-2">{item.response}</p>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-    </div>
-  );
-}
-
-// Feature Cards
-function FeatureCards() {
-  const features = [
-    {
-      icon: Sparkles,
-      title: 'Rigorous Analysis',
-      description: 'Every query undergoes systematic truth-seeking protocols.',
-    },
-    {
-      icon: TrendingUp,
-      title: 'Real-Time Processing',
-      description: 'Instant responses powered by advanced reasoning engines.',
-    },
-    {
-      icon: Zap,
-      title: 'Unfiltered Truth',
-      description: 'No censorship. No bias. Just the raw pursuit of understanding.',
-    },
-  ];
-
-  return (
-    <div className="grid md:grid-cols-3 gap-6 mt-20">
-      {features.map((feature, idx) => (
-        <motion.div
-          key={idx}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 + idx * 0.1 }}
-          className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:border-[#008080]/50 transition-all duration-300"
-        >
-          <feature.icon className="w-8 h-8 text-[#008080] mb-4" />
-          <h3 className="text-xl font-semibold text-white mb-2">{feature.title}</h3>
-          <p className="text-white/60 text-sm leading-relaxed">{feature.description}</p>
-        </motion.div>
-      ))}
-    </div>
-  );
-}
-
-export default function Home() {
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-[#050505] via-[#0a0a0a] to-[#050505] text-white relative overflow-hidden">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#008080]/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#008080]/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[var(--accent)]/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[var(--accent)]/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
       {/* Navigation */}
-      <motion.nav
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="fixed top-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-2xl border-b border-white/10"
-      >
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)]">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="text-2xl font-bold bg-gradient-to-r from-white to-[#008080] bg-clip-text text-transparent"
-            >
-              ROOVERT
-            </motion.div>
-            <div className="flex items-center gap-8">
-              {['Mission', 'Research', 'API', 'Careers'].map((item, idx) => (
-                <motion.a
+            <div className="flex items-center gap-6">
+              <div className="text-2xl font-bold bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent">
+                ROOVERT
+              </div>
+              {/* Settings Trigger */}
+              <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-xs text-white/60 hover:text-[var(--accent)]"
+              >
+                <Settings className="w-3 h-3" />
+                <span>Config</span>
+              </button>
+            </div>
+            
+            <div className="hidden md:flex items-center gap-8">
+              {['Mission', 'Research', 'API', 'Careers'].map((item) => (
+                <a
                   key={item}
                   href={`#${item.toLowerCase()}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.1 * idx }}
-                  whileHover={{ scale: 1.05 }}
-                  className="text-sm text-white/70 hover:text-[#008080] transition-colors uppercase tracking-wider"
+                  className="text-sm text-[var(--foreground)]/70 hover:text-[var(--accent)] transition-colors uppercase tracking-wider"
                 >
                   {item}
-                </motion.a>
+                </a>
               ))}
             </div>
           </div>
         </div>
-      </motion.nav>
+      </nav>
 
-      {/* Live Stats */}
+      {/* Settings Modal */}
+      <AnimatePresence>
+        {isSettingsOpen && (
+          <SettingsModal 
+            isOpen={isSettingsOpen} 
+            onClose={() => setIsSettingsOpen(false)}
+            currentTheme={theme}
+            setTheme={setTheme}
+            currentModelId={selectedModelId}
+            setModelId={setSelectedModelId}
+          />
+        )}
+      </AnimatePresence>
+
       <LiveStats />
 
-      {/* Hero Section */}
-      <main className="relative z-10 flex min-h-screen items-center justify-center px-6 pt-32 pb-20">
-        <div className="w-full max-w-6xl mx-auto space-y-16">
+      {/* Main Content */}
+      <main className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 pt-32 pb-20">
+        <div className="w-full max-w-5xl mx-auto space-y-12">
           {/* Headline */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center space-y-6"
-          >
-            <h1 className="text-7xl md:text-9xl font-light leading-tight">
-              <span className="block text-white">Roovert</span>
-              <span className="block bg-gradient-to-r from-white via-[#008080] to-white bg-clip-text text-transparent">
+          <div className="text-center space-y-6">
+            <h1 className="text-6xl md:text-8xl font-light leading-tight">
+              <span className="block">Roovert</span>
+              <span className="block text-[var(--accent)] opacity-90">
                 The Truth, Unfiltered
               </span>
             </h1>
-            <p className="text-xl md:text-2xl text-white/60 font-light max-w-2xl mx-auto">
-              Rigorously pursuing truth through advanced AI. 
-              <span className="text-[#008080]"> No filters. No bias. Just reality.</span>
+            <p className="text-xl text-[var(--foreground)]/60 font-light max-w-2xl mx-auto">
+              Query reality with precision. Powered by <span className="text-[var(--accent)]">{selectedModel.name}</span>.
             </p>
-          </motion.div>
+          </div>
 
           {/* Query Interface */}
-          <QueryInterface />
+          <div className="w-full max-w-3xl mx-auto">
+            <form onSubmit={handleSubmit} className="relative">
+              <div className="relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-6 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
+                <div className="flex items-center gap-4">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={`Ask ${selectedModel.name} anything...`}
+                    className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
+                    disabled={isProcessing}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!query.trim() || isProcessing}
+                    className="p-3 bg-[var(--accent)] hover:opacity-90 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[var(--accent)]/20"
+                  >
+                    {isProcessing ? (
+                      <Zap className="w-5 h-5 text-white animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5 text-white" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
 
-          {/* Feature Cards */}
-          <FeatureCards />
+            {/* Response Area */}
+            <AnimatePresence>
+              {response && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="mt-6 bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 rounded-lg bg-[var(--accent)]/10">
+                      <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+                    </div>
+                    <div className="space-y-2 flex-1">
+                      <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider">
+                        Response from {selectedModel.name}
+                      </div>
+                      <p className="text-[var(--foreground)]/90 font-light leading-relaxed whitespace-pre-wrap text-lg">
+                        {response}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Widgets Section */}
+            <Widgets />
+          </div>
         </div>
       </main>
 
-      {/* Mission Section */}
-      <section id="mission" className="relative z-10 py-32 border-t border-white/5 bg-black/20">
-        <div className="max-w-4xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="space-y-8"
-          >
-            <h2 className="text-4xl md:text-5xl font-light">Our Mission</h2>
-            <div className="space-y-6 text-lg text-white/70 font-light leading-relaxed">
-              <p>
-                In an era of curated realities and algorithmic bias, truth has become a scarcity.
-                Roovert exists to reverse this entropy. We are building the world's most rigorous
-                AI engine, designed not to please, but to <span className="text-[#008080]">understand</span>.
-              </p>
-              <p>
-                Our models are trained on first principles, rejecting the consensus in favor of
-                verifiable reality. We don't just process data; we interrogate it.
-              </p>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Research Section */}
-      <section id="research" className="relative z-10 py-32 border-t border-white/5">
-        <div className="max-w-6xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-light mb-6">Research Frontiers</h2>
-            <p className="text-white/60 text-lg max-w-2xl">
-              We are pushing the boundaries of what's possible in artificial reasoning and
-              autonomous verification.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            {[
-              {
-                title: "Autonomous Fact Verification",
-                desc: "Systems that independently verify claims against primary sources in real-time.",
-                status: "Deployment"
-              },
-              {
-                title: "Bias Detection & Elimination",
-                desc: "Algorithmic approaches to identifying and neutralizing training data bias.",
-                status: "Beta"
-              },
-              {
-                title: "Causal Reasoning Engines",
-                desc: "Moving beyond correlation to understand the 'why' behind the data.",
-                status: "Research"
-              },
-              {
-                title: "Semantic Truth Mapping",
-                desc: "Mapping the relationship between linguistic assertions and physical reality.",
-                status: "Prototype"
-              }
-            ].map((item, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                className="group p-8 border border-white/10 rounded-2xl hover:border-[#008080]/30 hover:bg-white/5 transition-all duration-300"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-xl font-medium group-hover:text-[#008080] transition-colors">
-                    {item.title}
-                  </h3>
-                  <span className="text-xs font-mono px-2 py-1 rounded bg-white/5 text-white/40 border border-white/5">
-                    {item.status}
-                  </span>
-                </div>
-                <p className="text-white/60 font-light leading-relaxed">
-                  {item.desc}
-                </p>
-              </motion.div>
-            ))}
-          </div>
+      {/* Expanded Sections */}
+      <section id="mission" className="relative z-10 py-32 border-t border-[var(--border)] bg-black/20">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="text-4xl font-light mb-8">Our Mission</h2>
+          <p className="text-xl text-[var(--foreground)]/70 font-light leading-relaxed">
+            In an era of curated realities and algorithmic bias, truth has become a scarcity.
+            Roovert exists to reverse this entropy. We are building the world's most rigorous
+            AI engine, designed not to please, but to <span className="text-[var(--accent)]">understand</span>.
+          </p>
         </div>
       </section>
 
       {/* Footer */}
-      <motion.footer
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="relative z-10 border-t border-white/10 py-8"
-      >
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <p className="text-white/40 text-sm">
-            © 2026 Roovert. Rigorously Pursuing Truth.
-          </p>
-        </div>
-      </motion.footer>
+      <footer className="relative z-10 border-t border-[var(--border)] py-8 text-center text-[var(--foreground)]/40 text-sm">
+        <p>© 2026 Roovert. Rigorously Pursuing Truth.</p>
+      </footer>
     </div>
   );
 }

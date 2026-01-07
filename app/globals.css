@@ -1,16 +1,48 @@
 @import "tailwindcss";
 
 :root {
+  /* Default Theme (Deep Space) */
   --background: #050505;
   --foreground: #ffffff;
-  --teal: #008080;
-  --teal-glow: rgba(0, 128, 128, 0.3);
+  --accent: #008080;
+  --accent-glow: rgba(0, 128, 128, 0.3);
+  --panel-bg: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='cyberpunk'] {
+  --background: #02000f;
+  --foreground: #e0f7fa;
+  --accent: #f700ff;
+  --accent-glow: rgba(247, 0, 255, 0.4);
+  --panel-bg: rgba(247, 0, 255, 0.05);
+  --border: rgba(247, 0, 255, 0.2);
+}
+
+[data-theme='matrix'] {
+  --background: #000000;
+  --foreground: #00ff00;
+  --accent: #00ff00;
+  --accent-glow: rgba(0, 255, 0, 0.2);
+  --panel-bg: rgba(0, 20, 0, 0.8);
+  --border: #003300;
+}
+
+[data-theme='minimal'] {
+  --background: #ffffff;
+  --foreground: #000000;
+  --accent: #000000;
+  --accent-glow: rgba(0, 0, 0, 0.1);
+  --panel-bg: #f5f5f5;
+  --border: #e5e5e5;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-teal: var(--teal);
+  --color-accent: var(--accent);
+  --color-panel: var(--panel-bg);
+  --color-border: var(--border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -20,6 +52,7 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   overflow-x: hidden;
+  transition: background-color 0.5s ease, color 0.5s ease;
 }
 
 @keyframes kinetic-pulse {
@@ -52,10 +85,10 @@ body {
 
 @keyframes glow-pulse {
   0%, 100% {
-    box-shadow: 0 0 20px var(--teal-glow);
+    box-shadow: 0 0 20px var(--accent-glow);
   }
   50% {
-    box-shadow: 0 0 40px var(--teal-glow), 0 0 60px var(--teal-glow);
+    box-shadow: 0 0 40px var(--accent-glow), 0 0 60px var(--accent-glow);
   }
 }
 
@@ -83,14 +116,15 @@ html {
 }
 
 ::-webkit-scrollbar-track {
-  background: #050505;
+  background: var(--background);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #008080;
+  background: var(--accent);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #009999;
+  background: var(--accent);
+  opacity: 0.8;
 }

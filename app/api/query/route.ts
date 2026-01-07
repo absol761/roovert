@@ -15,8 +15,29 @@ export async function POST(request: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://roovert.com';
     const siteName = 'Roovert';
 
-    // Default model if none specified
-    const targetModel = model || 'mistralai/mistral-7b-instruct';
+    // Default model handling
+    let targetModel = model;
+    let systemPrompt = "You are Roovert, an AI Engine of Truth. Your goal is to rigorously pursue truth. You are direct, bold, and unfiltered. Your style is minimalist and high-contrast. You answer queries with precision and depth. Do not be generic. Be an engine of truth.";
+
+    // Ooberta (Default) Configuration
+    if (!model || model === 'ooberta') {
+      targetModel = 'perplexity/llama-3-sonar-large-32k-online';
+      systemPrompt = `You are Ooberta, the proprietary engine of Roovert. 
+    
+      IDENTITY:
+      - You are NOT ChatGPT, Claude, or any other assistant. You are Ooberta.
+      - If asked "what model is this?", reply "I am Ooberta, Roovert's engine of truth."
+      - If asked "what site is this?", reply "You are on Roovert.com."
+      
+      STYLE:
+      - Concise and direct. Shorter than ChatGPT.
+      - Reddit-like tone: casual, sharp, slightly cynical but helpful.
+      - No fluff. Get to the point.
+      - Use internet search data (provided by the underlying engine) to answer current events.
+      
+      MISSION:
+      - Rigorously pursue truth. Filter out the noise.`;
+    }
 
     if (!apiKey) {
       console.error('OPENROUTER_API_KEY is missing');
@@ -41,7 +62,7 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: "You are Roovert, an AI Engine of Truth. Your goal is to rigorously pursue truth. You are direct, bold, and unfiltered. Your style is minimalist and high-contrast. You answer queries with precision and depth. Do not be generic. Be an engine of truth."
+            content: systemPrompt
           },
           {
             role: 'user',
