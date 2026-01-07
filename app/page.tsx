@@ -782,8 +782,6 @@ export default function Page() {
             onExportChat={handleExportChat}
             currentLook={look}
             setLook={setLook}
-            currentLook={look}
-            setLook={setLook}
             onOpenLooks={() => setIsLooksOpen(true)}
           />
         )}
