@@ -9,11 +9,21 @@ function LiveStats() {
   const [stats, setStats] = useState({
     queriesProcessed: 0,
     activeUsers: 0,
+    uniqueMinds: 0,
     accuracy: '0.00',
     uptime: '99.9%',
   });
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
+    // Unique Visitor Logic
+    const visitorKey = 'roovert_visitor_id';
+    if (typeof window !== 'undefined' && !localStorage.getItem(visitorKey)) {
+      // Mark this device as visited
+      localStorage.setItem(visitorKey, Date.now().toString());
+      // In a real DB implementation, call POST /api/visit here
+    }
+
     const fetchStats = async () => {
       try {
         const response = await fetch('/api/stats');
@@ -30,35 +40,54 @@ function LiveStats() {
   }, []);
 
   return (
-    <div className="fixed top-6 right-6 z-50">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl"
+    <div className="fixed bottom-6 left-6 z-50">
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="mb-4 bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl min-w-[240px]"
+          >
+            <div className="space-y-3">
+               <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-white/70">Unique Minds</span>
+                <span className="text-[#008080] font-mono font-bold">
+                  {stats.uniqueMinds.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-white/70">Queries</span>
+                <span className="text-[#008080] font-mono font-bold">
+                  {stats.queriesProcessed.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-white/70">Active</span>
+                <span className="text-[#008080] font-mono font-bold">
+                  {stats.activeUsers.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-white/70">Accuracy</span>
+                <span className="text-[#008080] font-mono font-bold">{stats.accuracy}%</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.button
+        onClick={() => setIsExpanded(!isExpanded)}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className="flex items-center gap-2 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full px-4 py-2 shadow-lg hover:bg-black/80 transition-colors"
       >
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-2 h-2 rounded-full bg-[#008080] animate-pulse"></div>
-          <span className="text-xs text-white/60 uppercase tracking-wider font-mono">Live Stats</span>
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-white/70">Queries</span>
-            <span className="text-[#008080] font-mono font-bold">
-              {stats.queriesProcessed.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-white/70">Active</span>
-            <span className="text-[#008080] font-mono font-bold">
-              {stats.activeUsers.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-white/70">Accuracy</span>
-            <span className="text-[#008080] font-mono font-bold">{stats.accuracy}%</span>
-          </div>
-        </div>
-      </motion.div>
+        <div className="w-2 h-2 rounded-full bg-[#008080] animate-pulse"></div>
+        <span className="text-xs text-white/80 uppercase tracking-wider font-mono">
+          System Status {isExpanded ? '[-]' : '[+]'}
+        </span>
+      </motion.button>
     </div>
   );
 }
@@ -307,6 +336,95 @@ export default function Home() {
           <FeatureCards />
         </div>
       </main>
+
+      {/* Mission Section */}
+      <section id="mission" className="relative z-10 py-32 border-t border-white/5 bg-black/20">
+        <div className="max-w-4xl mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="space-y-8"
+          >
+            <h2 className="text-4xl md:text-5xl font-light">Our Mission</h2>
+            <div className="space-y-6 text-lg text-white/70 font-light leading-relaxed">
+              <p>
+                In an era of curated realities and algorithmic bias, truth has become a scarcity.
+                Roovert exists to reverse this entropy. We are building the world's most rigorous
+                AI engine, designed not to please, but to <span className="text-[#008080]">understand</span>.
+              </p>
+              <p>
+                Our models are trained on first principles, rejecting the consensus in favor of
+                verifiable reality. We don't just process data; we interrogate it.
+              </p>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Research Section */}
+      <section id="research" className="relative z-10 py-32 border-t border-white/5">
+        <div className="max-w-6xl mx-auto px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-light mb-6">Research Frontiers</h2>
+            <p className="text-white/60 text-lg max-w-2xl">
+              We are pushing the boundaries of what's possible in artificial reasoning and
+              autonomous verification.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {[
+              {
+                title: "Autonomous Fact Verification",
+                desc: "Systems that independently verify claims against primary sources in real-time.",
+                status: "Deployment"
+              },
+              {
+                title: "Bias Detection & Elimination",
+                desc: "Algorithmic approaches to identifying and neutralizing training data bias.",
+                status: "Beta"
+              },
+              {
+                title: "Causal Reasoning Engines",
+                desc: "Moving beyond correlation to understand the 'why' behind the data.",
+                status: "Research"
+              },
+              {
+                title: "Semantic Truth Mapping",
+                desc: "Mapping the relationship between linguistic assertions and physical reality.",
+                status: "Prototype"
+              }
+            ].map((item, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                className="group p-8 border border-white/10 rounded-2xl hover:border-[#008080]/30 hover:bg-white/5 transition-all duration-300"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-xl font-medium group-hover:text-[#008080] transition-colors">
+                    {item.title}
+                  </h3>
+                  <span className="text-xs font-mono px-2 py-1 rounded bg-white/5 text-white/40 border border-white/5">
+                    {item.status}
+                  </span>
+                </div>
+                <p className="text-white/60 font-light leading-relaxed">
+                  {item.desc}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Footer */}
       <motion.footer
