@@ -456,73 +456,30 @@ export default function Home() {
 
             <section className="chat-stack">
               <div className="command-deck w-full">
-              <form onSubmit={handleSubmit} className="relative">
-                <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-6 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
-                  <div className="flex items-center gap-4">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={`Ask ${selectedModel.name} anything...`}
-                    className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
-                    disabled={isProcessing}
-                  />
-                  <button
-                    type="submit"
-                    disabled={!query.trim() || isProcessing}
-                    className="p-3 bg-[var(--accent)] hover:opacity-90 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[var(--accent)]/20"
-                  >
-                    {isProcessing ? (
-                      <Zap className="w-5 h-5 text-white animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5 text-white" />
-                    )}
-                  </button>
-                  </div>
-                </div>
-              </form>
-
-            {/* Response Area */}
-            <AnimatePresence>
-              {(response || isProcessing) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="glass-panel mt-6 bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 shadow-xl"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
-                      <Sparkles className="w-5 h-5 text-[var(--accent)]" />
-                    </div>
-                    <div className="space-y-3 flex-1 min-w-0">
-                      <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
-                        {isProcessing ? 'Processing Query...' : `Response from ${selectedModel.name}`}
-                      </div>
-                      {!isProcessing && statusNote && (
-                        <div className="text-[10px] text-[var(--muted)] uppercase tracking-[0.35em]">
-                          {statusNote}
-                        </div>
-                      )}
-                      <div className="prose prose-invert max-w-none">
+                <form onSubmit={handleSubmit} className="relative">
+                  <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-6 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
+                    <div className="flex items-center gap-4">
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder={`Ask ${selectedModel.name} anything...`}
+                        className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
+                        disabled={isProcessing}
+                      />
+                      <button
+                        type="submit"
+                        disabled={!query.trim() || isProcessing}
+                        className="p-3 bg-[var(--accent)] hover:opacity-90 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[var(--accent)]/20"
+                      >
                         {isProcessing ? (
-                          <div className="flex space-x-1 h-6 items-center">
-                            <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                            <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                            <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce"></div>
-                          </div>
+                          <Zap className="w-5 h-5 text-white animate-spin" />
                         ) : (
-                          <p className="text-[var(--foreground)] text-lg leading-relaxed whitespace-pre-wrap font-light">
-                            {response}
-                          </p>
+                          <Send className="w-5 h-5 text-white" />
                         )}
-                      </div>
+                      </button>
                     </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
                   </div>
                 </form>
 
@@ -543,6 +500,11 @@ export default function Home() {
                           <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
                             {isProcessing ? 'Processing Query...' : `Response from ${selectedModel.name}`}
                           </div>
+                          {!isProcessing && statusNote && (
+                            <div className="text-[10px] text-[var(--muted)] uppercase tracking-[0.35em]">
+                              {statusNote}
+                            </div>
+                          )}
                           <div className="prose prose-invert max-w-none">
                             {isProcessing ? (
                               <div className="flex space-x-1 h-6 items-center">
