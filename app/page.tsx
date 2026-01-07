@@ -228,9 +228,10 @@ function SettingsModal({
         </div>
 
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
-          {/* Theme Section */}
+          
+          {/* Theme Section - Colors Only */}
           <section>
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Interface Theme</h3>
+            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Themes</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {THEMES.map(theme => (
                 <button
@@ -249,66 +250,59 @@ function SettingsModal({
             </div>
           </section>
 
-          {/* Interface & Performance */}
-          <div className="grid md:grid-cols-2 gap-8">
-            <section>
-                <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Visual Density</h3>
-                <div className="grid grid-cols-3 gap-2">
-                {LAYOUTS.map(l => (
-                    <button
-                    key={l.id}
-                    onClick={() => setLayout(l.id)}
-                    className={`px-3 py-2 rounded-lg border text-sm transition-all ${
-                        layout === l.id
-                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
-                        : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
-                    }`}
-                    >
-                    {l.name}
-                    </button>
-                ))}
-                </div>
-            </section>
-            
-            <section>
-                <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Motion Speed</h3>
-                <div className="grid grid-cols-2 gap-2">
-                {ANIMATIONS.map(a => (
-                    <button
-                    key={a.id}
-                    onClick={() => setAnimationSpeed(a.id)}
-                    disabled={dataSaver}
-                    className={`px-3 py-2 rounded-lg border text-sm transition-all ${
-                        dataSaver ? 'opacity-50 cursor-not-allowed border-[var(--border)]' : 
-                        animationSpeed === a.id
-                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
-                        : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
-                    }`}
-                    >
-                    {a.name}
-                    </button>
-                ))}
-                </div>
-            </section>
-          </div>
+          {/* Layout Section - Structure Only */}
+          <section>
+            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Layout</h3>
+            <div className="grid grid-cols-3 gap-2">
+            {LAYOUTS.map(l => (
+                <button
+                key={l.id}
+                onClick={() => setLayout(l.id)}
+                className={`px-3 py-2 rounded-lg border text-sm transition-all ${
+                    layout === l.id
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
+                    : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                }`}
+                >
+                {l.name}
+                </button>
+            ))}
+            </div>
+          </section>
 
-          {/* Advanced Settings */}
-          <section className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono flex items-center gap-2">
-                <Monitor className="w-4 h-4" /> Advanced Display
-            </h3>
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="text-sm font-medium">Text Size</div>
-                        <div className="text-xs text-[var(--muted)]">Adjust reading comfort</div>
+          {/* Styles / Appearance Section - Motion, Size, Density */}
+          <section>
+            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Appearance & Style</h3>
+            <div className="grid md:grid-cols-2 gap-8">
+                <div>
+                    <h4 className="text-xs text-[var(--muted)] mb-2 uppercase">Motion Speed</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                        {ANIMATIONS.map(a => (
+                            <button
+                            key={a.id}
+                            onClick={() => setAnimationSpeed(a.id)}
+                            disabled={dataSaver}
+                            className={`px-3 py-2 rounded-lg border text-sm transition-all ${
+                                dataSaver ? 'opacity-50 cursor-not-allowed border-[var(--border)]' : 
+                                animationSpeed === a.id
+                                ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
+                                : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                            }`}
+                            >
+                            {a.name}
+                            </button>
+                        ))}
                     </div>
+                </div>
+                
+                <div>
+                    <h4 className="text-xs text-[var(--muted)] mb-2 uppercase">Text Size</h4>
                     <div className="flex gap-2">
                         {['small', 'normal', 'large'].map((size) => (
                             <button
                                 key={size}
                                 onClick={() => setFontSize(size)}
-                                className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                                className={`flex-1 px-3 py-2 text-xs rounded-lg border transition-colors ${
                                     fontSize === size 
                                     ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]' 
                                     : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]'
@@ -319,7 +313,15 @@ function SettingsModal({
                         ))}
                     </div>
                 </div>
+            </div>
+          </section>
 
+          {/* Preferences Section - Toggles */}
+          <section className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
+            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono flex items-center gap-2">
+                <Monitor className="w-4 h-4" /> Preferences
+            </h3>
+            <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <div>
                         <div className="text-sm font-medium flex items-center gap-2">
