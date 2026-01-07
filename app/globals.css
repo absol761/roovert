@@ -1128,42 +1128,6 @@ html {
   background: rgba(0, 0, 0, 0.95) !important;
 }
 
-/* Pastel Dreams Look */
-[data-look='pastel'] {
-  --background: #ffeef8;
-  --foreground: #5a5a5a;
-  --accent: #ff9ec5;
-  --accent-glow: rgba(255, 158, 197, 0.3);
-  --panel-bg: rgba(255, 255, 255, 0.8);
-  --border: rgba(255, 158, 197, 0.3);
-  --panel-radius: 20px;
-  --surface: rgba(255, 158, 197, 0.1);
-  --surface-strong: rgba(255, 182, 193, 0.2);
-  --chip-bg: rgba(255, 255, 255, 0.7);
-  --muted: rgba(90, 90, 90, 0.6);
-  --muted-strong: rgba(90, 90, 90, 0.8);
-  --hud-bg: rgba(255, 238, 248, 0.95);
-}
-
-[data-look='pastel'] body {
-  background: linear-gradient(135deg, #ffeef8 0%, #e8f5ff 100%);
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-[data-look='pastel'] body::before {
-  background: 
-    radial-gradient(circle at 20% 30%, rgba(255, 182, 193, 0.3), transparent 50%),
-    radial-gradient(circle at 80% 70%, rgba(173, 216, 230, 0.3), transparent 50%);
-  opacity: 0.6;
-}
-
-[data-look='pastel'] .glass-panel,
-[data-look='pastel'] .intel-card {
-  border: 2px solid var(--border) !important;
-  box-shadow: 0 4px 20px rgba(255, 158, 197, 0.2) !important;
-  background: rgba(255, 255, 255, 0.9) !important;
-}
-
 /* Neon Nights Look */
 [data-look='neon'] {
   --background: #0a0a1a;
@@ -1402,47 +1366,6 @@ html {
   background: rgba(245, 245, 220, 0.95) !important;
 }
 
-/* Terminal Look */
-[data-look='terminal'] {
-  --background: #000000;
-  --foreground: #00ff00;
-  --accent: #00ff00;
-  --accent-glow: rgba(0, 255, 0, 0.4);
-  --panel-bg: rgba(0, 0, 0, 0.95);
-  --border: rgba(0, 255, 0, 0.2);
-  --panel-radius: 0px;
-  --surface: rgba(0, 255, 0, 0.05);
-  --surface-strong: rgba(0, 255, 0, 0.1);
-  --chip-bg: rgba(0, 0, 0, 0.95);
-  --muted: rgba(0, 255, 0, 0.5);
-  --muted-strong: rgba(0, 255, 0, 0.9);
-  --hud-bg: rgba(0, 0, 0, 0.98);
-}
-
-[data-look='terminal'] body {
-  background: #000000;
-  font-family: 'Courier New', 'Monaco', monospace;
-}
-
-[data-look='terminal'] body::before {
-  background: 
-    repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0, 255, 0, 0.02) 1px, rgba(0, 255, 0, 0.02) 2px);
-  opacity: 0.2;
-}
-
-[data-look='terminal'] .glass-panel,
-[data-look='terminal'] .intel-card {
-  border: 1px solid var(--border) !important;
-  border-radius: 0 !important;
-  box-shadow: 0 0 15px rgba(0, 255, 0, 0.2) !important;
-  background: rgba(0, 0, 0, 0.95) !important;
-}
-
-[data-look='terminal'] nav {
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
-}
-
 /* ============================================
    LOOK PREVIEW ANIMATIONS (Hover Effects)
    ============================================ */
@@ -1637,31 +1560,6 @@ html {
   50% { transform: scale(1.2); opacity: 0.8; }
 }
 
-/* Pastel Dreams - Floating Hearts */
-[data-look-preview='pastel']:hover .look-preview-animation {
-  background: radial-gradient(circle at 30% 30%, rgba(255, 182, 193, 0.2), transparent 50%);
-  animation: pastel-float 3s ease-in-out infinite;
-}
-
-@keyframes pastel-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-[data-look-preview='pastel']:hover .look-preview-animation::before {
-  content: '💕';
-  position: absolute;
-  top: 15px;
-  left: 15px;
-  font-size: 18px;
-  animation: pastel-heart 2s ease-in-out infinite;
-}
-
-@keyframes pastel-heart {
-  0%, 100% { transform: scale(1) rotate(0deg); }
-  50% { transform: scale(1.2) rotate(10deg); }
-}
-
 /* Neon Nights - Electric Pulse */
 [data-look-preview='neon']:hover .look-preview-animation {
   background: 
@@ -1812,34 +1710,6 @@ html {
 @keyframes paper-write {
   0%, 100% { transform: rotate(0deg); }
   50% { transform: rotate(5deg); }
-}
-
-/* Terminal - Cursor Blink */
-[data-look-preview='terminal']:hover .look-preview-animation {
-  background: 
-    repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0, 255, 0, 0.05) 1px, rgba(0, 255, 0, 0.05) 2px);
-  animation: terminal-scan 1.5s linear infinite;
-}
-
-@keyframes terminal-scan {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
-}
-
-[data-look-preview='terminal']:hover .look-preview-animation::before {
-  content: '_';
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  font-family: monospace;
-  font-size: 16px;
-  color: rgba(0, 255, 0, 0.8);
-  animation: terminal-cursor 1s step-end infinite;
-}
-
-@keyframes terminal-cursor {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
 }
 
 /* Psychedelic - Color Shift */

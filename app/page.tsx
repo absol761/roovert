@@ -45,14 +45,12 @@ const LOOKS = [
   { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s vibes', category: 'themed' },
   { id: 'minimalist', name: 'Minimalist', description: 'Ultra-clean, focused design', category: 'style' },
   { id: 'darkmode', name: 'Dark Mode Pro', description: 'Deep blacks with vibrant accents', category: 'style' },
-  { id: 'pastel', name: 'Pastel Dreams', description: 'Soft, dreamy pastel colors', category: 'style' },
   { id: 'neon', name: 'Neon Nights', description: 'Electric neon on dark background', category: 'style' },
   { id: 'ocean', name: 'Ocean Depths', description: 'Deep blue aquatic theme', category: 'nature' },
   { id: 'forest', name: 'Forest Canopy', description: 'Green nature-inspired palette', category: 'nature' },
   { id: 'sunset', name: 'Sunset Glow', description: 'Warm orange and pink gradients', category: 'nature' },
   { id: 'space', name: 'Deep Space', description: 'Cosmic darkness with stars', category: 'nature' },
   { id: 'paper', name: 'Paper & Ink', description: 'Vintage paper texture aesthetic', category: 'vintage' },
-  { id: 'terminal', name: 'Terminal', description: 'Classic terminal green on black', category: 'vintage' },
 ];
 
 // Looks Modal Component
@@ -697,8 +695,6 @@ export default function Page() {
           <SettingsModal 
             isOpen={isSettingsOpen} 
             onClose={() => setIsSettingsOpen(false)}
-            currentTheme={theme}
-            setTheme={setTheme}
             currentModelId={selectedModelId}
             setModelId={setSelectedModelId}
             layout={layout}
