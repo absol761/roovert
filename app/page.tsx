@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, Cloud } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, Cloud, ChevronDown } from 'lucide-react';
 
 const MODELS = [
   { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
+  { id: 'gemini-flash', name: 'Gemini Flash', apiId: 'google/gemini-flash-1.5', category: 'Standard', description: 'Fast, efficient, google-powered.' },
   { id: 'mistral-7b', name: 'Mistral 7B', apiId: 'mistralai/mistral-7b-instruct', category: 'Standard', description: 'Fast, efficient, open.' },
   { id: 'deepseek-chat', name: 'DeepSeek V3', apiId: 'deepseek/deepseek-chat', category: 'Standard', description: 'High reasoning capability.' },
   { id: 'gpt-4o', name: 'GPT-4o', apiId: 'openai/gpt-4o', category: 'Advanced', description: 'Top-tier general intelligence.' },
@@ -36,8 +37,29 @@ const SIGNALS = [
   { title: 'Public API', detail: 'Latency holding at 182ms global.' },
 ];
 
+// Layout/Animation Options
+const LAYOUTS = [
+  { id: 'standard', name: 'Standard' },
+  { id: 'compact', name: 'Compact' },
+  { id: 'wide', name: 'Spacious' },
+];
+
+const ANIMATIONS = [
+  { id: 'fast', name: 'Fast' },
+  { id: 'normal', name: 'Normal' },
+  { id: 'slow', name: 'Cinematic' },
+  { id: 'none', name: 'Disabled' },
+];
+
 // Settings Modal Component
-function SettingsModal({ isOpen, onClose, currentTheme, setTheme, currentModelId, setModelId }: any) {
+function SettingsModal({ 
+  isOpen, 
+  onClose, 
+  currentTheme, setTheme, 
+  currentModelId, setModelId,
+  layout, setLayout,
+  animationSpeed, setAnimationSpeed
+}: any) {
   if (!isOpen) return null;
 
   return (
@@ -80,6 +102,47 @@ function SettingsModal({ isOpen, onClose, currentTheme, setTheme, currentModelId
               ))}
             </div>
           </section>
+
+          {/* Layout & Animation */}
+          <div className="grid md:grid-cols-2 gap-8">
+            <section>
+              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Layout Density</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {LAYOUTS.map(l => (
+                  <button
+                    key={l.id}
+                    onClick={() => setLayout(l.id)}
+                    className={`px-3 py-2 rounded-lg border text-sm transition-all ${
+                      layout === l.id
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
+                        : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                    }`}
+                  >
+                    {l.name}
+                  </button>
+                ))}
+              </div>
+            </section>
+            
+            <section>
+              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Motion Speed</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {ANIMATIONS.map(a => (
+                  <button
+                    key={a.id}
+                    onClick={() => setAnimationSpeed(a.id)}
+                    className={`px-3 py-2 rounded-lg border text-sm transition-all ${
+                      animationSpeed === a.id
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
+                        : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                    }`}
+                  >
+                    {a.name}
+                  </button>
+                ))}
+              </div>
+            </section>
+          </div>
 
           {/* Model Section */}
           <section>
@@ -277,13 +340,18 @@ export default function Home() {
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [theme, setTheme] = useState('default');
+  const [layout, setLayout] = useState('standard');
+  const [animationSpeed, setAnimationSpeed] = useState('normal');
+  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Apply Theme
+  // Apply Theme & Layout
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    document.documentElement.setAttribute('data-layout', layout);
+    document.documentElement.setAttribute('data-speed', animationSpeed);
+  }, [theme, layout, animationSpeed]);
 
   const selectedModel = MODELS.find(m => m.id === selectedModelId) || MODELS[0];
 
@@ -384,6 +452,10 @@ export default function Home() {
             setTheme={setTheme}
             currentModelId={selectedModelId}
             setModelId={setSelectedModelId}
+            layout={layout}
+            setLayout={setLayout}
+            animationSpeed={animationSpeed}
+            setAnimationSpeed={setAnimationSpeed}
           />
         )}
       </AnimatePresence>
@@ -453,6 +525,47 @@ export default function Home() {
                 <form onSubmit={handleSubmit} className="relative">
                   <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-6 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
                     <div className="flex items-center gap-4">
+                      {/* Inline Model Selector */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
+                          className="flex items-center gap-2 p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--accent)] text-sm font-medium"
+                        >
+                          <Zap className="w-4 h-4" />
+                          <span className="hidden sm:inline">{selectedModel.name}</span>
+                          <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        <AnimatePresence>
+                          {isModelMenuOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                              className="absolute bottom-full left-0 mb-2 w-56 bg-[var(--hud-bg)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden z-20 max-h-64 overflow-y-auto custom-scrollbar"
+                            >
+                              {MODELS.map(model => (
+                                <button
+                                  key={model.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedModelId(model.id);
+                                    setIsModelMenuOpen(false);
+                                  }}
+                                  className={`w-full text-left px-4 py-3 text-xs transition-colors hover:bg-[var(--surface-strong)] flex items-center justify-between ${
+                                    selectedModelId === model.id ? 'text-[var(--accent)] bg-[var(--surface)]' : 'text-[var(--foreground)]'
+                                  }`}
+                                >
+                                  {model.name}
+                                  {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}
+                                </button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
                       <input
                         ref={inputRef}
                         type="text"

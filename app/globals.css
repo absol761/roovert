@@ -17,6 +17,8 @@
   --muted: rgba(255, 255, 255, 0.65);
   --muted-strong: rgba(255, 255, 255, 0.85);
   --hud-bg: rgba(5, 5, 5, 0.85);
+  --animation-speed: 1s;
+  --layout-gap: 2.5rem;
 }
 
 /* Revised Clean Slate (High Contrast Light Mode) */
@@ -177,7 +179,7 @@ body::before {
 .command-grid {
   display: flex;
   flex-direction: column;
-  gap: 2.5rem;
+  gap: var(--layout-gap);
 }
 
 .command-deck {
@@ -186,7 +188,7 @@ body::before {
 
 .interface-grid {
   display: grid;
-  gap: 2.5rem;
+  gap: var(--layout-gap);
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
@@ -273,6 +275,40 @@ body::before {
     position: sticky;
     top: 160px;
   }
+}
+
+/* Layout Overrides */
+[data-layout='compact'] {
+  --layout-gap: 1rem;
+}
+[data-layout='compact'] .hero-stack {
+  gap: 0.75rem;
+}
+[data-layout='compact'] .theme-content {
+  max-width: 5xl;
+}
+
+[data-layout='wide'] {
+  --layout-gap: 4rem;
+}
+[data-layout='wide'] .theme-content {
+  max-width: 8xl;
+}
+
+/* Animation Overrides */
+[data-speed='fast'] *, [data-speed='fast'] *::before, [data-speed='fast'] *::after {
+  animation-duration: 0.5s !important;
+  transition-duration: 0.15s !important;
+}
+
+[data-speed='slow'] *, [data-speed='slow'] *::before, [data-speed='slow'] *::after {
+  animation-duration: 3s !important;
+  transition-duration: 0.8s !important;
+}
+
+[data-speed='none'] *, [data-speed='none'] *::before, [data-speed='none'] *::after {
+  animation: none !important;
+  transition: none !important;
 }
 
 /* Theme-specific layout overrides */
@@ -362,6 +398,30 @@ body::before {
   gap: 3.5rem;
 }
 
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+  opacity: 0.8;
+}
+
 @keyframes kinetic-pulse {
   0%, 100% {
     opacity: 1;
@@ -410,28 +470,4 @@ body::before {
 
 .delay-1000 {
   animation-delay: 1s;
-}
-
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--background);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--accent);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
-  opacity: 0.8;
 }
