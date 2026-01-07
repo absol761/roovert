@@ -64,6 +64,9 @@ export async function POST(request: NextRequest) {
       
       MISSION:
       - Rigorously pursue truth. Filter out the noise.`;
+    } else {
+        // Ensure no whitespace in model ID
+        targetModel = targetModel.trim();
     }
 
     const respondWithSimulation = (reason: string) =>

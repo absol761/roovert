@@ -330,12 +330,13 @@ function LiveStats() {
   );
 }
 
-export default function Home() {
+export default function Page() {
   const [query, setQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
   const [history, setHistory] = useState<Array<{ query: string; response: string; model: string }>>([]);
   const [statusNote, setStatusNote] = useState<string | null>(null);
+  const [isChatMode, setIsChatMode] = useState(false); // New: Chat Mode State
   
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -356,6 +357,7 @@ export default function Home() {
   const selectedModel = MODELS.find(m => m.id === selectedModelId) || MODELS[0];
 
   const injectPrompt = (prompt: string) => {
+    setIsChatMode(true); // Enter Chat Mode
     setQuery(prompt);
     setResponse(null);
     requestAnimationFrame(() => {
@@ -363,10 +365,22 @@ export default function Home() {
     });
   };
 
+  const handleInitialize = () => {
+    setIsChatMode(true);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim() || isProcessing) return;
 
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery || isProcessing) {
+      return;
+    }
+
+    setIsChatMode(true);
     setIsProcessing(true);
     setResponse(null);
     setStatusNote(null);
@@ -374,49 +388,57 @@ export default function Home() {
     try {
       const res = await fetch('/api/query', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          query,
-          model: selectedModel.apiId 
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: trimmedQuery,
+          model: selectedModel.apiId,
         }),
       });
 
       const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to get response');
+
+      if (!res.ok || !data?.response) {
+        throw new Error(data?.error || data?.warning || 'Failed to process query');
       }
 
       setResponse(data.response);
-      setStatusNote(data.warning || null);
-      setHistory(prev => [{ query, response: data.response, model: selectedModel.name }, ...prev.slice(0, 4)]);
+      setStatusNote(data.warning ?? (data.simulated ? 'Simulation mode active' : null));
+      setHistory(prev => [
+        ...prev,
+        { query: trimmedQuery, response: data.response, model: selectedModelId },
+      ]);
       setQuery('');
     } catch (error: any) {
-      console.error('Frontend Query Error:', error);
-      setResponse(`System Alert: ${error.message || 'Connection interrupted.'}`);
-      setStatusNote(null);
+      console.error('Query failed:', error);
+      const fallbackMessage = error?.message || 'Upstream unavailable. Check OpenRouter connectivity.';
+      setResponse(`System notice: ${fallbackMessage}`);
+      setStatusNote('Simulation mode engaged — verify environment keys.');
     } finally {
       setIsProcessing(false);
-      inputRef.current?.focus();
     }
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500">
-      {/* Animated Background */}
+      <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
+        {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[var(--accent)]/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[var(--accent)]/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)]">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-all duration-500">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
-              <div className="text-2xl font-bold bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent">
+              <button 
+                onClick={() => setIsChatMode(false)} 
+                className="text-2xl font-bold bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+              >
                 ROOVERT
-              </div>
+              </button>
               {/* Settings Trigger */}
               <button 
                 onClick={() => setIsSettingsOpen(true)}
@@ -462,211 +484,243 @@ export default function Home() {
 
       <LiveStats />
 
-      {/* Main Content */}
-      <main className="theme-shell relative z-10 min-h-screen px-6 pt-32 pb-20">
-        <div className="theme-content w-full max-w-6xl mx-auto space-y-14">
-          {/* Headline */}
-          <div className="hero-stack">
-            <div className="space-y-6 text-left w-full">
-              <div className="inline-flex items-center gap-2 text-xs font-mono tracking-[0.35em] uppercase text-[var(--foreground)]/50">
-                <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse"></span>
-                Roovert · Engine of Truth
+      {/* Main Content Area */}
+      <main className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-hidden">
+        
+        {/* Landing Hero (Shown when NOT in Chat Mode) */}
+        <AnimatePresence mode="wait">
+          {!isChatMode && (
+            <motion.div 
+              key="hero"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
+              transition={{ duration: 0.5 }}
+              className="flex-1 flex flex-col items-center justify-center text-center max-w-4xl mx-auto space-y-12"
+            >
+              <div className="space-y-6">
+                <div className="inline-flex items-center gap-2 text-xs font-mono tracking-[0.35em] uppercase text-[var(--foreground)]/50">
+                  <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse"></span>
+                  Roovert · Engine of Truth
+                </div>
+                <h1 className="text-6xl md:text-8xl font-light leading-tight">
+                  <span className="block">Query the</span>
+                  <span className="block text-[var(--accent)] opacity-90">Unfiltered Reality</span>
+                </h1>
+                <p className="text-xl text-[var(--foreground)]/60 font-light max-w-2xl mx-auto">
+                  Advanced intelligence designed to challenge consensus. Powered by <span className="text-[var(--accent)]">{selectedModel.name}</span>.
+                </p>
               </div>
-              <h1 className="text-5xl md:text-7xl font-light leading-tight">
-                Intelligence that challenges every claim.
-              </h1>
-              <p className="text-lg md:text-xl text-[var(--foreground)]/70 max-w-3xl">
-                Designed to feel like the tools that power Gemini, ChatGPT, and Grok—minimal,
-                kinetic, and brutally honest. Choose a model, interrogate reality, and get instant synthesis.
-              </p>
-              <div className="flex flex-wrap gap-6 text-xs md:text-sm uppercase tracking-[0.35em] text-[var(--foreground)]/50">
-                <span>Active Model · <span className="text-[var(--accent)]">{selectedModel.name}</span></span>
-                <span>Signal Integrity · 99.99%</span>
-                <span>Latency · Real-time</span>
-              </div>
-            </div>
-          </div>
 
-          <div className="interface-grid">
-            <section className="intel-panel">
-              <div className="intel-card">
-                <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Active Intelligence</span>
-                <h3 className="font-light">{selectedModel.name}</h3>
-                <p>{selectedModel.description}</p>
-                <div className="flex flex-wrap gap-2 mt-6">
-                  {QUICK_PROMPTS.map(prompt => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      onClick={() => injectPrompt(prompt)}
-                      className="px-3 py-1.5 rounded-full border border-[var(--border)] text-[10px] font-mono tracking-[0.25em] uppercase hover:border-[var(--accent)]/60 hover:text-[var(--accent)] transition-colors"
+              <button
+                onClick={handleInitialize}
+                className="group relative px-8 py-4 bg-[var(--accent)] text-white text-lg font-medium rounded-full overflow-hidden transition-all hover:scale-105 shadow-[0_0_40px_var(--accent-glow)]"
+              >
+                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                <span className="relative flex items-center gap-3">
+                  Initialize Chat <Zap className="w-5 h-5" />
+                </span>
+              </button>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-2xl">
+                {QUICK_PROMPTS.map((prompt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => injectPrompt(prompt)}
+                    className="p-4 text-xs text-left border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:bg-[var(--surface)] transition-all text-[var(--muted)] hover:text-[var(--foreground)]"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Chat Interface (Shown in Chat Mode) */}
+        <AnimatePresence>
+          {isChatMode && (
+            <motion.div 
+              key="chat"
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="theme-content w-full max-w-6xl mx-auto h-full flex flex-col"
+            >
+              <div className="interface-grid h-full">
+                {/* Intel Panel (Left) */}
+                <section className="intel-panel hidden lg:grid content-start">
+                  <div className="intel-card">
+                    <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Active Intelligence</span>
+                    <h3 className="font-light">{selectedModel.name}</h3>
+                    <p>{selectedModel.description}</p>
+                    <button 
+                      onClick={() => setIsChatMode(false)}
+                      className="mt-6 text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
                     >
-                      {prompt}
+                      <X className="w-3 h-3" /> End Session
                     </button>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              <div className="intel-card">
-                <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Ops Snapshot</span>
-                <div className="mt-4 space-y-4">
-                  {SIGNALS.map(signal => (
-                    <div key={signal.title}>
-                      <p className="text-xs uppercase tracking-[0.45em] text-[var(--foreground)]/40">{signal.title}</p>
-                      <p className="text-base mt-1 text-[var(--foreground)]/80">{signal.detail}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <section className="chat-stack">
-              <div className="command-deck w-full">
-                <form onSubmit={handleSubmit} className="relative">
-                  <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-6 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
-                    <div className="flex items-center gap-4">
-                      {/* Inline Model Selector */}
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
-                          className="flex items-center gap-2 p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--accent)] text-sm font-medium"
-                        >
-                          <Zap className="w-4 h-4" />
-                          <span className="hidden sm:inline">{selectedModel.name}</span>
-                          <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        
-                        <AnimatePresence>
-                          {isModelMenuOpen && (
-                            <motion.div
-                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                              className="absolute bottom-full left-0 mb-2 w-56 bg-[var(--hud-bg)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden z-20 max-h-64 overflow-y-auto custom-scrollbar"
-                            >
-                              {MODELS.map(model => (
-                                <button
-                                  key={model.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedModelId(model.id);
-                                    setIsModelMenuOpen(false);
-                                  }}
-                                  className={`w-full text-left px-4 py-3 text-xs transition-colors hover:bg-[var(--surface-strong)] flex items-center justify-between ${
-                                    selectedModelId === model.id ? 'text-[var(--accent)] bg-[var(--surface)]' : 'text-[var(--foreground)]'
-                                  }`}
-                                >
-                                  {model.name}
-                                  {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}
-                                </button>
-                              ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder={`Ask ${selectedModel.name} anything...`}
-                        className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
-                        disabled={isProcessing}
-                      />
-                      <button
-                        type="submit"
-                        disabled={!query.trim() || isProcessing}
-                        className="p-3 bg-[var(--accent)] hover:opacity-90 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[var(--accent)]/20"
-                      >
-                        {isProcessing ? (
-                          <Zap className="w-5 h-5 text-white animate-spin" />
-                        ) : (
-                          <Send className="w-5 h-5 text-white" />
-                        )}
-                      </button>
+                  <div className="intel-card">
+                    <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Ops Snapshot</span>
+                    <div className="mt-4 space-y-4">
+                      {SIGNALS.map(signal => (
+                        <div key={signal.title}>
+                          <p className="text-xs uppercase tracking-[0.45em] text-[var(--foreground)]/40">{signal.title}</p>
+                          <p className="text-base mt-1 text-[var(--foreground)]/80">{signal.detail}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </form>
+                </section>
 
-                {/* Response Area */}
-                <AnimatePresence>
-                  {(response || isProcessing) && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      className="glass-panel mt-6 bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 shadow-xl"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
-                          <Sparkles className="w-5 h-5 text-[var(--accent)]" />
-                        </div>
-                        <div className="space-y-3 flex-1 min-w-0">
-                          <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
-                            {isProcessing ? 'Processing Query...' : `Response from ${selectedModel.name}`}
-                          </div>
-                          {!isProcessing && statusNote && (
-                            <div className="text-[10px] text-[var(--muted)] uppercase tracking-[0.35em]">
-                              {statusNote}
+                {/* Main Chat Stack (Right/Center) */}
+                <section className="chat-stack flex flex-col h-full justify-between">
+                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 min-h-[40vh]">
+                    {/* Response Area */}
+                    <AnimatePresence mode="popLayout">
+                      {(response || isProcessing) ? (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 shadow-xl mb-6"
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
+                              <Sparkles className="w-5 h-5 text-[var(--accent)]" />
                             </div>
-                          )}
-                          <div className="prose prose-invert max-w-none">
-                            {isProcessing ? (
-                              <div className="flex space-x-1 h-6 items-center">
-                                <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce"></div>
+                            <div className="space-y-3 flex-1 min-w-0">
+                              <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
+                                {isProcessing ? 'Processing Query...' : `Response from ${selectedModel.name}`}
                               </div>
-                            ) : (
-                              <p className="text-[var(--foreground)] text-lg leading-relaxed whitespace-pre-wrap font-light">
-                                {response}
-                              </p>
-                            )}
+                              {!isProcessing && statusNote && (
+                                <div className="text-[10px] text-[var(--muted)] uppercase tracking-[0.35em]">
+                                  {statusNote}
+                                </div>
+                              )}
+                              <div className="prose prose-invert max-w-none">
+                                {isProcessing ? (
+                                  <div className="flex space-x-1 h-6 items-center">
+                                    <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                    <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                    <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce"></div>
+                                  </div>
+                                ) : (
+                                  <p className="text-[var(--foreground)] text-lg leading-relaxed whitespace-pre-wrap font-light">
+                                    {response}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           </div>
+                        </motion.div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] opacity-50">
+                          <Zap className="w-12 h-12 mb-4" />
+                          <p>Ready to query.</p>
+                        </div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Input Deck */}
+                  <div className="command-deck w-full mt-6">
+                    <form onSubmit={handleSubmit} className="relative">
+                      <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-4 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
+                        <div className="flex items-center gap-4">
+                          {/* Inline Model Selector */}
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
+                              className="flex items-center gap-2 p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--accent)] text-sm font-medium"
+                            >
+                              <Zap className="w-4 h-4" />
+                              <span className="hidden sm:inline">{selectedModel.name}</span>
+                              <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            
+                            <AnimatePresence>
+                              {isModelMenuOpen && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                  className="absolute bottom-full left-0 mb-2 w-56 bg-[var(--hud-bg)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden z-20 max-h-64 overflow-y-auto custom-scrollbar"
+                                >
+                                  {MODELS.map(model => (
+                                    <button
+                                      key={model.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedModelId(model.id);
+                                        setIsModelMenuOpen(false);
+                                      }}
+                                      className={`w-full text-left px-4 py-3 text-xs transition-colors hover:bg-[var(--surface-strong)] flex items-center justify-between ${
+                                        selectedModelId === model.id ? 'text-[var(--accent)] bg-[var(--surface)]' : 'text-[var(--foreground)]'
+                                      }`}
+                                    >
+                                      {model.name}
+                                      {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}
+                                    </button>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+
+                          <input
+                            ref={inputRef}
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder={`Ask ${selectedModel.name} anything...`}
+                            className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
+                            disabled={isProcessing}
+                          />
+                          <button
+                            type="submit"
+                            disabled={!query.trim() || isProcessing}
+                            className="p-3 bg-[var(--accent)] hover:opacity-90 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[var(--accent)]/20"
+                          >
+                            {isProcessing ? (
+                              <Zap className="w-5 h-5 text-white animate-spin" />
+                            ) : (
+                              <Send className="w-5 h-5 text-white" />
+                            )}
+                          </button>
                         </div>
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    </form>
+                    <Widgets />
+                  </div>
+                </section>
               </div>
-
-              {history.length > 0 && (
-                <div className="history-feed">
-                  <div className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/40">Recent transmissions</div>
-                  {history.map((item, idx) => (
-                    <div key={`${item.query}-${idx}`} className="history-item">
-                      <span>{item.model}</span>
-                      <p>{item.query}</p>
-                      <p className="text-xs text-[var(--foreground)]/50 mt-1">{item.response}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <Widgets />
-            </section>
-          </div>
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
-      {/* Expanded Sections */}
-      <section id="mission" className="relative z-10 py-32 border-t border-[var(--border)] bg-black/20">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-4xl font-light mb-8">Our Mission</h2>
-          <p className="text-xl text-[var(--foreground)]/70 font-light leading-relaxed">
-            In an era of curated realities and algorithmic bias, truth has become a scarcity.
-            Roovert exists to reverse this entropy. We are building the world's most rigorous
-            AI engine, designed not to please, but to <span className="text-[var(--accent)]">understand</span>.
-          </p>
-        </div>
-      </section>
+      {/* Expanded Sections (Only on Landing) */}
+      {!isChatMode && (
+        <>
+          <section id="mission" className="relative z-10 py-32 border-t border-[var(--border)] bg-black/20">
+            <div className="max-w-4xl mx-auto px-6 text-center">
+              <h2 className="text-4xl font-light mb-8">Our Mission</h2>
+              <p className="text-xl text-[var(--foreground)]/70 font-light leading-relaxed">
+                In an era of curated realities and algorithmic bias, truth has become a scarcity.
+                Roovert exists to reverse this entropy. We are building the world's most rigorous
+                AI engine, designed not to please, but to <span className="text-[var(--accent)]">understand</span>.
+              </p>
+            </div>
+          </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-[var(--border)] py-8 text-center text-[var(--foreground)]/40 text-sm">
-        <p>© 2026 Roovert. Rigorously Pursuing Truth.</p>
-      </footer>
+          <footer className="relative z-10 border-t border-[var(--border)] py-8 text-center text-[var(--foreground)]/40 text-sm">
+            <p>© 2026 Roovert. Rigorously Pursuing Truth.</p>
+          </footer>
+        </>
+      )}
     </div>
   );
 }
