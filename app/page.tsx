@@ -17,9 +17,10 @@ const THEMES = [
   { id: 'default', name: 'Deep Space', color: '#008080' },
   { id: 'obsidian', name: 'Obsidian', color: '#8b5cf6' },
   { id: 'midnight', name: 'Midnight', color: '#38bdf8' },
-  { id: 'cyberpunk', name: 'Neon City', color: '#f700ff' },
-  { id: 'matrix', name: 'The Source', color: '#00ff00' },
-  { id: 'minimal', name: 'Clean Slate', color: '#e4e4e7' }, // Changed color to represent light gray/white
+  { id: 'aether', name: 'Aether Field', color: '#6366f1' },
+  { id: 'nocturne', name: 'Nocturne Circuit', color: '#f97316' },
+  { id: 'atlas', name: 'Atlas Grid', color: '#16a34a' },
+  { id: 'minimal', name: 'Clean Slate', color: '#e4e4e7' },
 ];
 
 // Settings Modal Component
@@ -114,12 +115,12 @@ function Widgets() {
   }, []);
 
   return (
-    <div className="flex gap-4 mt-8 overflow-x-auto pb-4 custom-scrollbar">
+    <div className="widgets-stack flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
       {/* Weather Widget */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="flex-shrink-0 min-w-[200px] p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md"
+        className="widget-card flex-shrink-0 min-w-[220px] p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md"
       >
         <div className="flex items-center gap-2 mb-2 text-white/60">
           <Cloud className="w-4 h-4" />
@@ -140,7 +141,7 @@ function Widgets() {
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.1 }}
-        className="flex-shrink-0 min-w-[300px] max-w-[400px] p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md"
+        className="widget-card flex-shrink-0 min-w-[280px] max-w-[360px] p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md"
       >
         <div className="flex items-center gap-2 mb-2 text-white/60">
           <Globe className="w-4 h-4" />
@@ -149,11 +150,11 @@ function Widgets() {
         {news.length > 0 ? (
           <div className="space-y-3">
             {news.map((story: any) => (
-              <a 
+          <a
                 key={story.id} 
                 href={story.url} 
-                target="_blank" 
-                rel="noopener noreferrer"
+            target="_blank"
+            rel="noopener noreferrer"
                 className="block text-sm hover:text-[var(--accent)] transition-colors truncate"
               >
                 • {story.title}
@@ -296,11 +297,17 @@ export default function Home() {
       });
 
       const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to get response');
+      }
+
       setResponse(data.response);
       setHistory(prev => [{ query, response: data.response, model: selectedModel.name }, ...prev.slice(0, 4)]);
       setQuery('');
-    } catch (error) {
-      setResponse('Error processing query. Please try again.');
+    } catch (error: any) {
+      console.error('Frontend Query Error:', error);
+      setResponse(`System Alert: ${error.message || 'Connection interrupted.'}`);
     } finally {
       setIsProcessing(false);
       inputRef.current?.focus();
@@ -365,10 +372,10 @@ export default function Home() {
       <LiveStats />
 
       {/* Main Content */}
-      <main className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 pt-32 pb-20">
-        <div className="w-full max-w-5xl mx-auto space-y-12">
+      <main className="theme-shell relative z-10 min-h-screen px-6 pt-32 pb-20">
+        <div className="theme-content w-full max-w-6xl mx-auto space-y-12">
           {/* Headline */}
-          <div className="text-center space-y-6">
+          <div className="hero-stack text-center space-y-6">
             <h1 className="text-6xl md:text-8xl font-light leading-tight">
               <span className="block">Roovert</span>
               <span className="block text-[var(--accent)] opacity-90">
@@ -381,10 +388,11 @@ export default function Home() {
           </div>
 
           {/* Query Interface */}
-          <div className="w-full max-w-3xl mx-auto">
-            <form onSubmit={handleSubmit} className="relative">
-              <div className="relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-6 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
-                <div className="flex items-center gap-4">
+          <div className="command-grid w-full gap-8">
+            <div className="command-deck w-full">
+              <form onSubmit={handleSubmit} className="relative">
+                <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-6 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
+                  <div className="flex items-center gap-4">
                   <input
                     ref={inputRef}
                     type="text"
@@ -405,18 +413,18 @@ export default function Home() {
                       <Send className="w-5 h-5 text-white" />
                     )}
                   </button>
+                  </div>
                 </div>
-              </div>
-            </form>
+              </form>
 
             {/* Response Area */}
             <AnimatePresence>
-              {response && (
+              {(response || isProcessing) && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="mt-6 bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 shadow-xl"
+                  className="glass-panel mt-6 bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 shadow-xl"
                 >
                   <div className="flex items-start gap-4">
                     <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
@@ -424,20 +432,27 @@ export default function Home() {
                     </div>
                     <div className="space-y-3 flex-1 min-w-0">
                       <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
-                        Response from {selectedModel.name}
+                        {isProcessing ? 'Processing Query...' : `Response from ${selectedModel.name}`}
                       </div>
                       <div className="prose prose-invert max-w-none">
-                        <p className="text-[var(--foreground)] text-lg leading-relaxed whitespace-pre-wrap font-light">
-                          {response}
-                        </p>
+                        {isProcessing ? (
+                          <div className="flex space-x-1 h-6 items-center">
+                            <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                            <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                            <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce"></div>
+                          </div>
+                        ) : (
+                          <p className="text-[var(--foreground)] text-lg leading-relaxed whitespace-pre-wrap font-light">
+                            {response}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Widgets Section */}
+            </div>
             <Widgets />
           </div>
         </div>

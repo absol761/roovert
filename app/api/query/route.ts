@@ -77,7 +77,19 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
         const errorText = await response.text();
         console.error('OpenRouter API error:', response.status, errorText);
-        throw new Error(`OpenRouter API error: ${response.status}`);
+        
+        let errorMessage = `Provider Error (${response.status})`;
+        try {
+            const errorJson = JSON.parse(errorText);
+            if (errorJson.error && errorJson.error.message) {
+                errorMessage = errorJson.error.message;
+            }
+        } catch (e) {
+            // Use raw text if JSON parse fails
+            errorMessage += `: ${errorText.substring(0, 100)}`;
+        }
+        
+        throw new Error(errorMessage);
     }
 
     const data = await response.json();
@@ -89,10 +101,10 @@ export async function POST(request: NextRequest) {
       query: query,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Query processing error:', error);
     return NextResponse.json(
-      { error: 'Failed to process query' },
+      { error: error.message || 'Failed to process query' },
       { status: 500 }
     );
   }

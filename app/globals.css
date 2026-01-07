@@ -8,24 +8,9 @@
   --accent-glow: rgba(0, 128, 128, 0.3);
   --panel-bg: rgba(255, 255, 255, 0.05);
   --border: rgba(255, 255, 255, 0.1);
-}
-
-[data-theme='cyberpunk'] {
-  --background: #02000f;
-  --foreground: #e0f7fa;
-  --accent: #f700ff;
-  --accent-glow: rgba(247, 0, 255, 0.4);
-  --panel-bg: rgba(247, 0, 255, 0.05);
-  --border: rgba(247, 0, 255, 0.2);
-}
-
-[data-theme='matrix'] {
-  --background: #000000;
-  --foreground: #00ff00;
-  --accent: #00ff00;
-  --accent-glow: rgba(0, 255, 0, 0.2);
-  --panel-bg: rgba(0, 20, 0, 0.8);
-  --border: #003300;
+  --panel-radius: 28px;
+  --panel-border-style: solid;
+  --panel-border-width: 1px;
 }
 
 /* Revised Clean Slate (High Contrast Light Mode) */
@@ -36,6 +21,7 @@
   --accent-glow: rgba(0, 0, 0, 0.05);
   --panel-bg: #f4f4f5; /* Zinc-100 */
   --border: #e4e4e7;   /* Zinc-200 */
+  --panel-radius: 26px;
 }
 
 /* Obsidian (Deep Violet/Dark) */
@@ -46,6 +32,7 @@
   --accent-glow: rgba(139, 92, 246, 0.3);
   --panel-bg: rgba(17, 10, 40, 0.6);
   --border: rgba(139, 92, 246, 0.2);
+  --panel-radius: 32px;
 }
 
 /* Midnight (Deep Blue/Slate) */
@@ -56,6 +43,44 @@
   --accent-glow: rgba(56, 189, 248, 0.3);
   --panel-bg: rgba(30, 41, 59, 0.6);
   --border: rgba(56, 189, 248, 0.2);
+  --panel-radius: 30px;
+}
+
+/* Aether Field (Split-grid light) */
+[data-theme='aether'] {
+  --background: #eef2ff;
+  --foreground: #0b1220;
+  --accent: #6366f1;
+  --accent-glow: rgba(99, 102, 241, 0.25);
+  --panel-bg: rgba(255, 255, 255, 0.92);
+  --border: rgba(99, 102, 241, 0.2);
+  --panel-radius: 20px;
+}
+
+/* Nocturne Circuit (Neo-noir) */
+[data-theme='nocturne'] {
+  --background: #010409;
+  --foreground: #f8fafc;
+  --accent: #f97316;
+  --accent-glow: rgba(249, 115, 22, 0.35);
+  --panel-bg: rgba(2, 8, 23, 0.85);
+  --border: rgba(249, 115, 22, 0.35);
+  --panel-radius: 10px;
+  --panel-border-style: double;
+  --panel-border-width: 2px;
+}
+
+/* Atlas Grid (Brutalist blueprint) */
+[data-theme='atlas'] {
+  --background: #f5f2ec;
+  --foreground: #1f1b16;
+  --accent: #0f766e;
+  --accent-glow: rgba(15, 118, 110, 0.25);
+  --panel-bg: rgba(255, 255, 255, 0.96);
+  --border: rgba(15, 23, 42, 0.25);
+  --panel-radius: 6px;
+  --panel-border-style: solid;
+  --panel-border-width: 1px;
 }
 
 @theme inline {
@@ -74,6 +99,156 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   overflow-x: hidden;
   transition: background-color 0.5s ease, color 0.5s ease;
+  position: relative;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 45%),
+              radial-gradient(circle at 80% 0%, rgba(0, 128, 128, 0.2), transparent 50%);
+  opacity: 0.7;
+  pointer-events: none;
+  transition: opacity 0.4s ease, background 0.4s ease;
+}
+
+.theme-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 4rem;
+}
+
+.theme-content {
+  width: 100%;
+}
+
+.hero-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.command-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.command-deck {
+  width: 100%;
+}
+
+.widgets-stack {
+  display: flex;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.glass-panel {
+  border-radius: var(--panel-radius, 24px) !important;
+  border-style: var(--panel-border-style, solid) !important;
+  border-width: var(--panel-border-width, 1px) !important;
+}
+
+.widget-card {
+  border-radius: calc(var(--panel-radius, 24px) - 6px) !important;
+}
+
+@media (min-width: 1024px) {
+  .command-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(240px, 1.2fr);
+    align-items: start;
+  }
+
+  .widgets-stack {
+    flex-direction: column;
+    position: sticky;
+    top: 160px;
+  }
+}
+
+/* Theme-specific layout overrides */
+[data-theme='aether'] body::before {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), transparent 40%),
+              radial-gradient(circle at 70% 20%, rgba(14, 165, 233, 0.15), transparent 50%),
+              radial-gradient(circle at 0% 80%, rgba(255, 255, 255, 0.7), transparent 55%);
+  opacity: 1;
+}
+
+[data-theme='aether'] nav {
+  background: transparent;
+  border-bottom: none;
+}
+
+[data-theme='aether'] .hero-stack {
+  align-items: flex-start;
+  text-align: left;
+}
+
+[data-theme='aether'] .command-grid {
+  grid-template-columns: minmax(0, 2.3fr) minmax(260px, 1fr);
+}
+
+[data-theme='aether'] .widgets-stack {
+  backdrop-filter: blur(20px);
+}
+
+[data-theme='nocturne'] body::before {
+  background: radial-gradient(circle at 20% -10%, rgba(249, 115, 22, 0.25), transparent 55%),
+              radial-gradient(circle at 80% 30%, rgba(14, 165, 233, 0.2), transparent 60%);
+  opacity: 0.9;
+}
+
+[data-theme='nocturne'] nav {
+  border-bottom: 1px solid rgba(249, 115, 22, 0.25);
+  background: rgba(1, 4, 9, 0.85);
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme='nocturne'] .theme-shell {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+[data-theme='nocturne'] .command-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+[data-theme='nocturne'] .glass-panel {
+  background: linear-gradient(135deg, rgba(2, 6, 23, 0.95), rgba(2, 6, 23, 0.75));
+  box-shadow: 0 25px 60px rgba(2, 6, 23, 0.8);
+}
+
+[data-theme='atlas'] body::before {
+  background-image: linear-gradient(rgba(28, 25, 23, 0.05) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(28, 25, 23, 0.05) 1px, transparent 1px);
+  background-size: 60px 60px, 60px 60px;
+  opacity: 1;
+}
+
+[data-theme='atlas'] .theme-shell {
+  gap: 5rem;
+}
+
+[data-theme='atlas'] .hero-stack {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+[data-theme='atlas'] .glass-panel {
+  border-radius: 0 !important;
+  border: 1px solid rgba(15, 23, 42, 0.3) !important;
+  box-shadow: 12px 12px 0 rgba(15, 23, 42, 0.15);
+}
+
+[data-theme='atlas'] .widgets-stack {
+  flex-direction: row;
+  position: static;
 }
 
 @keyframes kinetic-pulse {
