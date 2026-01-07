@@ -40,9 +40,10 @@ export async function GET() {
   const queriesProcessed = Math.floor(uniqueMinds * 5.2) + Math.floor(elapsedDays * 24);
 
   const stats = {
-    queriesProcessed: queriesProcessed,
-    activeUsers: activeUsers,
-    uniqueMinds: uniqueMinds,
+    queriesProcessed,
+    activeUsers,
+    uniqueMinds,
+    totalVisitors: uniqueMinds,
     accuracy: (99.4 + (Math.sin(elapsedDays) * 0.2)).toFixed(2),
     uptime: '99.99%',
     timestamp: now.toISOString(),

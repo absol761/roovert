@@ -189,8 +189,8 @@ function Widgets() {
 function LiveStats() {
   const [stats, setStats] = useState({
     queriesProcessed: 0,
-    activeUsers: 0,
     uniqueMinds: 0,
+    totalVisitors: 0,
     accuracy: '0.00',
     uptime: '99.9%',
   });
@@ -238,15 +238,15 @@ function LiveStats() {
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-[var(--muted)]">Queries</span>
+                <span className="text-[var(--muted)]">People who've used Roovert</span>
                 <span className="text-[var(--accent)] font-mono font-bold">
-                  {stats.queriesProcessed.toLocaleString()}
+                  {(stats.totalVisitors || stats.uniqueMinds).toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-[var(--muted)]">Active</span>
+                <span className="text-[var(--muted)]">Queries</span>
                 <span className="text-[var(--accent)] font-mono font-bold">
-                  {stats.activeUsers.toLocaleString()}
+                  {stats.queriesProcessed.toLocaleString()}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4 text-sm">
