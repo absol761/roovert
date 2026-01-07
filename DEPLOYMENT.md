@@ -31,11 +31,50 @@ In the Vercel project settings, add any required environment variables:
 2. Vercel will build and deploy your site automatically
 3. Your site will be live at: `https://roovert.vercel.app` (or your custom domain)
 
-### Step 4: Custom Domain (Optional)
+### Step 4: Add Your Custom Domain (roovert.com)
 
-1. Go to Project Settings → Domains
-2. Add your custom domain (e.g., `roovert.com`)
-3. Follow DNS configuration instructions
+**Why you see `roovert.vercel.app`:** Vercel automatically provides a free subdomain. To use your custom domain `roovert.com`, follow these steps:
+
+1. **In Vercel Dashboard:**
+   - Go to your project: `roovert`
+   - Click **Settings** (top right)
+   - Click **Domains** in the left sidebar
+   - Click **Add Domain**
+
+2. **Add your domain:**
+   - Enter: `roovert.com`
+   - Click **Add**
+   - Vercel will show you DNS configuration instructions
+
+3. **Configure DNS at your domain registrar:**
+   
+   Vercel will provide you with specific DNS records. Typically you need:
+   
+   **Option A: Apex Domain (roovert.com)**
+   - Type: `A`
+   - Name: `@` or `roovert.com`
+   - Value: `76.76.21.21` (Vercel's IP - check your Vercel dashboard for the exact value)
+   
+   **Option B: CNAME (Recommended)**
+   - Type: `CNAME`
+   - Name: `@` or `roovert.com`
+   - Value: `cname.vercel-dns.com` (check your Vercel dashboard for exact value)
+   
+   **For www subdomain:**
+   - Type: `CNAME`
+   - Name: `www`
+   - Value: `cname.vercel-dns.com`
+
+4. **Wait for DNS propagation:**
+   - DNS changes can take 24-48 hours (usually much faster)
+   - Vercel will show "Valid Configuration" when ready
+   - SSL certificate will be automatically provisioned
+
+5. **Verify it's working:**
+   - Visit `https://roovert.com` (should redirect from vercel.app automatically)
+   - Check SSL certificate is active (green padlock)
+
+**Note:** Your site will work on BOTH `roovert.vercel.app` AND `roovert.com` after configuration.
 
 ## 🔄 Automatic Deployments
 
