@@ -1327,6 +1327,145 @@ html {
   background: rgba(0, 4, 40, 0.95) !important;
 }
 
+/* Blueprint Look - Technical Drawing Aesthetic */
+[data-look='blueprint'] {
+  --background: #e8f4f8;
+  --foreground: #0a4a6b;
+  --accent: #0066cc;
+  --accent-glow: rgba(0, 102, 204, 0.2);
+  --panel-bg: rgba(232, 244, 248, 0.95);
+  --border: rgba(0, 102, 204, 0.4);
+  --panel-radius: 0px;
+  --panel-border-style: solid;
+  --panel-border-width: 2px;
+  --surface: rgba(0, 102, 204, 0.08);
+  --surface-strong: rgba(0, 102, 204, 0.15);
+  --chip-bg: rgba(232, 244, 248, 0.9);
+  --muted: rgba(10, 74, 107, 0.6);
+  --muted-strong: rgba(10, 74, 107, 0.8);
+  --hud-bg: rgba(232, 244, 248, 0.98);
+}
+
+[data-look='blueprint'] body {
+  background: 
+    repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(0, 102, 204, 0.03) 20px, rgba(0, 102, 204, 0.03) 22px),
+    repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(0, 102, 204, 0.03) 20px, rgba(0, 102, 204, 0.03) 22px),
+    linear-gradient(135deg, #e8f4f8 0%, #d0e8f0 100%);
+  background-attachment: fixed;
+  font-family: 'Courier New', 'Monaco', monospace;
+}
+
+[data-look='blueprint'] body::before {
+  background: 
+    repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0, 102, 204, 0.02) 5px, rgba(0, 102, 204, 0.02) 6px),
+    radial-gradient(circle at 50% 50%, rgba(0, 102, 204, 0.05), transparent 70%);
+  opacity: 0.5;
+}
+
+[data-look='blueprint'] .glass-panel,
+[data-look='blueprint'] .intel-card,
+[data-look='blueprint'] .widget-card {
+  border: 2px solid var(--border) !important;
+  border-radius: 0 !important;
+  box-shadow: 
+    0 2px 4px rgba(0, 102, 204, 0.2),
+    inset 0 0 0 1px rgba(0, 102, 204, 0.1) !important;
+  background: 
+    repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(0, 102, 204, 0.02) 10px, rgba(0, 102, 204, 0.02) 11px),
+    repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(0, 102, 204, 0.02) 10px, rgba(0, 102, 204, 0.02) 11px),
+    rgba(232, 244, 248, 0.98) !important;
+  position: relative;
+}
+
+[data-look='blueprint'] .glass-panel::before,
+[data-look='blueprint'] .intel-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(to right, rgba(0, 102, 204, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 102, 204, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+  opacity: 0.3;
+}
+
+[data-look='blueprint'] nav {
+  border-bottom: 3px double var(--border);
+  background: rgba(232, 244, 248, 0.98);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.15);
+}
+
+[data-look='blueprint'] button {
+  border: 2px solid var(--border);
+  border-radius: 0;
+  background: rgba(232, 244, 248, 0.9);
+  box-shadow: 
+    0 2px 4px rgba(0, 102, 204, 0.2),
+    inset 0 0 0 1px rgba(0, 102, 204, 0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  position: relative;
+}
+
+[data-look='blueprint'] button::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 1px dashed rgba(0, 102, 204, 0.3);
+  pointer-events: none;
+}
+
+[data-look='blueprint'] button:hover {
+  background: rgba(0, 102, 204, 0.1);
+  box-shadow: 
+    0 4px 8px rgba(0, 102, 204, 0.3),
+    inset 0 0 0 2px rgba(0, 102, 204, 0.2);
+}
+
+[data-look='blueprint'] h1,
+[data-look='blueprint'] h2,
+[data-look='blueprint'] h3 {
+  font-family: 'Courier New', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  text-shadow: 2px 2px 0 rgba(0, 102, 204, 0.2);
+}
+
+[data-look='blueprint'] input,
+[data-look='blueprint'] textarea {
+  border: 2px solid var(--border);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.9);
+  font-family: 'Courier New', monospace;
+  box-shadow: inset 0 2px 4px rgba(0, 102, 204, 0.1);
+}
+
+[data-look='blueprint'] input:focus,
+[data-look='blueprint'] textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 102, 204, 0.1),
+    0 0 0 2px rgba(0, 102, 204, 0.2);
+}
+
+[data-look='blueprint'] .intel-card::after {
+  content: 'DWG-001';
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 8px;
+  font-family: 'Courier New', monospace;
+  color: rgba(0, 102, 204, 0.4);
+  letter-spacing: 0.1em;
+}
+
 /* Paper & Ink Look */
 [data-look='paper'] {
   --background: #f5f5dc;
@@ -1741,4 +1880,45 @@ html {
 @keyframes psychedelic-rainbow {
   0%, 100% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
   50% { transform: translate(-50%, -50%) rotate(180deg) scale(1.2); }
+}
+
+/* Blueprint - Technical Grid */
+[data-look-preview='blueprint']:hover .look-preview-animation {
+  background: 
+    repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(0, 102, 204, 0.1) 10px, rgba(0, 102, 204, 0.1) 11px),
+    repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(0, 102, 204, 0.1) 10px, rgba(0, 102, 204, 0.1) 11px);
+  animation: blueprint-grid 2s linear infinite;
+}
+
+@keyframes blueprint-grid {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(10px, 10px); }
+}
+
+[data-look-preview='blueprint']:hover .look-preview-animation::before {
+  content: '📐';
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 20px;
+  animation: blueprint-draw 2s ease-in-out infinite;
+}
+
+@keyframes blueprint-draw {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(45deg) scale(1.1); }
+}
+
+[data-look-preview='blueprint']:hover .look-preview-animation::after {
+  content: '📏';
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  font-size: 18px;
+  animation: blueprint-measure 2s ease-in-out infinite;
+}
+
+@keyframes blueprint-measure {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-5px); }
 }
