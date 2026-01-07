@@ -915,7 +915,7 @@ export default function Page() {
                 )}
 
                 {/* Main Chat Stack (Right/Center) */}
-                <section className={`chat-stack flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen ? 'col-span-full' : ''}`}>
+                <section className={`chat-stack flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen || (closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot')) ? 'col-span-full' : ''}`}>
                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 min-h-[40vh]">
                     {/* Response Area */}
                     <AnimatePresence mode="popLayout">

@@ -325,10 +325,6 @@ body::before {
 }
 
 /* Auto-adjust layout when widgets are closed */
-.intel-panel:has(.intel-card:only-child) {
-  grid-template-columns: 1fr;
-}
-
 .intel-panel.hidden {
   display: none !important;
 }
@@ -338,8 +334,14 @@ body::before {
 }
 
 /* When intel panel is hidden, chat takes full width */
-.interface-grid:has(.intel-panel.hidden) {
+.interface-grid:has(.intel-panel.hidden),
+.interface-grid:has(.intel-panel:empty) {
   grid-template-columns: 1fr !important;
+}
+
+/* When only one widget remains, adjust spacing */
+.intel-panel:has(.intel-card:only-child) {
+  gap: 0;
 }
 
 @media (max-width: 1024px) {
