@@ -142,10 +142,71 @@ body::before {
   width: 100%;
 }
 
+.interface-grid {
+  display: grid;
+  gap: 2.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
 .widgets-stack {
   display: flex;
   gap: 1.5rem;
   width: 100%;
+}
+
+.intel-panel {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.intel-card {
+  padding: 1.5rem;
+  border-radius: var(--panel-radius, 24px);
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.18);
+}
+
+.intel-card h3 {
+  font-size: 1.75rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.intel-card p {
+  color: color-mix(in srgb, var(--foreground), transparent 35%);
+}
+
+.chat-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.history-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.history-item {
+  padding: 1rem 1.25rem;
+  border-radius: 20px;
+  border: 1px dashed var(--border);
+  background: color-mix(in srgb, var(--panel-bg), transparent 30%);
+}
+
+.history-item span {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--foreground), transparent 60%);
+}
+
+.history-item p {
+  margin-top: 0.35rem;
+  color: color-mix(in srgb, var(--foreground), transparent 15%);
 }
 
 .glass-panel {
@@ -219,6 +280,10 @@ body::before {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
+[data-theme='nocturne'] .interface-grid {
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+}
+
 [data-theme='nocturne'] .glass-panel {
   background: linear-gradient(135deg, rgba(2, 6, 23, 0.95), rgba(2, 6, 23, 0.75));
   box-shadow: 0 25px 60px rgba(2, 6, 23, 0.8);
@@ -249,6 +314,10 @@ body::before {
 [data-theme='atlas'] .widgets-stack {
   flex-direction: row;
   position: static;
+}
+
+[data-theme='atlas'] .interface-grid {
+  gap: 3.5rem;
 }
 
 @keyframes kinetic-pulse {

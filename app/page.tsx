@@ -23,6 +23,19 @@ const THEMES = [
   { id: 'minimal', name: 'Clean Slate', color: '#e4e4e7' },
 ];
 
+const QUICK_PROMPTS = [
+  'Stress test this assumption about AGI timelines.',
+  'Summarize the latest x-risk research with citations.',
+  'Cross-check today’s markets sentiment vs macro data.',
+  'Explain why the universe favors or rejects life.',
+];
+
+const SIGNALS = [
+  { title: 'Mission Feed', detail: 'Truth Ops syncing with live telemetry.' },
+  { title: 'Signal Integrity', detail: 'All anomalies logged and traced.' },
+  { title: 'Public API', detail: 'Latency holding at 182ms global.' },
+];
+
 // Settings Modal Component
 function SettingsModal({ isOpen, onClose, currentTheme, setTheme, currentModelId, setModelId }: any) {
   if (!isOpen) return null;
@@ -279,6 +292,14 @@ export default function Home() {
 
   const selectedModel = MODELS.find(m => m.id === selectedModelId) || MODELS[0];
 
+  const injectPrompt = (prompt: string) => {
+    setQuery(prompt);
+    setResponse(null);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim() || isProcessing) return;
@@ -373,23 +394,64 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="theme-shell relative z-10 min-h-screen px-6 pt-32 pb-20">
-        <div className="theme-content w-full max-w-6xl mx-auto space-y-12">
+        <div className="theme-content w-full max-w-6xl mx-auto space-y-14">
           {/* Headline */}
-          <div className="hero-stack text-center space-y-6">
-            <h1 className="text-6xl md:text-8xl font-light leading-tight">
-              <span className="block">Roovert</span>
-              <span className="block text-[var(--accent)] opacity-90">
-                The Truth, Unfiltered
-              </span>
-            </h1>
-            <p className="text-xl text-[var(--foreground)]/60 font-light max-w-2xl mx-auto">
-              Query reality with precision. Powered by <span className="text-[var(--accent)]">{selectedModel.name}</span>.
-            </p>
+          <div className="hero-stack">
+            <div className="space-y-6 text-left w-full">
+              <div className="inline-flex items-center gap-2 text-xs font-mono tracking-[0.35em] uppercase text-[var(--foreground)]/50">
+                <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse"></span>
+                Roovert · Engine of Truth
+              </div>
+              <h1 className="text-5xl md:text-7xl font-light leading-tight">
+                Intelligence that challenges every claim.
+              </h1>
+              <p className="text-lg md:text-xl text-[var(--foreground)]/70 max-w-3xl">
+                Designed to feel like the tools that power Gemini, ChatGPT, and Grok—minimal,
+                kinetic, and brutally honest. Choose a model, interrogate reality, and get instant synthesis.
+              </p>
+              <div className="flex flex-wrap gap-6 text-xs md:text-sm uppercase tracking-[0.35em] text-[var(--foreground)]/50">
+                <span>Active Model · <span className="text-[var(--accent)]">{selectedModel.name}</span></span>
+                <span>Signal Integrity · 99.99%</span>
+                <span>Latency · Real-time</span>
+              </div>
+            </div>
           </div>
 
-          {/* Query Interface */}
-          <div className="command-grid w-full gap-8">
-            <div className="command-deck w-full">
+          <div className="interface-grid">
+            <section className="intel-panel">
+              <div className="intel-card">
+                <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Active Intelligence</span>
+                <h3 className="font-light">{selectedModel.name}</h3>
+                <p>{selectedModel.description}</p>
+                <div className="flex flex-wrap gap-2 mt-6">
+                  {QUICK_PROMPTS.map(prompt => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => injectPrompt(prompt)}
+                      className="px-3 py-1.5 rounded-full border border-[var(--border)] text-[10px] font-mono tracking-[0.25em] uppercase hover:border-[var(--accent)]/60 hover:text-[var(--accent)] transition-colors"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="intel-card">
+                <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Ops Snapshot</span>
+                <div className="mt-4 space-y-4">
+                  {SIGNALS.map(signal => (
+                    <div key={signal.title}>
+                      <p className="text-xs uppercase tracking-[0.45em] text-[var(--foreground)]/40">{signal.title}</p>
+                      <p className="text-base mt-1 text-[var(--foreground)]/80">{signal.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="chat-stack">
+              <div className="command-deck w-full">
               <form onSubmit={handleSubmit} className="relative">
                 <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-6 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
                   <div className="flex items-center gap-4">
@@ -452,8 +514,61 @@ export default function Home() {
                 </motion.div>
               )}
             </AnimatePresence>
-            </div>
-            <Widgets />
+                  </div>
+                </form>
+
+                {/* Response Area */}
+                <AnimatePresence>
+                  {(response || isProcessing) && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className="glass-panel mt-6 bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 shadow-xl"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
+                          <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+                        </div>
+                        <div className="space-y-3 flex-1 min-w-0">
+                          <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
+                            {isProcessing ? 'Processing Query...' : `Response from ${selectedModel.name}`}
+                          </div>
+                          <div className="prose prose-invert max-w-none">
+                            {isProcessing ? (
+                              <div className="flex space-x-1 h-6 items-center">
+                                <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce"></div>
+                              </div>
+                            ) : (
+                              <p className="text-[var(--foreground)] text-lg leading-relaxed whitespace-pre-wrap font-light">
+                                {response}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {history.length > 0 && (
+                <div className="history-feed">
+                  <div className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/40">Recent transmissions</div>
+                  {history.map((item, idx) => (
+                    <div key={`${item.query}-${idx}`} className="history-item">
+                      <span>{item.model}</span>
+                      <p>{item.query}</p>
+                      <p className="text-xs text-[var(--foreground)]/50 mt-1">{item.response}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Widgets />
+            </section>
           </div>
         </div>
       </main>
