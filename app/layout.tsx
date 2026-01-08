@@ -26,6 +26,35 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* Suppress play() Promise rejection errors from browser extensions/third-party scripts */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Handle unhandled Promise rejections from media play() calls
+              // This prevents console errors from browser extensions or third-party scripts
+              window.addEventListener('unhandledrejection', function(event) {
+                const error = event.reason;
+                // Check if it's a media play/pause error
+                if (error && (
+                  error.name === 'AbortError' ||
+                  error.name === 'NotAllowedError' ||
+                  (error.message && (
+                    error.message.includes('play()') ||
+                    error.message.includes('pause()') ||
+                    error.message.includes('interrupted') ||
+                    error.message.includes('playback')
+                  ))
+                )) {
+                  // Silently handle media playback errors
+                  event.preventDefault();
+                  return;
+                }
+              });
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

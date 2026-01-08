@@ -1085,9 +1085,15 @@ export default function Page() {
         setAbortController(null);
         return;
       }
-      // Suppress AbortError from play() calls (browser autoplay policies)
-      if (error.message?.includes('play()') || error.message?.includes('pause()')) {
-        return; // Silently ignore
+      // Suppress media playback errors (from browser extensions or third-party scripts)
+      if (error.name === 'NotAllowedError' || 
+          (error.message && (
+            error.message.includes('play()') || 
+            error.message.includes('pause()') ||
+            error.message.includes('interrupted') ||
+            error.message.includes('playback')
+          ))) {
+        return; // Silently ignore media playback errors
       }
       console.error('Query failed:', error);
       const fallbackMessage = error?.message || 'Upstream unavailable. Check OpenRouter connectivity.';
