@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { ConsentBanner } from "./components/ConsentBanner";
+import { ParticleCursor } from "./components/ParticleCursor";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
         <Script src="/tracker.js" strategy="afterInteractive" />
         {children}
         <ConsentBanner />
+        <ParticleCursor />
       </body>
     </html>
   );
