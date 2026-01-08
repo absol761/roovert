@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { getDatabase } from '@/app/lib/db';
 import { createVisitorHash, getClientIP, getUserAgent } from '@/app/lib/tracking';
+import { kv } from '@vercel/kv';
 
 export async function POST(request: Request) {
   try {
@@ -121,16 +122,38 @@ export async function POST(request: Request) {
 // Allow GET for simple health check
 export async function GET() {
   try {
-    const db = getDatabase();
-    const totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
+    // Try KV first
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      try {
+        const count = await kv.get('unique_visitors') as number || 0;
+        return NextResponse.json({
+          success: true,
+          totalUniqueVisitors: count,
+        });
+      } catch (kvError) {
+        console.error('KV GET error:', kvError);
+      }
+    }
     
-    return NextResponse.json({
-      success: true,
-      totalUniqueVisitors: totalCount.count,
-    });
+    // Fallback to SQLite
+    try {
+      const db = getDatabase();
+      const totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
+      
+      return NextResponse.json({
+        success: true,
+        totalUniqueVisitors: totalCount.count,
+      });
+    } catch (dbError) {
+      console.error('SQLite GET error:', dbError);
+      return NextResponse.json({
+        success: true,
+        totalUniqueVisitors: 0,
+      });
+    }
   } catch (error) {
     console.error('Stats fetch error:', error);
-    return NextResponse.json({ success: false, error: 'Failed to fetch stats' }, { status: 500 });
+    return NextResponse.json({ success: true, totalUniqueVisitors: 0 });
   }
 }
 
