@@ -226,7 +226,8 @@ function SettingsModal({
   systemPrompt, setSystemPrompt,
   onExportChat,
   currentLook, setLook,
-  onOpenLooks
+  onOpenLooks,
+  onOpenMoreModels
 }: any) {
   if (!isOpen) return null;
 
