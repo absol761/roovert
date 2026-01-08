@@ -1090,6 +1090,9 @@ export default function Page() {
 
   return (
       <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
+        {/* Neural Noise Background - Only when not in chat mode */}
+        {!isChatMode && <NeuralNoise isChatMode={isChatMode} />}
+        
         {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[var(--accent)]/10 rounded-full blur-3xl animate-pulse"></div>
