@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface NeuralNoiseProps {
   isChatMode?: boolean;
@@ -13,6 +13,7 @@ export function NeuralNoise({ isChatMode = false }: NeuralNoiseProps) {
   const uniformsRef = useRef<{ [key: string]: WebGLUniformLocation | null } | null>(null);
   const pointerRef = useRef({ x: 0, y: 0, tX: 0, tY: 0 });
   const colorRef = useRef({ r: 0.1, g: 0.2, b: 0.8 });
+  const [isMounted, setIsMounted] = useState(false);
 
   // Convert hex color to RGB (0-1 range)
   const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
@@ -255,8 +256,13 @@ export function NeuralNoise({ isChatMode = false }: NeuralNoiseProps) {
   };
 
   useEffect(() => {
-    // Don't render if in chat mode
-    if (isChatMode) return;
+    // Only run on client side to prevent hydration mismatch
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    // Don't render if in chat mode or not mounted
+    if (isChatMode || !isMounted) return;
 
     glRef.current = initShader();
     if (!glRef.current) return; // WebGL not supported
@@ -293,10 +299,10 @@ export function NeuralNoise({ isChatMode = false }: NeuralNoiseProps) {
       window.removeEventListener('click', handleClick);
       observer.disconnect();
     };
-  }, [isChatMode]);
+  }, [isChatMode, isMounted]);
 
-  // Don't render if in chat mode
-  if (isChatMode) return null;
+  // Don't render if in chat mode or not mounted (prevents hydration mismatch)
+  if (isChatMode || !isMounted) return null;
 
   return (
     <canvas

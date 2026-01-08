@@ -148,32 +148,40 @@ function initializeSegment() {
   script.src = `https://cdn.segment.com/analytics.js/v1/${writeKey}/analytics.min.js`;
   
   script.onload = () => {
-    // Wait a bit to ensure Segment is fully initialized
+    // Wait longer to ensure Segment is fully initialized
     setTimeout(() => {
       // Check if analytics.load exists now
       if (typeof (window as any).analytics.load === 'function') {
         // Initialize Segment with privacy-focused settings
         (window as any).analytics.load(writeKey);
         
-        // Configure to anonymize IP addresses for all future events
-        (window as any).analytics.on('track', function(event: any) {
-          if (event.context) {
-            event.context.ip = '0.0.0.0'; // Anonymize IP
+        // Wait a bit more for Segment to fully initialize all methods
+        setTimeout(() => {
+          // Only use .on() if it exists (some Segment versions may not have it)
+          if (typeof (window as any).analytics.on === 'function') {
+            // Configure to anonymize IP addresses for all future events
+            (window as any).analytics.on('track', function(event: any) {
+              if (event && event.context) {
+                event.context.ip = '0.0.0.0'; // Anonymize IP
+              }
+            });
+            
+            (window as any).analytics.on('page', function(event: any) {
+              if (event && event.context) {
+                event.context.ip = '0.0.0.0'; // Anonymize IP
+              }
+            });
           }
-        });
-        
-        (window as any).analytics.on('page', function(event: any) {
-          if (event.context) {
-            event.context.ip = '0.0.0.0'; // Anonymize IP
+          
+          // Track initial page view with anonymized IP (always include IP anonymization in context)
+          if (typeof (window as any).analytics.page === 'function') {
+            (window as any).analytics.page({
+              context: {
+                ip: '0.0.0.0', // Anonymize IP
+              },
+            });
           }
-        });
-        
-        // Track initial page view with anonymized IP
-        (window as any).analytics.page({
-          context: {
-            ip: '0.0.0.0', // Anonymize IP
-          },
-        });
+        }, 200); // Additional delay for .on() method
       }
     }, 100);
   };
