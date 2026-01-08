@@ -46,6 +46,14 @@
         if (response.ok) {
           // Mark as tracked for this session
           sessionStorage.setItem(sessionKey, 'true');
+          // Try to get the updated count
+          return response.json();
+        }
+      })
+      .then(function(data) {
+        // Silently handle response - don't break page if tracking fails
+        if (data && data.totalUniqueVisitors) {
+          // Could update a global counter here if needed
         }
       })
       .catch(function() {

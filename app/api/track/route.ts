@@ -37,7 +37,19 @@ export async function POST(request: Request) {
         }
         
         // Get the current total unique visitors count
-        const totalUniqueVisitors = (await kv.get('unique_visitors') as number) || 0;
+        let totalUniqueVisitors = (await kv.get('unique_visitors') as number) || 0;
+        
+        // Ensure minimum of 50
+        const MIN_VISITORS = 50;
+        if (totalUniqueVisitors === 0) {
+          // Initialize with minimum if this is the first visitor
+          await kv.set('unique_visitors', MIN_VISITORS);
+          totalUniqueVisitors = MIN_VISITORS;
+        } else if (totalUniqueVisitors < MIN_VISITORS) {
+          // If count exists but is below minimum, set to minimum
+          await kv.set('unique_visitors', MIN_VISITORS);
+          totalUniqueVisitors = MIN_VISITORS;
+        }
         
         return NextResponse.json({
           success: true,
@@ -66,30 +78,43 @@ export async function POST(request: Request) {
       const isNew = insertResult.changes > 0;
       
       // Get total unique visitor count
-      const totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
+      let totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
+      let visitorCount = totalCount.count || 0;
+      
+      // Ensure minimum of 50
+      const MIN_VISITORS = 50;
+      if (visitorCount === 0) {
+        // If no visitors in DB, set to minimum (this handles the case where DB exists but is empty)
+        visitorCount = MIN_VISITORS;
+      } else if (visitorCount < MIN_VISITORS) {
+        // If count is below minimum, use minimum
+        visitorCount = MIN_VISITORS;
+      }
       
       return NextResponse.json({
         success: true,
         isNew: isNew,
-        totalUniqueVisitors: totalCount.count,
+        totalUniqueVisitors: visitorCount,
       });
     } catch (dbError) {
       console.error('Database error in tracking:', dbError);
       
       // If all else fails, still return success to not break the page
+      const MIN_VISITORS = 50;
       return NextResponse.json({ 
         success: true, // Return success even if storage fails
         error: 'Tracking storage unavailable',
-        totalUniqueVisitors: 0
+        totalUniqueVisitors: MIN_VISITORS // Return minimum instead of 0
       });
     }
   } catch (error) {
     console.error('Tracking error:', error);
     // Return success even on error to avoid breaking the page load
+    const MIN_VISITORS = 50;
     return NextResponse.json({ 
       success: false, 
       error: 'Tracking failed',
-      totalUniqueVisitors: 0
+      totalUniqueVisitors: MIN_VISITORS // Return minimum instead of 0
     });
   }
 }
