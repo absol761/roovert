@@ -29,13 +29,56 @@ export function NeuralNoise({ isChatMode = false, currentLook = 'default' }: Neu
     return { r: 0.1, g: 0.2, b: 0.8 }; // Default teal
   };
 
-  // Update color from CSS variable - adapts to current look
+  // Update color from CSS variable - adapts to current look with visibility optimization
   const updateColor = () => {
     if (typeof window === 'undefined') return;
     const root = document.documentElement;
     const accentColor = getComputedStyle(root).getPropertyValue('--accent').trim();
+    const backgroundColor = getComputedStyle(root).getPropertyValue('--background').trim();
+    
     if (accentColor) {
-      colorRef.current = hexToRgb(accentColor);
+      let rgb = hexToRgb(accentColor);
+      
+      // Detect if background is light or dark
+      const bgRgb = hexToRgb(backgroundColor || '#050505');
+      const bgLuminance = (bgRgb.r * 0.299 + bgRgb.g * 0.587 + bgRgb.b * 0.114);
+      const isLightBackground = bgLuminance > 0.5;
+      
+      // Calculate accent luminance
+      const accentLuminance = (rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114);
+      
+      // Boost brightness and saturation for visibility
+      if (isLightBackground) {
+        // On light backgrounds, darken and saturate the color for contrast
+        const brightness = Math.max(rgb.r, rgb.g, rgb.b);
+        if (brightness < 0.3) {
+          // Color is too dark, brighten it significantly
+          rgb.r = Math.min(1.0, rgb.r * 1.8);
+          rgb.g = Math.min(1.0, rgb.g * 1.8);
+          rgb.b = Math.min(1.0, rgb.b * 1.8);
+        }
+        // Ensure minimum brightness
+        const minBrightness = 0.4;
+        const currentBrightness = Math.max(rgb.r, rgb.g, rgb.b);
+        if (currentBrightness < minBrightness) {
+          const boost = minBrightness / currentBrightness;
+          rgb.r = Math.min(1.0, rgb.r * boost);
+          rgb.g = Math.min(1.0, rgb.g * boost);
+          rgb.b = Math.min(1.0, rgb.b * boost);
+        }
+      } else {
+        // On dark backgrounds, ensure color is bright enough
+        const minBrightness = 0.5;
+        const currentBrightness = Math.max(rgb.r, rgb.g, rgb.b);
+        if (currentBrightness < minBrightness) {
+          const boost = minBrightness / currentBrightness;
+          rgb.r = Math.min(1.0, rgb.r * boost);
+          rgb.g = Math.min(1.0, rgb.g * boost);
+          rgb.b = Math.min(1.0, rgb.b * boost);
+        }
+      }
+      
+      colorRef.current = rgb;
     }
   };
 
@@ -99,13 +142,22 @@ export function NeuralNoise({ isChatMode = false, currentLook = 'default' }: Neu
         noise = max(0.0, noise - 0.5);
         noise *= (1.0 - length(vUv - 0.5));
 
-        // Use theme accent color
-        color = u_accent_color * 0.6; // Base color (slightly dimmed)
-        color += u_accent_color * 0.3 * sin(3.0 * u_scroll_progress + 1.5); // Variation
+        // Use theme accent color with enhanced visibility
+        // Base color is brighter for better visibility
+        color = u_accent_color * 1.2; // Increased from 0.6 to 1.2 for visibility
+        color += u_accent_color * 0.4 * sin(3.0 * u_scroll_progress + 1.5); // Variation
+        
+        // Ensure minimum brightness
+        float minBrightness = 0.3;
+        float currentBrightness = max(max(color.r, color.g), color.b);
+        if (currentBrightness < minBrightness) {
+            float boost = minBrightness / currentBrightness;
+            color *= boost;
+        }
 
-        color = color * noise * 0.4; // Make it subtle
+        color = color * noise * 0.8; // Increased from 0.4 to 0.8 for better visibility
 
-        gl_FragColor = vec4(color, noise * 0.3); // Subtle opacity
+        gl_FragColor = vec4(color, noise * 0.6); // Increased opacity from 0.3 to 0.6
     }
   `;
 
@@ -313,7 +365,7 @@ export function NeuralNoise({ isChatMode = false, currentLook = 'default' }: Neu
       ref={canvasRef}
       className="fixed top-0 left-0 w-full h-full pointer-events-none z-0"
       style={{ 
-        opacity: 0.4,
+        opacity: 0.7, // Increased from 0.4 for better visibility
         mixBlendMode: 'screen'
       }}
     />
