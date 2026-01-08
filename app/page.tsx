@@ -1219,6 +1219,306 @@ export default function Page() {
           )}
         </AnimatePresence>
 
+        {/* Hugging Face-Inspired Features Section (Shown when NOT in Chat Mode) */}
+        {!isChatMode && (
+          <div className="w-full max-w-7xl mx-auto mt-20 space-y-16 pb-20">
+            {/* Feature 1: Trending Queries */}
+            <section className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <TrendingUp className="w-5 h-5 text-[var(--accent)]" />
+                  <h2 className="text-2xl font-light">Trending This Week</h2>
+                </div>
+                <button
+                  onClick={handleInitialize}
+                  className="text-sm text-[var(--accent)] hover:underline flex items-center gap-1"
+                >
+                  Explore All <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  { query: 'Explain quantum computing', views: '12.4k', likes: 892, category: 'Science' },
+                  { query: 'How does AI image generation work?', views: '8.7k', likes: 654, category: 'Technology' },
+                  { query: 'What is the future of renewable energy?', views: '6.2k', likes: 423, category: 'Environment' },
+                  { query: 'Explain blockchain technology simply', views: '5.9k', likes: 389, category: 'Technology' },
+                  { query: 'How do neural networks learn?', views: '4.8k', likes: 312, category: 'AI' },
+                  { query: 'What causes climate change?', views: '4.1k', likes: 267, category: 'Science' },
+                ].map((item, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    onClick={() => injectPrompt(item.query)}
+                    className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-5 hover:border-[var(--accent)]/40 hover:bg-[var(--surface)] transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <span className="text-xs px-2 py-1 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] font-mono">
+                        {item.category}
+                      </span>
+                      <div className="flex items-center gap-3 text-xs text-[var(--muted)]">
+                        <span className="flex items-center gap-1">
+                          <Eye className="w-3 h-3" /> {item.views}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Star className="w-3 h-3" /> {item.likes}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-[var(--foreground)] group-hover:text-[var(--accent)] transition-colors line-clamp-2">
+                      {item.query}
+                    </p>
+                  </motion.div>
+                ))}
+              </div>
+            </section>
+
+            {/* Feature 2: Browse AI Models */}
+            <section className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+                  <h2 className="text-2xl font-light">Browse AI Models</h2>
+                </div>
+                <button
+                  onClick={() => setIsMoreModelsOpen(true)}
+                  className="text-sm text-[var(--accent)] hover:underline flex items-center gap-1"
+                >
+                  View All Models <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {MODELS.slice(0, 8).map((model, idx) => (
+                  <motion.div
+                    key={model.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: idx * 0.05 }}
+                    onClick={() => {
+                      setSelectedModelId(model.id);
+                      handleInitialize();
+                    }}
+                    className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-4 hover:border-[var(--accent)]/40 hover:bg-[var(--surface)] transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="w-4 h-4 text-[var(--accent)]" />
+                      <h3 className="text-sm font-medium text-[var(--foreground)] group-hover:text-[var(--accent)] transition-colors">
+                        {model.name}
+                      </h3>
+                    </div>
+                    <p className="text-xs text-[var(--muted)] line-clamp-2">{model.description}</p>
+                    <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                      <span className="text-xs text-[var(--muted)] font-mono">{model.category}</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </section>
+
+            {/* Feature 3: Recent Activity Feed */}
+            <section className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Activity className="w-5 h-5 text-[var(--accent)]" />
+                  <h2 className="text-2xl font-light">Recent Activity</h2>
+                </div>
+              </div>
+              <div className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-6">
+                <div className="space-y-4">
+                  {[
+                    { user: 'alex_researcher', action: 'asked about', query: 'machine learning fundamentals', time: '2m ago' },
+                    { user: 'tech_explorer', action: 'explored', query: 'GPT-4 capabilities', time: '5m ago' },
+                    { user: 'ai_enthusiast', action: 'queried', query: 'neural network architectures', time: '8m ago' },
+                    { user: 'data_scientist', action: 'investigated', query: 'deep learning optimization', time: '12m ago' },
+                  ].map((activity, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                      className="flex items-center gap-3 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-[var(--accent)]/20 flex items-center justify-center">
+                        <Users className="w-4 h-4 text-[var(--accent)]" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="font-medium text-[var(--foreground)]">{activity.user}</span>
+                        {' '}
+                        <span>{activity.action}</span>
+                        {' '}
+                        <span className="text-[var(--accent)]">{activity.query}</span>
+                      </div>
+                      <span className="text-xs">{activity.time}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* Feature 4: Code Examples */}
+            <section className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Code className="w-5 h-5 text-[var(--accent)]" />
+                  <h2 className="text-2xl font-light">Code Examples</h2>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  {
+                    title: 'API Integration',
+                    code: `fetch('/api/query-stream', {
+  method: 'POST',
+  body: JSON.stringify({
+    query: 'Explain AI',
+    model: 'ooverta'
+  })
+})`,
+                    language: 'javascript',
+                  },
+                  {
+                    title: 'Streaming Response',
+                    code: `const reader = response.body.getReader();
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  // Process chunk
+}`,
+                    language: 'javascript',
+                  },
+                ].map((example, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-5"
+                  >
+                    <h3 className="text-sm font-medium text-[var(--foreground)] mb-3">{example.title}</h3>
+                    <pre className="bg-[var(--surface-strong)] rounded-lg p-4 overflow-x-auto text-xs font-mono text-[var(--foreground)]">
+                      <code>{example.code}</code>
+                    </pre>
+                  </motion.div>
+                ))}
+              </div>
+            </section>
+
+            {/* Feature 5: User Stats Showcase */}
+            <section className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Users className="w-5 h-5 text-[var(--accent)]" />
+                  <h2 className="text-2xl font-light">Build Your Portfolio</h2>
+                </div>
+              </div>
+              <div className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-8">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  {[
+                    { label: 'Queries Processed', value: '2.4M+', icon: Send },
+                    { label: 'Unique Minds', value: '50K+', icon: Users },
+                    { label: 'Models Available', value: '20+', icon: Sparkles },
+                    { label: 'Accuracy Rate', value: '99.4%', icon: Star },
+                  ].map((stat, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: idx * 0.1 }}
+                      className="text-center"
+                    >
+                      <stat.icon className="w-8 h-8 text-[var(--accent)] mx-auto mb-3" />
+                      <div className="text-3xl font-light text-[var(--foreground)] mb-1">{stat.value}</div>
+                      <div className="text-xs text-[var(--muted)] uppercase tracking-wider">{stat.label}</div>
+                    </motion.div>
+                  ))}
+                </div>
+                <p className="text-center text-sm text-[var(--muted)] mt-6">
+                  Share your work with the world and build your AI profile
+                </p>
+              </div>
+            </section>
+
+            {/* Feature 6: Featured Organizations */}
+            <section className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Globe className="w-5 h-5 text-[var(--accent)]" />
+                  <h2 className="text-2xl font-light">Trusted by Organizations</h2>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {[
+                  { name: 'Research Labs', models: '2.1k', type: 'Research' },
+                  { name: 'Tech Companies', models: '1.8k', type: 'Enterprise' },
+                  { name: 'Universities', models: '950', type: 'Education' },
+                  { name: 'Startups', models: '420', type: 'Startup' },
+                  { name: 'Non-Profits', models: '380', type: 'Non-profit' },
+                  { name: 'Developers', models: '15k+', type: 'Community' },
+                ].map((org, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-4 text-center hover:border-[var(--accent)]/40 transition-all"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-[var(--accent)]/20 flex items-center justify-center mx-auto mb-3">
+                      <Globe className="w-6 h-6 text-[var(--accent)]" />
+                    </div>
+                    <div className="text-sm font-medium text-[var(--foreground)] mb-1">{org.name}</div>
+                    <div className="text-xs text-[var(--muted)] mb-2">{org.type}</div>
+                    <div className="text-xs text-[var(--accent)] font-mono">{org.models} models</div>
+                  </motion.div>
+                ))}
+              </div>
+            </section>
+
+            {/* Feature 7: Resources & Integrations */}
+            <section className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <BookOpen className="w-5 h-5 text-[var(--accent)]" />
+                  <h2 className="text-2xl font-light">Resources & Integrations</h2>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { name: 'API Documentation', description: 'Complete API reference and guides', stars: '12.4k', link: '#' },
+                  { name: 'OpenRouter Integration', description: 'Access 45,000+ AI models', stars: '8.7k', link: '#' },
+                  { name: 'Developer Tools', description: 'SDKs and libraries for developers', stars: '6.2k', link: '#' },
+                ].map((resource, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-5 hover:border-[var(--accent)]/40 transition-all group"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <BookOpen className="w-5 h-5 text-[var(--accent)]" />
+                      <div className="flex items-center gap-1 text-xs text-[var(--muted)]">
+                        <Star className="w-3 h-3" />
+                        {resource.stars}
+                      </div>
+                    </div>
+                    <h3 className="text-sm font-medium text-[var(--foreground)] mb-2 group-hover:text-[var(--accent)] transition-colors">
+                      {resource.name}
+                    </h3>
+                    <p className="text-xs text-[var(--muted)] mb-4">{resource.description}</p>
+                    <a
+                      href={resource.link}
+                      className="text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
+                    >
+                      Learn more <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </motion.div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
         {/* Chat Interface (Shown in Chat Mode) */}
         <AnimatePresence>
           {isChatMode && (
