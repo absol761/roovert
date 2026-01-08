@@ -9,21 +9,29 @@ const CONSENT_KEY = 'roovert_analytics_consent';
 const CONSENT_EXPIRY_DAYS = 365; // Remember consent for 1 year
 
 export function ConsentBanner() {
-  const [showBanner, setShowBanner] = useState(false);
+  // Check consent immediately on mount to prevent flash
+  const [showBanner, setShowBanner] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const consent = localStorage.getItem(CONSENT_KEY);
+    return !consent; // Only show if no consent has been given
+  });
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
-    // Check if consent has been given/denied
-    const consent = localStorage.getItem(CONSENT_KEY);
-    
-    if (!consent) {
-      // Small delay to avoid flash of banner
-      const timer = setTimeout(() => {
-        setShowBanner(true);
-      }, 1000);
-      return () => clearTimeout(timer);
+    // Double-check on mount (in case localStorage wasn't available during initial render)
+    if (typeof window !== 'undefined') {
+      const consent = localStorage.getItem(CONSENT_KEY);
+      if (consent) {
+        setShowBanner(false);
+      } else if (!showBanner) {
+        // Small delay to avoid flash of banner
+        const timer = setTimeout(() => {
+          setShowBanner(true);
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
     }
-  }, []);
+  }, [showBanner]);
 
   const handleAccept = () => {
     setIsAnimating(true);
@@ -118,7 +126,11 @@ function initializeSegment() {
   const writeKey = process.env.NEXT_PUBLIC_SEGMENT_WRITE_KEY;
   
   if (!writeKey) {
-    console.warn('Segment write key not configured. Set NEXT_PUBLIC_SEGMENT_WRITE_KEY in your environment variables.');
+    // Silently return if Segment is not configured (it's optional)
+    // Only log in development mode to help with setup
+    if (process.env.NODE_ENV === 'development') {
+      console.info('Segment analytics is not configured. To enable, set NEXT_PUBLIC_SEGMENT_WRITE_KEY in your environment variables.');
+    }
     return;
   }
 

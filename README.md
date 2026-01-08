@@ -31,9 +31,15 @@ Set up environment variables. Create a `.env.local` file in the root directory:
 ```bash
 OPENROUTER_API_KEY=your_api_key_here
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Optional: Segment.io Analytics (for anonymous user analytics)
+# Get your write key from https://app.segment.com/
+NEXT_PUBLIC_SEGMENT_WRITE_KEY=your_segment_write_key_here
 ```
 
 Get your OpenRouter API key from [openrouter.ai](https://openrouter.ai). Never commit `.env.local` or any file containing secrets.
+
+**Note:** The Segment write key is optional. If not provided, analytics will be disabled and no warning will be shown in production.
 
 Run the development server:
 
@@ -104,6 +110,9 @@ Deploy to Vercel:
 Required environment variables:
 - `OPENROUTER_API_KEY` - Your OpenRouter API key
 - `NEXT_PUBLIC_APP_URL` - Your application URL
+
+Optional environment variables:
+- `NEXT_PUBLIC_SEGMENT_WRITE_KEY` - Segment.io write key for anonymous analytics (get from [app.segment.com](https://app.segment.com/))
 
 ## Design
 
