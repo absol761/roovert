@@ -1279,6 +1279,32 @@ export default function Page() {
 
                 {/* Main Chat Stack (Right/Center) */}
                 <section className={`chat-stack flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen || (closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot')) ? 'col-span-full' : ''}`}>
+                  {/* Search Bar */}
+                  {showSearch && (
+                    <div className="mb-4 glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-3">
+                      <div className="flex items-center gap-3">
+                        <Search className="w-4 h-4 text-[var(--muted)]" />
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search conversation history..."
+                          className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] placeholder:text-[var(--muted)]"
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => {
+                            setShowSearch(false);
+                            setSearchQuery('');
+                          }}
+                          className="p-1 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 min-h-[40vh]">
                     {/* Conversation History */}
                     <div className="space-y-6 mb-6">
