@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Model ID to API ID mapping
     const MODEL_MAP: Record<string, string> = {
-      'ooverta': 'perplexity/sonar-reasoning',
+      'ooverta': 'google/gemini-2.0-flash-exp:free', // Changed to reliable Gemini model
       'gemini-flash': 'google/gemini-2.0-flash-exp:free',
       'deepseek-free': 'deepseek/deepseek-r1-0528:free',
       'nemotron-30b': 'nvidia/nemotron-3-nano-30b-a3b:free',
@@ -211,86 +211,103 @@ export async function POST(request: NextRequest) {
               errorMessage += `: ${errorText.substring(0, 100)}`;
             }
 
-            // Fallback for ooverta
-            if (modelLabel === 'ooverta' && errorMessage.includes('No endpoints found')) {
-              try {
-                // Build fallback messages with conversation history
-                type FallbackMessageContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
-                const fallbackMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: FallbackMessageContent }> = [
-                  { role: 'system', content: systemPrompt }
-                ];
-                
-                if (conversationHistory && Array.isArray(conversationHistory)) {
-                  for (const msg of conversationHistory) {
-                    if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
-                      fallbackMessages.push({
-                        role: msg.role,
-                        content: msg.content as FallbackMessageContent
-                      });
-                    }
-                  }
-                }
-                
-                // Add current message with image if present
-                if (image) {
-                  fallbackMessages.push({
-                    role: 'user',
-                    content: [
-                      { type: 'text', text: userQuery },
-                      { type: 'image_url', image_url: { url: image } }
-                    ]
-                  });
-                } else {
-                  fallbackMessages.push({ role: 'user', content: userQuery });
-                }
-
-                const fallback = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'HTTP-Referer': siteUrl,
-                    'X-Title': siteName,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    model: 'nousresearch/hermes-3-llama-3.1-405b:free',
-                    messages: fallbackMessages,
-                    stream: true,
-                  })
-                });
-                
-                if (fallback.ok) {
-                  const reader = fallback.body?.getReader();
-                  const decoder = new TextDecoder();
+            // Fallback for ooverta - try multiple reliable models
+            if (modelLabel === 'ooverta') {
+              const fallbackModels = [
+                'deepseek/deepseek-r1-0528:free',
+                'nousresearch/hermes-3-llama-3.1-405b:free',
+                'nvidia/nemotron-3-nano-30b-a3b:free',
+              ];
+              
+              for (const fallbackModel of fallbackModels) {
+                try {
+                  // Build fallback messages with conversation history
+                  type FallbackMessageContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+                  const fallbackMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: FallbackMessageContent }> = [
+                    { role: 'system', content: systemPrompt }
+                  ];
                   
-                  if (reader) {
-                    while (true) {
-                      const { done, value } = await reader.read();
-                      if (done) break;
-                      
-                      const chunk = decoder.decode(value);
-                      const lines = chunk.split('\n').filter(line => line.trim() && line.startsWith('data: '));
-                      
-                      for (const line of lines) {
-                        try {
-                          const data = JSON.parse(line.slice(6));
-                          if (data.choices?.[0]?.delta?.content) {
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: data.choices[0].delta.content, done: false })}\n\n`));
-                          }
-                          if (data.choices?.[0]?.finish_reason) {
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`));
-                          }
-                        } catch (e) {
-                          // Skip invalid JSON
-                        }
+                  if (conversationHistory && Array.isArray(conversationHistory)) {
+                    for (const msg of conversationHistory) {
+                      if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
+                        fallbackMessages.push({
+                          role: msg.role,
+                          content: msg.content as FallbackMessageContent
+                        });
                       }
                     }
-                    controller.close();
-                    return;
                   }
+                  
+                  // Add current message with image if present
+                  if (image) {
+                    fallbackMessages.push({
+                      role: 'user',
+                      content: [
+                        { type: 'text', text: userQuery },
+                        { type: 'image_url', image_url: { url: image } }
+                      ]
+                    });
+                  } else {
+                    fallbackMessages.push({ role: 'user', content: userQuery });
+                  }
+
+                  const fallback = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${apiKey}`,
+                      'HTTP-Referer': siteUrl,
+                      'X-Title': siteName,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      model: fallbackModel,
+                      messages: fallbackMessages,
+                      stream: true,
+                    })
+                  });
+                  
+                  if (fallback.ok) {
+                    const reader = fallback.body?.getReader();
+                    const decoder = new TextDecoder();
+                    
+                    if (reader) {
+                      while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n').filter(line => line.trim() && line.startsWith('data: '));
+                        
+                        for (const line of lines) {
+                          try {
+                            if (line.trim() === 'data: [DONE]') {
+                              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`));
+                              controller.close();
+                              return;
+                            }
+                            
+                            const data = JSON.parse(line.slice(6));
+                            if (data.choices?.[0]?.delta?.content) {
+                              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: data.choices[0].delta.content, done: false })}\n\n`));
+                            }
+                            if (data.choices?.[0]?.finish_reason) {
+                              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`));
+                              controller.close();
+                              return;
+                            }
+                          } catch (e) {
+                            // Skip invalid JSON
+                          }
+                        }
+                      }
+                      controller.close();
+                      return;
+                    }
+                  }
+                } catch (e) {
+                  console.error(`Fallback to ${fallbackModel} failed:`, e);
+                  continue; // Try next fallback model
                 }
-              } catch (e) {
-                console.error('Fallback failed', e);
               }
             }
 

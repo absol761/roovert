@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     // Model ID to API ID mapping
     const MODEL_MAP: Record<string, string> = {
-      'ooverta': 'perplexity/sonar-reasoning',
+      'ooverta': 'google/gemini-2.0-flash-exp:free', // Changed to reliable Gemini model
       'gemini-flash': 'google/gemini-2.0-flash-exp:free',
       'deepseek-free': 'deepseek/deepseek-r1-0528:free',
       'nemotron-30b': 'nvidia/nemotron-3-nano-30b-a3b:free',
@@ -68,10 +68,10 @@ export async function POST(request: NextRequest) {
     let targetModel = model;
     let systemPrompt = customSystemPrompt || "You are a helpful, intelligent, and precise AI assistant. Answer the user's questions clearly and accurately.";
 
-    // Ooverta (Default) Configuration
+    // Ooverta (Default) Configuration - Use reliable Gemini model
     if (!model || model === 'ooverta') {
-      // Use standard sonar-reasoning as the base for Ooverta
-      targetModel = 'perplexity/sonar-reasoning';
+      // Use Gemini 2.0 Flash as the base for Ooverta - fast and reliable
+      targetModel = 'google/gemini-2.0-flash-exp:free';
       if (!customSystemPrompt) {
         systemPrompt = `You are Ooverta, a helpful AI assistant on Roovert.com.
       
