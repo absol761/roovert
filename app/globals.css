@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import 'highlight.js/styles/github-dark.css';
 
 :root {
   /* Default Theme (Deep Space) */
@@ -2420,4 +2421,115 @@ input:focus, textarea:focus {
 [data-look='accessible'] *:focus {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Markdown Content Styling */
+.markdown-content {
+  line-height: 1.8;
+}
+
+.markdown-content p {
+  margin-bottom: 1rem;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.markdown-content li {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  opacity: 0.8;
+}
+
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+}
+
+.markdown-content th {
+  background: var(--surface-strong);
+}
+
+/* Syntax Highlighting */
+.markdown-content pre {
+  background: var(--surface-strong) !important;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.markdown-content pre code {
+  background: transparent !important;
+  padding: 0;
+  border: none;
+  color: var(--foreground);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.markdown-content code {
+  font-family: var(--font-geist-mono), monospace;
+}
+
+/* Highlight.js theme adjustments */
+.hljs {
+  background: var(--surface-strong) !important;
+  color: var(--foreground) !important;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-name {
+  color: var(--accent);
+}
+
+.hljs-string,
+.hljs-title,
+.hljs-section,
+.hljs-attribute {
+  color: #98d982;
+}
+
+.hljs-number,
+.hljs-literal {
+  color: #ffab70;
+}
+
+.hljs-type,
+.hljs-class {
+  color: #79c0ff;
 }

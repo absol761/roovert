@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 
 const MODELS = [
   { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
@@ -786,7 +789,9 @@ export default function Page() {
   const [response, setResponse] = useState<string | null>(null);
   const [history, setHistory] = useState<Array<{ query: string; response: string; model: string }>>([]);
   const [statusNote, setStatusNote] = useState<string | null>(null);
-  const [isChatMode, setIsChatMode] = useState(false); // New: Chat Mode State
+  const [isChatMode, setIsChatMode] = useState(false);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
   
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -803,6 +808,7 @@ export default function Page() {
   const [closedWidgets, setClosedWidgets] = useState<Set<string>>(new Set());
   
   const inputRef = useRef<HTMLInputElement>(null);
+  const responseEndRef = useRef<HTMLDivElement>(null);
 
   const toggleWidget = (widgetId: string) => {
     setClosedWidgets(prev => {
@@ -858,6 +864,24 @@ export default function Page() {
     a.click();
   };
 
+  const handleStop = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      setIsProcessing(false);
+    }
+  };
+
+  const copyCodeBlock = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCodeBlock(code);
+      setTimeout(() => setCopiedCodeBlock(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -868,11 +892,15 @@ export default function Page() {
 
     setIsChatMode(true);
     setIsProcessing(true);
-    setResponse(null);
+    setResponse('');
     setStatusNote(null);
 
+    // Create abort controller for streaming
+    const controller = new AbortController();
+    setAbortController(controller);
+
     try {
-      const res = await fetch('/api/query', {
+      const res = await fetch('/api/query-stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -882,30 +910,94 @@ export default function Page() {
           model: selectedModel.apiId,
           systemPrompt: systemPrompt || undefined
         }),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
-
-      if (!res.ok || !data?.response) {
-        throw new Error(data?.error || data?.warning || 'Failed to process query');
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
       }
 
-      setResponse(data.response);
-      setStatusNote(data.warning ?? (data.simulated ? 'Simulation mode active' : null));
-      setHistory(prev => [
-        ...prev,
-        { query: trimmedQuery, response: data.response, model: selectedModelId },
-      ]);
-      setQuery('');
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No reader available');
+      }
+
+      let fullResponse = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim() && line.startsWith('data: '));
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.content) {
+              fullResponse += data.content;
+              setResponse(fullResponse);
+              // Auto-scroll to bottom
+              setTimeout(() => {
+                responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }
+            if (data.done) {
+              setIsProcessing(false);
+              setAbortController(null);
+              setHistory(prev => [
+                ...prev,
+                { query: trimmedQuery, response: fullResponse, model: selectedModelId },
+              ]);
+              setQuery('');
+              return;
+            }
+          } catch (e) {
+            // Skip invalid JSON
+            continue;
+          }
+        }
+      }
     } catch (error: any) {
+      if (error.name === 'AbortError') {
+        // User cancelled, keep current response
+        setIsProcessing(false);
+        setAbortController(null);
+        return;
+      }
       console.error('Query failed:', error);
       const fallbackMessage = error?.message || 'Upstream unavailable. Check OpenRouter connectivity.';
       setResponse(`System notice: ${fallbackMessage}`);
       setStatusNote('Simulation mode engaged — verify environment keys.');
-    } finally {
       setIsProcessing(false);
+      setAbortController(null);
     }
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + Enter to submit
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!isProcessing && query.trim()) {
+          handleSubmit(e as any);
+        }
+      }
+      // Escape to stop
+      if (e.key === 'Escape' && isProcessing) {
+        handleStop();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [query, isProcessing]);
 
   return (
       <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
@@ -1146,16 +1238,73 @@ export default function Page() {
                               )}
                               <div className="prose prose-invert max-w-none">
                                 {isProcessing ? (
-                                  <div className="flex space-x-1 h-6 items-center">
-                                    <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                    <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                    <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce"></div>
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex space-x-1 h-6 items-center">
+                                      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce"></div>
+                                    </div>
+                                    <button
+                                      onClick={handleStop}
+                                      className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                    >
+                                      <Square className="w-3 h-3" />
+                                      Stop
+                                    </button>
                                   </div>
-                                ) : (
-                                  <p className="text-[var(--foreground)] text-lg leading-relaxed whitespace-pre-wrap font-light">
-                                    {response}
-                                  </p>
-                                )}
+                                ) : response ? (
+                                  <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
+                                    <ReactMarkdown
+                                      remarkPlugins={[remarkGfm]}
+                                      rehypePlugins={[rehypeHighlight]}
+                                      components={{
+                                        code: ({ node, inline, className, children, ...props }: any) => {
+                                          const match = /language-(\w+)/.exec(className || '');
+                                          const code = String(children).replace(/\n$/, '');
+                                          const isCopied = copiedCodeBlock === code;
+                                          
+                                          return !inline ? (
+                                            <div className="relative my-4">
+                                              <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
+                                                <span className="text-xs text-[var(--muted)] font-mono">
+                                                  {match ? match[1] : 'code'}
+                                                </span>
+                                                <button
+                                                  onClick={() => copyCodeBlock(code)}
+                                                  className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                                >
+                                                  {isCopied ? (
+                                                    <>
+                                                      <Check className="w-3 h-3" />
+                                                      Copied
+                                                    </>
+                                                  ) : (
+                                                    <>
+                                                      <Copy className="w-3 h-3" />
+                                                      Copy
+                                                    </>
+                                                  )}
+                                                </button>
+                                              </div>
+                                              <pre className={`${className} m-0 rounded-b-lg rounded-t-none overflow-x-auto`} {...props}>
+                                                <code className={className} {...props}>
+                                                  {children}
+                                                </code>
+                                              </pre>
+                                            </div>
+                                          ) : (
+                                            <code className={`${className} bg-[var(--surface-strong)] px-1.5 py-0.5 rounded text-sm`} {...props}>
+                                              {children}
+                                            </code>
+                                          );
+                                        },
+                                      }}
+                                    >
+                                      {response}
+                                    </ReactMarkdown>
+                                    <div ref={responseEndRef} />
+                                  </div>
+                                ) : null}
                               </div>
                             </div>
                           </div>
@@ -1174,6 +1323,16 @@ export default function Page() {
                     <form onSubmit={handleSubmit} className="relative">
                       <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-4 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
                         <div className="flex items-center gap-4">
+                          {isProcessing && (
+                            <button
+                              type="button"
+                              onClick={handleStop}
+                              className="flex items-center gap-2 px-3 py-2 text-sm border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                            >
+                              <Square className="w-4 h-4" />
+                              Stop
+                            </button>
+                          )}
                           {/* Inline Model Selector */}
                           <div className="relative">
                             <button
@@ -1230,7 +1389,7 @@ export default function Page() {
                             type="text"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            placeholder={`Ask ${selectedModel.name} anything...`}
+                            placeholder={`Ask ${selectedModel.name} anything... (⌘/Ctrl+Enter to submit, Esc to stop)`}
                             className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
                             disabled={isProcessing}
                           />

@@ -12,10 +12,15 @@
     "@vercel/kv": "^3.0.0",
     "better-sqlite3": "^12.5.0",
     "framer-motion": "^12.24.7",
+    "highlight.js": "^11.11.1",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
