@@ -7,6 +7,7 @@ import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTrian
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import { checkConsentAndInitialize } from './components/ConsentBanner';
 
 const MODELS = [
   { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
@@ -800,6 +801,11 @@ export default function Page() {
       return next;
     });
   };
+
+  // Check consent and initialize Segment if already accepted
+  useEffect(() => {
+    checkConsentAndInitialize();
+  }, []);
 
   // Apply Look & Layout
   useEffect(() => {
