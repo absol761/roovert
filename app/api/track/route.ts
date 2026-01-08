@@ -18,11 +18,53 @@ export async function POST(request: Request) {
     // Create privacy-focused hash (no raw PII stored)
     const visitorHash = createVisitorHash(ipAddress, userAgent);
     
-    // Try SQLite first
+    const now = Date.now();
+    const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
+    
+    // Try Vercel KV first (primary for production/serverless)
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      try {
+        const visitorKey = `visitor_hash:${visitorHash}`;
+        const lastSeen = await kv.get(visitorKey) as number | null;
+        
+        if (lastSeen) {
+          // Existing visitor
+          const isNewVisit = lastSeen < twentyFourHoursAgo;
+          await kv.set(visitorKey, now, { ex: 86400 * 365 }); // Update last seen, extend expiry
+          
+          if (isNewVisit) {
+            await kv.incr('total_visits'); // Increment total visits
+          }
+          
+          const count = await kv.get('unique_visitors') as number || 0;
+          return NextResponse.json({
+            success: true,
+            isNew: false,
+            isNewVisit: isNewVisit,
+            totalUniqueVisitors: count,
+          });
+        } else {
+          // New unique visitor
+          await kv.set(visitorKey, now, { ex: 86400 * 365, nx: true }); // Set if not exists
+          const count = await kv.incr('unique_visitors');
+          await kv.incr('total_visits');
+          
+          return NextResponse.json({
+            success: true,
+            isNew: true,
+            isNewVisit: true,
+            totalUniqueVisitors: count,
+          });
+        }
+      } catch (kvError) {
+        console.error('KV tracking error:', kvError);
+        // Fall through to SQLite fallback
+      }
+    }
+    
+    // Fallback to SQLite (works locally)
     try {
       const db = getDatabase();
-      const now = Date.now();
-      const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
       
       // Check if this visitor has been seen before
       const existingVisitor = db
@@ -71,39 +113,9 @@ export async function POST(request: Request) {
     } catch (dbError) {
       console.error('Database error in tracking:', dbError);
       
-      // Fallback to Vercel KV if available
-      if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-        try {
-          const { kv } = await import('@vercel/kv');
-          const visitorKey = `visitor:${visitorHash}`;
-          const exists = await kv.exists(visitorKey);
-          
-          if (!exists) {
-            // New visitor
-            await kv.set(visitorKey, Date.now(), { ex: 86400 * 30 }); // 30 days
-            const count = await kv.incr('unique_visitors');
-            return NextResponse.json({
-              success: true,
-              isNew: true,
-              totalUniqueVisitors: count,
-            });
-          } else {
-            // Existing visitor
-            const count = await kv.get('unique_visitors') || 0;
-            return NextResponse.json({
-              success: true,
-              isNew: false,
-              totalUniqueVisitors: Number(count),
-            });
-          }
-        } catch (kvError) {
-          console.error('KV fallback error:', kvError);
-        }
-      }
-      
       // If all else fails, still return success to not break the page
       return NextResponse.json({ 
-        success: false, 
+        success: true, // Return success even if storage fails
         error: 'Tracking storage unavailable',
         totalUniqueVisitors: 0
       });
