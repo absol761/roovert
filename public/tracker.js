@@ -22,6 +22,15 @@
   
   schedule(function() {
     try {
+      // Check if we've already tracked this session to avoid duplicate tracking
+      const sessionKey = 'roovert_tracked_' + new Date().toDateString();
+      const tracked = sessionStorage.getItem(sessionKey);
+      
+      if (tracked) {
+        // Already tracked today, skip
+        return;
+      }
+      
       // Send tracking request (non-blocking, fire-and-forget)
       fetch('/api/track', {
         method: 'POST',
@@ -32,7 +41,14 @@
         keepalive: true,
         // Low priority
         priority: 'low',
-      }).catch(function() {
+      })
+      .then(function(response) {
+        if (response.ok) {
+          // Mark as tracked for this session
+          sessionStorage.setItem(sessionKey, 'true');
+        }
+      })
+      .catch(function() {
         // Silently fail - tracking should never break the page
       });
     } catch (e) {

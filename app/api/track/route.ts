@@ -9,61 +9,112 @@ export async function POST(request: Request) {
     const ipAddress = getClientIP(request);
     const userAgent = getUserAgent(request);
     
+    if (!ipAddress || !userAgent) {
+      console.warn('Missing IP or User-Agent for tracking');
+      return NextResponse.json({ success: false, error: 'Missing tracking data' }, { status: 400 });
+    }
+    
     // Create privacy-focused hash (no raw PII stored)
     const visitorHash = createVisitorHash(ipAddress, userAgent);
     
-    const db = getDatabase();
-    const now = Date.now();
-    const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
-    
-    // Check if this visitor has been seen in the last 24 hours
-    const existingVisitor = db
-      .prepare('SELECT id, last_seen, visit_count FROM unique_visitors WHERE visitor_hash = ?')
-      .get(visitorHash) as { id: number; last_seen: number; visit_count: number } | undefined;
-    
-    if (existingVisitor) {
-      // Visitor exists - check if last visit was more than 24 hours ago
-      const isNewVisit = existingVisitor.last_seen < twentyFourHoursAgo;
+    // Try SQLite first
+    try {
+      const db = getDatabase();
+      const now = Date.now();
+      const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
       
-      if (isNewVisit) {
-        // Update last_seen and increment visit_count
-        db.prepare(
-          'UPDATE unique_visitors SET last_seen = ?, visit_count = visit_count + 1 WHERE id = ?'
-        ).run(now, existingVisitor.id);
+      // Check if this visitor has been seen before
+      const existingVisitor = db
+        .prepare('SELECT id, last_seen, visit_count FROM unique_visitors WHERE visitor_hash = ?')
+        .get(visitorHash) as { id: number; last_seen: number; visit_count: number } | undefined;
+      
+      if (existingVisitor) {
+        // Visitor exists - check if last visit was more than 24 hours ago
+        const isNewVisit = existingVisitor.last_seen < twentyFourHoursAgo;
+        
+        if (isNewVisit) {
+          // Update last_seen and increment visit_count
+          db.prepare(
+            'UPDATE unique_visitors SET last_seen = ?, visit_count = visit_count + 1 WHERE id = ?'
+          ).run(now, existingVisitor.id);
+        } else {
+          // Same visitor within 24 hours - just update last_seen, don't increment count
+          db.prepare('UPDATE unique_visitors SET last_seen = ? WHERE id = ?').run(now, existingVisitor.id);
+        }
+        
+        // Get total unique visitor count
+        const totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
+        
+        return NextResponse.json({
+          success: true,
+          isNew: false,
+          isNewVisit: isNewVisit,
+          totalUniqueVisitors: totalCount.count,
+        });
       } else {
-        // Same visitor within 24 hours - just update last_seen, don't increment count
-        db.prepare('UPDATE unique_visitors SET last_seen = ? WHERE id = ?').run(now, existingVisitor.id);
+        // New unique visitor - insert into database
+        db.prepare(
+          'INSERT INTO unique_visitors (visitor_hash, first_seen, last_seen, visit_count) VALUES (?, ?, ?, 1)'
+        ).run(visitorHash, now, now);
+        
+        // Get total unique visitor count
+        const totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
+        
+        return NextResponse.json({
+          success: true,
+          isNew: true,
+          isNewVisit: true,
+          totalUniqueVisitors: totalCount.count,
+        });
+      }
+    } catch (dbError) {
+      console.error('Database error in tracking:', dbError);
+      
+      // Fallback to Vercel KV if available
+      if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+        try {
+          const { kv } = await import('@vercel/kv');
+          const visitorKey = `visitor:${visitorHash}`;
+          const exists = await kv.exists(visitorKey);
+          
+          if (!exists) {
+            // New visitor
+            await kv.set(visitorKey, Date.now(), { ex: 86400 * 30 }); // 30 days
+            const count = await kv.incr('unique_visitors');
+            return NextResponse.json({
+              success: true,
+              isNew: true,
+              totalUniqueVisitors: count,
+            });
+          } else {
+            // Existing visitor
+            const count = await kv.get('unique_visitors') || 0;
+            return NextResponse.json({
+              success: true,
+              isNew: false,
+              totalUniqueVisitors: Number(count),
+            });
+          }
+        } catch (kvError) {
+          console.error('KV fallback error:', kvError);
+        }
       }
       
-      // Get total unique visitor count
-      const totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
-      
-      return NextResponse.json({
-        success: true,
-        isNew: false,
-        isNewVisit: isNewVisit,
-        totalUniqueVisitors: totalCount.count,
-      });
-    } else {
-      // New unique visitor - insert into database
-      db.prepare(
-        'INSERT INTO unique_visitors (visitor_hash, first_seen, last_seen, visit_count) VALUES (?, ?, ?, 1)'
-      ).run(visitorHash, now, now);
-      
-      // Get total unique visitor count
-      const totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
-      
-      return NextResponse.json({
-        success: true,
-        isNew: true,
-        isNewVisit: true,
-        totalUniqueVisitors: totalCount.count,
+      // If all else fails, still return success to not break the page
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Tracking storage unavailable',
+        totalUniqueVisitors: 0
       });
     }
   } catch (error) {
     console.error('Tracking error:', error);
     // Return success even on error to avoid breaking the page load
-    return NextResponse.json({ success: false, error: 'Tracking failed' }, { status: 500 });
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Tracking failed',
+      totalUniqueVisitors: 0
+    });
   }
 }
 

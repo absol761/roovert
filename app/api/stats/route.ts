@@ -10,35 +10,55 @@ export async function GET() {
   const elapsedMs = now.getTime() - launchDate.getTime();
   const elapsedDays = Math.max(1, elapsedMs / (1000 * 60 * 60 * 24));
   
-  // 2. Get Real Unique Visitor Count from SQLite (primary) or KV (fallback)
-  let uniqueMinds = 42; // Fallback baseline
+  // 2. Get Real Unique Visitor Count - Try multiple sources
+  let uniqueMinds = 0;
+  let totalVisits = 0;
+  let visitsLast24Hours = 0;
+  let visitsLast7Days = 0;
+  let visitsLast30Days = 0;
   
-  // Try SQLite first (privacy-focused tracking)
+  // Try SQLite first (works locally and on some platforms)
   try {
     const db = getDatabase();
-    const result = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
-    if (result && result.count > 0) {
-      uniqueMinds = result.count;
-    }
+    const uniqueVisitorsResult = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
+    uniqueMinds = uniqueVisitorsResult?.count || 0;
+
+    const totalVisitsResult = db.prepare('SELECT SUM(visit_count) as count FROM unique_visitors').get() as { count: number | null };
+    totalVisits = totalVisitsResult?.count || 0;
+
+    const twentyFourHoursAgo = now.getTime() - (24 * 60 * 60 * 1000);
+    const sevenDaysAgo = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = now.getTime() - (30 * 24 * 60 * 60 * 1000);
+
+    const visits24hResult = db.prepare('SELECT SUM(visit_count) as count FROM unique_visitors WHERE last_seen >= ?').get(twentyFourHoursAgo) as { count: number | null };
+    visitsLast24Hours = visits24hResult?.count || 0;
+
+    const visits7dResult = db.prepare('SELECT SUM(visit_count) as count FROM unique_visitors WHERE last_seen >= ?').get(sevenDaysAgo) as { count: number | null };
+    visitsLast7Days = visits7dResult?.count || 0;
+
+    const visits30dResult = db.prepare('SELECT SUM(visit_count) as count FROM unique_visitors WHERE last_seen >= ?').get(thirtyDaysAgo) as { count: number | null };
+    visitsLast30Days = visits30dResult?.count || 0;
   } catch (sqliteError) {
     console.error('SQLite Read Error:', sqliteError);
-    // Fallback to KV if SQLite fails
+    // Fallback to Vercel KV if available
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
       try {
         const realCount = await kv.get('unique_visitors');
         if (realCount) uniqueMinds = Number(realCount);
+        
+        const visitCount = await kv.get('total_visits');
+        if (visitCount) totalVisits = Number(visitCount);
       } catch (e) {
         console.error('KV Read Error', e);
       }
     }
   }
   
-  // Final fallback: Deterministic Growth Model
-  if (uniqueMinds === 42) {
-    const initialUsers = 42;
-    const growthRate = 0.15; 
-    const randomFactor = Math.floor(Math.random() * 5); 
-    uniqueMinds = Math.floor(initialUsers * Math.pow(1 + growthRate, elapsedDays)) + randomFactor;
+  // If still 0 and we're in production, use a minimal baseline to show the system is working
+  // But only if we truly have no data (not just a new deployment)
+  if (uniqueMinds === 0 && process.env.NODE_ENV === 'production') {
+    // Don't fake it - show 0 if that's the real count
+    // The tracker will populate it as visitors come
   }
 
   // 3. Active Users (Time-of-Day Dependent)
@@ -60,6 +80,10 @@ export async function GET() {
     activeUsers,
     uniqueMinds,
     totalVisitors: uniqueMinds,
+    visitsLast24Hours,
+    visitsLast7Days,
+    visitsLast30Days,
+    totalVisits: totalVisits || uniqueMinds, // Fallback to unique count if no visit data
     accuracy: (99.4 + (Math.sin(elapsedDays) * 0.2)).toFixed(2),
     uptime: '99.99%',
     timestamp: now.toISOString(),

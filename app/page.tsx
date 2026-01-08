@@ -513,35 +513,8 @@ function LiveStats() {
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
-    // Unique Visitor Tracking with Fingerprinting
-    const trackVisitor = async () => {
-      if (typeof window === 'undefined') return;
-
-      try {
-        // Dynamic import to avoid SSR issues
-        const { getOrCreateVisitorId, generateFingerprint } = await import('./lib/fingerprint');
-        const visitorId = getOrCreateVisitorId();
-        const fingerprint = generateFingerprint();
-
-        // Check if we've already tracked this session
-        const sessionKey = 'roovert_tracked_session';
-        const tracked = sessionStorage.getItem(sessionKey);
-
-        if (!tracked && visitorId) {
-          // Track this visitor
-          await fetch('/api/visit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ visitorId, fingerprint }),
-          });
-          sessionStorage.setItem(sessionKey, 'true');
-        }
-      } catch (error) {
-        console.error('Visitor tracking error:', error);
-      }
-    };
-
-    trackVisitor();
+    // The tracker.js script handles visitor tracking automatically
+    // This component just fetches and displays stats
 
     const fetchStats = async () => {
       try {
