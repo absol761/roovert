@@ -102,7 +102,13 @@ export async function POST(request: NextRequest) {
         ${needsVision ? '- You can see and analyze images. Describe what you see clearly and accurately.' : ''}`;
       }
     } else {
-      targetModel = MODEL_MAP[model] || model.trim();
+      // First check if model is already an API ID (starts with google/, openai/, etc.)
+      if (model.includes('/')) {
+        targetModel = model.trim();
+      } else {
+        // Otherwise, look it up in MODEL_MAP
+        targetModel = MODEL_MAP[model] || model.trim();
+      }
       
       // If image provided but model doesn't support vision, switch to Gemini
       if (needsVision && !currentModelSupportsVision) {

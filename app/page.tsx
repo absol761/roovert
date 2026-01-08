@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square, Paperclip, Image as ImageIcon } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square, Paperclip, Image as ImageIcon, Edit2, RefreshCw, Search } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -175,7 +175,7 @@ function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8" style={{ scrollBehavior: 'smooth' }}>
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8" style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
           {looksByCategory.map(({ category, looks }) => (
             <motion.section 
               key={category}
@@ -271,7 +271,7 @@ function SettingsModal({
           </div>
         </div>
 
-        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8" style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
           
           {/* Looks Section - Quick Select or Browse More */}
           <section>
@@ -767,6 +767,9 @@ export default function Page() {
   const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
   
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1009,6 +1012,7 @@ export default function Page() {
               setQuery('');
               setSelectedImage(null); // Clear image after sending
               setImageFile(null);
+              setEditingIndex(null); // Clear editing state
               if (fileInputRef.current) {
                 fileInputRef.current.value = '';
               }
@@ -1278,8 +1282,16 @@ export default function Page() {
                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 min-h-[40vh]">
                     {/* Conversation History */}
                     <div className="space-y-6 mb-6">
-                      {history.map((entry, idx) => (
-                        <div key={idx} className="space-y-4">
+                      {history
+                        .filter(entry => {
+                          if (!searchQuery) return true;
+                          const query = searchQuery.toLowerCase();
+                          return entry.query.toLowerCase().includes(query) || entry.response.toLowerCase().includes(query);
+                        })
+                        .map((entry, idx) => {
+                          const originalIdx = history.indexOf(entry);
+                          return (
+                        <div key={originalIdx} className="space-y-4">
                           {/* User Message */}
                           <motion.div
                             initial={{ opacity: 0, x: -20 }}
@@ -1321,8 +1333,116 @@ export default function Page() {
                                 <Sparkles className="w-5 h-5 text-[var(--accent)]" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold mb-2">
-                                  {MODELS.find(m => m.id === entry.model)?.name || 'AI'}
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
+                                    {MODELS.find(m => m.id === entry.model)?.name || 'AI'}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setQuery(entry.query);
+                                        setSelectedImage(entry.image || null);
+                                        setEditingIndex(idx);
+                                        inputRef.current?.focus();
+                                      }}
+                                      className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                      title="Edit & Regenerate"
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={async () => {
+                                        // Regenerate with same query
+                                        setIsProcessing(true);
+                                        setResponse('');
+                                        const controller = new AbortController();
+                                        setAbortController(controller);
+                                        
+                                        try {
+                                          const conversationHistory = history.slice(0, idx).map(h => {
+                                            const userMsg: any = { role: 'user' as const };
+                                            if (h.image) {
+                                              userMsg.content = [
+                                                { type: 'text', text: h.query },
+                                                { type: 'image_url', image_url: { url: h.image } }
+                                              ];
+                                            } else {
+                                              userMsg.content = h.query;
+                                            }
+                                            return [
+                                              userMsg,
+                                              { role: 'assistant' as const, content: h.response }
+                                            ];
+                                          }).flat();
+                                          
+                                          let currentMessageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+                                          if (entry.image) {
+                                            currentMessageContent = [
+                                              { type: 'text', text: entry.query },
+                                              { type: 'image_url', image_url: { url: entry.image } }
+                                            ];
+                                          } else {
+                                            currentMessageContent = entry.query;
+                                          }
+
+                                          const res = await fetch('/api/query-stream', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                              query: entry.query,
+                                              image: entry.image || undefined,
+                                              model: selectedModelId,
+                                              systemPrompt: systemPrompt || undefined,
+                                              conversationHistory: conversationHistory
+                                            }),
+                                            signal: controller.signal,
+                                          });
+
+                                          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                                          
+                                          const reader = res.body?.getReader();
+                                          const decoder = new TextDecoder();
+                                          if (!reader) throw new Error('No reader available');
+
+                                          let fullResponse = '';
+                                          while (true) {
+                                            const { done, value } = await reader.read();
+                                            if (done) break;
+                                            const chunk = decoder.decode(value, { stream: true });
+                                            const lines = chunk.split('\n').filter(line => line.trim() && line.startsWith('data: '));
+                                            for (const line of lines) {
+                                              try {
+                                                const data = JSON.parse(line.slice(6));
+                                                if (data.content) {
+                                                  fullResponse += data.content;
+                                                  setResponse(fullResponse);
+                                                }
+                                                if (data.done) {
+                                                  setIsProcessing(false);
+                                                  setAbortController(null);
+                                                  setHistory(prev => {
+                                                    const newHistory = [...prev];
+                                                    newHistory[idx] = { ...newHistory[idx], response: fullResponse };
+                                                    return newHistory;
+                                                  });
+                                                  setResponse(null);
+                                                  return;
+                                                }
+                                              } catch (e) {}
+                                            }
+                                          }
+                                        } catch (error: any) {
+                                          console.error('Regenerate error:', error);
+                                          setIsProcessing(false);
+                                          setAbortController(null);
+                                        }
+                                      }}
+                                      className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                      title="Regenerate Response"
+                                    >
+                                      <RefreshCw className="w-4 h-4" />
+                                    </button>
+                                  </div>
                                 </div>
                                 <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
                                   <ReactMarkdown

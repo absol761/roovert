@@ -695,13 +695,25 @@ input:focus, textarea:focus {
   opacity: 0.9;
 }
 
-/* Smooth scrolling container */
+/* Smooth scrolling container - GPU accelerated */
 .custom-scrollbar {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: var(--accent) var(--background);
   will-change: scroll-position;
+  transform: translateZ(0); /* GPU acceleration */
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  perspective: 1000px;
+  -webkit-perspective: 1000px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* Smooth momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+  /* Prevent scroll chaining */
+  overscroll-behavior: contain;
 }
 
 @keyframes kinetic-pulse {
