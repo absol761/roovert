@@ -105,13 +105,56 @@ export default function CareersPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: idx * 0.1 }}
-                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-6 hover:border-[var(--accent)]/40 transition-all"
+                whileHover={{ 
+                  y: -8,
+                  scale: 1.02,
+                  transition: { duration: 0.3, ease: "easeOut" }
+                }}
+                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-6 hover:border-[var(--accent)]/60 transition-all cursor-pointer group relative overflow-hidden"
               >
-                <div className="p-3 rounded-lg bg-[var(--accent)]/10 w-fit mb-4">
-                  <way.icon className="w-6 h-6 text-[var(--accent)]" />
+                {/* Animated background gradient on hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent)]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
+                
+                {/* Icon container with rotation and scale */}
+                <motion.div 
+                  className="p-3 rounded-lg bg-[var(--accent)]/10 w-fit mb-4 relative z-10"
+                  whileHover={{ 
+                    rotate: [0, -5, 5, 0],
+                    scale: 1.1,
+                    backgroundColor: "rgba(var(--accent-rgb, 0, 128, 128), 0.2)"
+                  }}
+                  transition={{ duration: 0.4, ease: "easeInOut" }}
+                >
+                  <motion.div
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.6, ease: "easeInOut" }}
+                  >
+                    <way.icon className="w-6 h-6 text-[var(--accent)]" />
+                  </motion.div>
+                </motion.div>
+                
+                {/* Content */}
+                <div className="relative z-10">
+                  <motion.h3 
+                    className="text-lg font-medium text-[var(--foreground)] mb-2 group-hover:text-[var(--accent)] transition-colors"
+                    whileHover={{ x: 4 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {way.title}
+                  </motion.h3>
+                  <motion.p 
+                    className="text-sm text-[var(--muted)] leading-relaxed"
+                    whileHover={{ color: "var(--foreground)" }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {way.description}
+                  </motion.p>
                 </div>
-                <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">{way.title}</h3>
-                <p className="text-sm text-[var(--muted)] leading-relaxed">{way.description}</p>
+
+                {/* Shine effect on hover */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
+                </div>
               </motion.div>
             ))}
           </div>

@@ -1899,6 +1899,41 @@ while (true) {
             </div>
           </section>
 
+          {/* Built With Itself Section */}
+          <section className="relative z-10 py-32 border-t border-[var(--border)]">
+            <div className="max-w-5xl mx-auto px-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-12"
+              >
+                <div className="flex items-center gap-3 mb-6">
+                  <Code className="w-6 h-6 text-[var(--accent)]" />
+                  <h2 className="text-3xl font-light">Built With Itself</h2>
+                </div>
+                <div className="space-y-6 text-[var(--foreground)]/80 leading-relaxed">
+                  <p className="text-lg">
+                    Here's something interesting: large portions of Roovert were built using Roovert itself.
+                  </p>
+                  <p>
+                    The code you're reading, the components rendering on this page, the API routes handling your requests—many of them started as conversations with the AI models powering this interface. We asked questions, refined prompts, iterated on responses, and built features in real-time through the same chat interface you're using now.
+                  </p>
+                  <p>
+                    This isn't a gimmick. It's a practical demonstration of what happens when you treat AI as a first-class development tool rather than a novelty. The privacy policy, the consent banner, the visitor tracking system, the UI components—all of it emerged from iterative conversations where we challenged assumptions, tested implementations, and refined code until it worked.
+                  </p>
+                  <p>
+                    There's something recursive about building an AI interface with AI. You end up with a product that understands its own construction, that can explain its architecture, that knows why certain decisions were made. It creates a kind of self-awareness in the codebase that traditional development doesn't usually achieve.
+                  </p>
+                  <p className="text-[var(--accent)] font-medium">
+                    We're not just building tools for AI. We're building tools with AI, and that changes everything.
+                  </p>
+                </div>
+              </motion.div>
+            </div>
+          </section>
+
           <footer className="relative z-10 border-t border-[var(--border)] py-8 text-center text-[var(--foreground)]/40 text-sm">
             <p>© 2026 Roovert. Rigorously Pursuing Truth.</p>
           </footer>
