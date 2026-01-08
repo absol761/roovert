@@ -1317,7 +1317,7 @@ export default function Page() {
                         .map((entry, idx) => {
                           const originalIdx = history.indexOf(entry);
                           return (
-                        <div key={originalIdx} className="space-y-4">
+                            <div key={originalIdx} className="space-y-4">
                           {/* User Message */}
                           <motion.div
                             initial={{ opacity: 0, x: -20 }}
@@ -1523,8 +1523,9 @@ export default function Page() {
                               </div>
                             </div>
                           </motion.div>
-                        </div>
-                      ))}
+                            </div>
+                          );
+                        })}
                     </div>
 
                     {/* Current Response (if processing or showing latest) */}
