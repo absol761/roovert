@@ -75,7 +75,10 @@ export function ConsentBanner() {
                       Cookie Consent
                     </h3>
                     <p className="text-sm text-[var(--muted)] leading-relaxed">
-                      We use cookies to improve your experience. This helps us understand how people use Roovert without collecting any personal information.
+                      We use cookies to improve your experience. This helps us understand how people use Roovert without collecting any personal information.{' '}
+                      <Link href="/privacy" className="text-[var(--accent)] hover:underline">
+                        Learn more
+                      </Link>
                     </p>
                   </div>
                 </div>
