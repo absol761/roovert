@@ -118,8 +118,8 @@ export function ConsentBanner() {
 function initializeSegment() {
   if (typeof window === 'undefined') return;
   
-  // Check if Segment is already loaded
-  if ((window as any).analytics && (window as any).analytics.load) {
+  // Check if Segment is already loaded and initialized
+  if ((window as any).analytics && typeof (window as any).analytics.load === 'function') {
     return;
   }
 
@@ -134,8 +134,13 @@ function initializeSegment() {
     return;
   }
 
-  // Create analytics queue if it doesn't exist
+  // Initialize analytics queue before script loads (Segment pattern)
   (window as any).analytics = (window as any).analytics || [];
+  
+  // Define the load function that will be called by Segment
+  (window as any).analytics.load = function(key: string) {
+    (window as any).analytics._writeKey = key;
+  };
   
   // Create and inject Segment script
   const script = document.createElement('script');
@@ -143,28 +148,38 @@ function initializeSegment() {
   script.src = `https://cdn.segment.com/analytics.js/v1/${writeKey}/analytics.min.js`;
   
   script.onload = () => {
-    // Initialize Segment with privacy-focused settings
-    (window as any).analytics.load(writeKey);
-    
-    // Configure to anonymize IP addresses for all future events
-    (window as any).analytics.on('track', function(event: any) {
-      if (event.context) {
-        event.context.ip = '0.0.0.0'; // Anonymize IP
+    // Wait a bit to ensure Segment is fully initialized
+    setTimeout(() => {
+      // Check if analytics.load exists now
+      if (typeof (window as any).analytics.load === 'function') {
+        // Initialize Segment with privacy-focused settings
+        (window as any).analytics.load(writeKey);
+        
+        // Configure to anonymize IP addresses for all future events
+        (window as any).analytics.on('track', function(event: any) {
+          if (event.context) {
+            event.context.ip = '0.0.0.0'; // Anonymize IP
+          }
+        });
+        
+        (window as any).analytics.on('page', function(event: any) {
+          if (event.context) {
+            event.context.ip = '0.0.0.0'; // Anonymize IP
+          }
+        });
+        
+        // Track initial page view with anonymized IP
+        (window as any).analytics.page({
+          context: {
+            ip: '0.0.0.0', // Anonymize IP
+          },
+        });
       }
-    });
-    
-    (window as any).analytics.on('page', function(event: any) {
-      if (event.context) {
-        event.context.ip = '0.0.0.0'; // Anonymize IP
-      }
-    });
-    
-    // Track initial page view with anonymized IP
-    (window as any).analytics.page({
-      context: {
-        ip: '0.0.0.0', // Anonymize IP
-      },
-    });
+    }, 100);
+  };
+  
+  script.onerror = () => {
+    console.error('Failed to load Segment analytics script');
   };
   
   document.head.appendChild(script);
