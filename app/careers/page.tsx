@@ -2,151 +2,30 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, Clock, Briefcase, Users, Zap, Code, Brain, Globe, Heart, TrendingUp, CheckCircle, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Users, Zap, Code, Brain, Globe, Heart, Mail, Github } from 'lucide-react';
 
 export default function CareersPage() {
-  const jobOpenings = [
+
+  const waysToContribute = [
     {
-      id: 1,
-      title: 'Senior AI Engineer',
-      department: 'Engineering',
-      location: 'Remote / San Francisco',
-      type: 'Full-time',
-      description: 'Build and optimize AI models, work with cutting-edge LLMs, and shape the future of AI interaction.',
-      requirements: [
-        '5+ years in ML/AI engineering',
-        'Experience with transformer architectures',
-        'Strong Python and TypeScript skills',
-        'Passion for open-source AI'
-      ],
-      icon: Brain,
-    },
-    {
-      id: 2,
-      title: 'Full-Stack Developer',
-      department: 'Engineering',
-      location: 'Remote / New York',
-      type: 'Full-time',
-      description: 'Create beautiful, performant interfaces for AI interactions. Build the next generation of AI tools.',
-      requirements: [
-        '3+ years full-stack experience',
-        'React, Next.js, TypeScript expertise',
-        'Experience with real-time systems',
-        'Eye for design and UX'
-      ],
       icon: Code,
+      title: 'Development',
+      description: 'Help build features, fix bugs, or improve performance. We welcome contributions of all sizes.',
     },
     {
-      id: 3,
-      title: 'AI Research Scientist',
-      department: 'Research',
-      location: 'Remote / London',
-      type: 'Full-time',
-      description: 'Push the boundaries of AI capabilities. Research new model architectures and training methods.',
-      requirements: [
-        'PhD in ML/AI or equivalent',
-        'Published research in top venues',
-        'Experience with large-scale training',
-        'Strong mathematical background'
-      ],
-      icon: TrendingUp,
-    },
-    {
-      id: 4,
-      title: 'Product Designer',
-      department: 'Design',
-      location: 'Remote / Anywhere',
-      type: 'Full-time',
-      description: 'Design intuitive AI interfaces. Create experiences that make complex AI accessible to everyone.',
-      requirements: [
-        '4+ years product design experience',
-        'Portfolio of AI/ML products',
-        'Strong UX research skills',
-        'Figma and prototyping expertise'
-      ],
-      icon: Heart,
-    },
-    {
-      id: 5,
-      title: 'Developer Relations',
-      department: 'Community',
-      location: 'Remote / Anywhere',
-      type: 'Full-time',
-      description: 'Build relationships with developers, create content, and grow the Roovert community.',
-      requirements: [
-        '2+ years DevRel experience',
-        'Strong technical writing',
-        'Public speaking experience',
-        'Passion for developer tools'
-      ],
-      icon: Users,
-    },
-    {
-      id: 6,
-      title: 'Infrastructure Engineer',
-      department: 'Engineering',
-      location: 'Remote / Seattle',
-      type: 'Full-time',
-      description: 'Scale our infrastructure to handle millions of requests. Optimize performance and reliability.',
-      requirements: [
-        '4+ years infrastructure experience',
-        'Kubernetes, AWS, Vercel expertise',
-        'Experience with high-traffic systems',
-        'Strong problem-solving skills'
-      ],
-      icon: Zap,
-    },
-  ];
-
-  const benefits = [
-    {
-      icon: Globe,
-      title: 'Remote First',
-      description: 'Work from anywhere in the world. We believe in async-first collaboration.',
-    },
-    {
-      icon: Zap,
-      title: 'Cutting-Edge Tech',
-      description: 'Work with the latest AI models and technologies. Shape the future of AI.',
+      icon: Brain,
+      title: 'AI Research',
+      description: 'Experiment with new models, test capabilities, or suggest improvements to our AI integration.',
     },
     {
       icon: Heart,
-      title: 'Health & Wellness',
-      description: 'Comprehensive health insurance, mental health support, and wellness programs.',
-    },
-    {
-      icon: Briefcase,
-      title: 'Learning Budget',
-      description: '$5,000 annual learning budget for courses, conferences, and books.',
+      title: 'Design & UX',
+      description: 'Improve the interface, suggest new themes, or help make Roovert more accessible.',
     },
     {
       icon: Users,
-      title: 'Team Retreats',
-      description: 'Quarterly team meetups in amazing locations around the world.',
-    },
-    {
-      icon: CheckCircle,
-      title: 'Equity & Benefits',
-      description: 'Competitive salary, equity package, and comprehensive benefits.',
-    },
-  ];
-
-  const values = [
-    {
-      title: 'Truth First',
-      description: 'We prioritize accuracy and truth over convenience. We build tools that help people find real answers.',
-    },
-    {
-      title: 'Open Source',
-      description: 'We believe in open-source AI. We contribute to the community and share our learnings.',
-    },
-    {
-      title: 'User Privacy',
-      description: 'Privacy is fundamental. We build with privacy-by-design principles.',
-    },
-    {
-      title: 'Innovation',
-      description: 'We move fast, experiment, and aren\'t afraid to challenge the status quo.',
+      title: 'Community',
+      description: 'Help grow the community, write documentation, or share Roovert with others.',
     },
   ];
 
@@ -190,20 +69,20 @@ export default function CareersPage() {
           >
             <div className="inline-flex items-center gap-2 text-xs font-mono tracking-[0.35em] uppercase text-[var(--foreground)]/50">
               <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse"></span>
-              Join the Team
+              Join Us
             </div>
             <h1 className="text-6xl md:text-8xl font-light leading-tight">
-              <span className="block">Build the Future of</span>
-              <span className="block text-[var(--accent)] opacity-90">AI Intelligence</span>
+              <span className="block">We're Looking for</span>
+              <span className="block text-[var(--accent)] opacity-90">People to Join</span>
             </h1>
             <p className="text-xl text-[var(--foreground)]/60 font-light max-w-2xl mx-auto">
-              We're building tools that make AI accessible, truthful, and powerful. Join us in shaping how humans interact with artificial intelligence.
+              Roovert is growing. We're looking for developers, designers, researchers, and anyone passionate about building better AI tools. Whether you're experienced or just starting out, we'd love to hear from you.
             </p>
           </motion.div>
         </div>
       </section>
 
-      {/* Values Section */}
+      {/* Ways to Contribute */}
       <section className="relative z-10 py-20 px-6">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -213,117 +92,13 @@ export default function CareersPage() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-light mb-4">Our Values</h2>
+            <h2 className="text-4xl font-light mb-4">Ways to Contribute</h2>
             <p className="text-lg text-[var(--foreground)]/60 max-w-2xl mx-auto">
-              What drives us every day
+              There are many ways to get involved with Roovert
             </p>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {values.map((value, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: idx * 0.1 }}
-                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-6 hover:border-[var(--accent)]/40 transition-all"
-              >
-                <h3 className="text-lg font-medium text-[var(--foreground)] mb-3">{value.title}</h3>
-                <p className="text-sm text-[var(--muted)] leading-relaxed">{value.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Open Positions */}
-      <section className="relative z-10 py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl font-light mb-4">Open Positions</h2>
-            <p className="text-lg text-[var(--foreground)]/60 max-w-2xl mx-auto">
-              We're always looking for exceptional people to join our team
-            </p>
-          </motion.div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {jobOpenings.map((job, idx) => (
-              <motion.div
-                key={job.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: idx * 0.1 }}
-                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-6 hover:border-[var(--accent)]/40 transition-all group"
-              >
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="p-3 rounded-lg bg-[var(--accent)]/10 group-hover:bg-[var(--accent)]/20 transition-colors">
-                    <job.icon className="w-6 h-6 text-[var(--accent)]" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-medium text-[var(--foreground)] mb-2 group-hover:text-[var(--accent)] transition-colors">
-                      {job.title}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--muted)] mb-3">
-                      <span className="flex items-center gap-1">
-                        <Briefcase className="w-3 h-3" />
-                        {job.department}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3" />
-                        {job.location}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {job.type}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-sm text-[var(--muted)] mb-4 leading-relaxed">{job.description}</p>
-                <div className="mb-4">
-                  <h4 className="text-xs uppercase tracking-wider text-[var(--foreground)]/50 mb-2 font-mono">Key Requirements</h4>
-                  <ul className="space-y-2">
-                    {job.requirements.map((req, reqIdx) => (
-                      <li key={reqIdx} className="flex items-start gap-2 text-sm text-[var(--muted)]">
-                        <CheckCircle className="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" />
-                        <span>{req}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <button className="w-full px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-2 group/btn">
-                  Apply Now
-                  <ExternalLink className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-                </button>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="relative z-10 py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl font-light mb-4">Benefits & Perks</h2>
-            <p className="text-lg text-[var(--foreground)]/60 max-w-2xl mx-auto">
-              We take care of our team so you can do your best work
-            </p>
-          </motion.div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {benefits.map((benefit, idx) => (
+            {waysToContribute.map((way, idx) => (
               <motion.div
                 key={idx}
                 initial={{ opacity: 0, y: 20 }}
@@ -333,17 +108,66 @@ export default function CareersPage() {
                 className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-6 hover:border-[var(--accent)]/40 transition-all"
               >
                 <div className="p-3 rounded-lg bg-[var(--accent)]/10 w-fit mb-4">
-                  <benefit.icon className="w-6 h-6 text-[var(--accent)]" />
+                  <way.icon className="w-6 h-6 text-[var(--accent)]" />
                 </div>
-                <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">{benefit.title}</h3>
-                <p className="text-sm text-[var(--muted)] leading-relaxed">{benefit.description}</p>
+                <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">{way.title}</h3>
+                <p className="text-sm text-[var(--muted)] leading-relaxed">{way.description}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Internships & Opportunities */}
+      <section className="relative z-10 py-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-12"
+          >
+            <div className="text-center mb-8">
+              <h2 className="text-4xl font-light mb-4">Internships & Opportunities</h2>
+              <p className="text-lg text-[var(--foreground)]/60 max-w-2xl mx-auto">
+                We're open to internships, part-time contributions, and full-time roles. If you're interested in working on Roovert, reach out.
+              </p>
+            </div>
+            <div className="space-y-6 text-[var(--muted)]">
+              <div className="flex items-start gap-4">
+                <Zap className="w-5 h-5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">What We're Looking For</h3>
+                  <p className="text-sm leading-relaxed">
+                    People who care about building better AI tools. Experience level doesn't matter as much as curiosity and willingness to learn. We're particularly interested in developers, designers, and anyone with ideas about how to improve AI interfaces.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <Globe className="w-5 h-5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">Remote & Flexible</h3>
+                  <p className="text-sm leading-relaxed">
+                    We work remotely and are flexible with schedules. Whether you're a student looking for an internship, someone wanting to contribute part-time, or looking for a full-time role, we're open to discussing what works.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <Heart className="w-5 h-5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="text-lg font-medium text-[var(--foreground)] mb-2">Open Source</h3>
+                  <p className="text-sm leading-relaxed">
+                    Much of what we build is open source. You can contribute through GitHub, help with documentation, or suggest features. Every contribution matters.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Get in Touch */}
       <section className="relative z-10 py-20 px-6">
         <div className="max-w-4xl mx-auto">
           <motion.div
@@ -353,14 +177,28 @@ export default function CareersPage() {
             transition={{ duration: 0.6 }}
             className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-12 text-center"
           >
-            <h2 className="text-4xl font-light mb-4">Don't See a Role That Fits?</h2>
+            <h2 className="text-4xl font-light mb-4">Get in Touch</h2>
             <p className="text-lg text-[var(--foreground)]/60 mb-8 max-w-2xl mx-auto">
-              We're always looking for exceptional people. Send us your resume and tell us how you'd like to contribute.
+              Interested in joining? Have questions? Want to contribute? We'd love to hear from you.
             </p>
-            <button className="px-8 py-4 bg-[var(--accent)] text-white text-lg font-medium rounded-full hover:opacity-90 transition-all shadow-[0_0_40px_var(--accent-glow)] flex items-center gap-3 mx-auto">
-              Open Application
-              <ExternalLink className="w-5 h-5" />
-            </button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <a
+                href="mailto:careers@roovert.com"
+                className="px-8 py-4 bg-[var(--accent)] text-white text-lg font-medium rounded-full hover:opacity-90 transition-all shadow-[0_0_40px_var(--accent-glow)] flex items-center gap-3"
+              >
+                <Mail className="w-5 h-5" />
+                Email Us
+              </a>
+              <a
+                href="https://github.com/absol761/roovert"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-8 py-4 border border-[var(--border)] text-[var(--foreground)] text-lg font-medium rounded-full hover:border-[var(--accent)] hover:bg-[var(--surface)] transition-all flex items-center gap-3"
+              >
+                <Github className="w-5 h-5" />
+                View on GitHub
+              </a>
+            </div>
           </motion.div>
         </div>
       </section>
