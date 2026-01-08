@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     // Model ID to API ID mapping
     const MODEL_MAP: Record<string, string> = {
       'ooverta': 'perplexity/sonar-reasoning',
-      'gemini-flash': 'google/gemini-flash-1.5:free',
+      'gemini-flash': 'google/gemini-2.0-flash-exp:free',
       'deepseek-free': 'deepseek/deepseek-r1-0528:free',
       'nemotron-30b': 'nvidia/nemotron-3-nano-30b-a3b:free',
       'llama-405b': 'nousresearch/hermes-3-llama-3.1-405b:free',

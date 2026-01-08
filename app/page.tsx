@@ -9,7 +9,7 @@ import rehypeHighlight from 'rehype-highlight';
 
 const MODELS = [
   { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
-  { id: 'gemini-flash', name: 'Gemini Flash', apiId: 'google/gemini-flash-1.5:free', category: 'Standard', description: 'Fast, efficient, google-powered.' },
+  { id: 'gemini-flash', name: 'Gemini Flash', apiId: 'google/gemini-2.0-flash-exp:free', category: 'Standard', description: 'Fast, efficient, google-powered.' },
   { id: 'deepseek-free', name: 'DeepSeek R1', apiId: 'deepseek/deepseek-r1-0528:free', category: 'Standard', description: 'Fast, efficient reasoning.' },
   { id: 'nemotron-30b', name: 'Nvidia Nemotron 30B', apiId: 'nvidia/nemotron-3-nano-30b-a3b:free', category: 'Standard', description: 'Compact, powerful Nvidia model.' },
   { id: 'llama-405b', name: 'Llama 3.1 405B', apiId: 'nousresearch/hermes-3-llama-3.1-405b:free', category: 'Advanced', description: 'Massive open-source intelligence.' },
