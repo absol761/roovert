@@ -1335,6 +1335,7 @@ while (true) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
               className={`theme-content w-full mx-auto h-full flex flex-col transition-all duration-500 ${isFullscreen ? 'max-w-full px-4' : ''}`}
+              data-chat-area="true"
             >
               <div className="interface-grid h-full">
                 {/* Intel Panel (Left) - Hidden in Fullscreen */}

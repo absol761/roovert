@@ -57,15 +57,21 @@ export function ParticleCursor() {
       const element = document.elementFromPoint(x, y);
       if (!element) return false;
       
-      // Check if element or its parents have chat-related classes
+      // Check if element or its parents have chat-related classes or IDs
       let current: HTMLElement | null = element as HTMLElement;
       while (current) {
+        const classList = current.classList;
+        const id = current.id;
+        
+        // Check for chat-related identifiers
         if (
-          current.classList?.contains('chat-stack') ||
-          current.classList?.contains('interface-grid') ||
-          current.id === 'chat-container' ||
+          classList?.contains('chat-stack') ||
+          classList?.contains('interface-grid') ||
+          classList?.contains('intel-panel') ||
+          id === 'chat-container' ||
           current.closest('.chat-stack') ||
-          current.closest('.interface-grid')
+          current.closest('.interface-grid') ||
+          current.closest('[data-chat-area]')
         ) {
           return true;
         }
