@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 
 interface NeuralNoiseProps {
   isChatMode?: boolean;
+  currentLook?: string;
 }
 
-export function NeuralNoise({ isChatMode = false }: NeuralNoiseProps) {
+export function NeuralNoise({ isChatMode = false, currentLook = 'default' }: NeuralNoiseProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number | null>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
@@ -28,7 +29,7 @@ export function NeuralNoise({ isChatMode = false }: NeuralNoiseProps) {
     return { r: 0.1, g: 0.2, b: 0.8 }; // Default teal
   };
 
-  // Update color from CSS variable
+  // Update color from CSS variable - adapts to current look
   const updateColor = () => {
     if (typeof window === 'undefined') return;
     const root = document.documentElement;
@@ -200,7 +201,7 @@ export function NeuralNoise({ isChatMode = false }: NeuralNoiseProps) {
     const pointer = pointerRef.current;
     if (!gl || !uniforms) return;
 
-    // Update color periodically to match theme changes
+    // Update color to match current look/theme
     updateColor();
 
     const currentTime = performance.now();
@@ -280,7 +281,7 @@ export function NeuralNoise({ isChatMode = false }: NeuralNoiseProps) {
     window.addEventListener('touchmove', handleTouchMove);
     window.addEventListener('click', handleClick);
 
-    // Update color when theme changes
+    // Update color when look/theme changes
     const observer = new MutationObserver(() => {
       updateColor();
     });
@@ -288,6 +289,9 @@ export function NeuralNoise({ isChatMode = false }: NeuralNoiseProps) {
       attributes: true,
       attributeFilter: ['data-look', 'data-theme'],
     });
+
+    // Also update when currentLook prop changes
+    updateColor();
 
     return () => {
       if (animationRef.current) {
@@ -299,7 +303,7 @@ export function NeuralNoise({ isChatMode = false }: NeuralNoiseProps) {
       window.removeEventListener('click', handleClick);
       observer.disconnect();
     };
-  }, [isChatMode, isMounted]);
+  }, [isChatMode, isMounted, currentLook]);
 
   // Don't render if in chat mode or not mounted (prevents hydration mismatch)
   if (isChatMode || !isMounted) return null;

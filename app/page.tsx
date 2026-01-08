@@ -232,7 +232,9 @@ function SettingsModal({
   onExportChat,
   currentLook, setLook,
   onOpenLooks,
-  onOpenMoreModels
+  onOpenMoreModels,
+  neuralNoiseEnabled,
+  setNeuralNoiseEnabled
 }: any) {
   if (!isOpen) return null;
 
@@ -244,6 +246,7 @@ function SettingsModal({
     setSystemPrompt('');
     setModelId('ooverta');
     setLook('default');
+    setNeuralNoiseEnabled(true);
   };
 
   return (
@@ -384,6 +387,26 @@ function SettingsModal({
                         }`}
                     >
                         {focusMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                    <div>
+                        <div className="text-sm font-medium flex items-center gap-2">
+                            Neural Background
+                            {neuralNoiseEnabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20">ACTIVE</span>}
+                        </div>
+                        <div className="text-xs text-[var(--muted)]">Animated neural network background effect</div>
+                    </div>
+                    <button
+                        onClick={() => setNeuralNoiseEnabled(!neuralNoiseEnabled)}
+                        className={`relative w-11 h-6 rounded-full transition-colors ${
+                            neuralNoiseEnabled ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
+                        }`}
+                    >
+                        <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                            neuralNoiseEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`} />
                     </button>
                 </div>
             </div>
@@ -799,6 +822,13 @@ export default function Page() {
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [closedWidgets, setClosedWidgets] = useState<Set<string>>(new Set());
+  const [neuralNoiseEnabled, setNeuralNoiseEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('roovert_neural_noise_enabled');
+      return saved !== 'false'; // Default to true
+    }
+    return true;
+  });
   
   const inputRef = useRef<HTMLInputElement>(null);
   const responseEndRef = useRef<HTMLDivElement>(null);
@@ -1090,8 +1120,8 @@ export default function Page() {
 
   return (
       <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
-        {/* Neural Noise Background - Only when not in chat mode */}
-        {!isChatMode && <NeuralNoise isChatMode={isChatMode} />}
+        {/* Neural Noise Background - Only when not in chat mode and enabled */}
+        {!isChatMode && neuralNoiseEnabled && <NeuralNoise isChatMode={isChatMode} currentLook={look} />}
         
         {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -1163,6 +1193,8 @@ export default function Page() {
             setLook={setLook}
             onOpenLooks={() => setIsLooksOpen(true)}
             onOpenMoreModels={() => setIsMoreModelsOpen(true)}
+            neuralNoiseEnabled={neuralNoiseEnabled}
+            setNeuralNoiseEnabled={setNeuralNoiseEnabled}
           />
         )}
       </AnimatePresence>
