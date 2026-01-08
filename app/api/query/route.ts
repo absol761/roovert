@@ -42,6 +42,28 @@ export async function POST(request: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://roovert.com';
     const siteName = 'Roovert';
 
+    // Model ID to API ID mapping
+    const MODEL_MAP: Record<string, string> = {
+      'ooverta': 'perplexity/sonar-reasoning',
+      'gemini-flash': 'google/gemini-flash-1.5:free',
+      'deepseek-free': 'deepseek/deepseek-r1-0528:free',
+      'nemotron-30b': 'nvidia/nemotron-3-nano-30b-a3b:free',
+      'llama-405b': 'nousresearch/hermes-3-llama-3.1-405b:free',
+      'gpt-4o': 'openai/gpt-4o',
+      'claude-3-5-sonnet': 'anthropic/claude-3.5-sonnet',
+      'perplexity': 'perplexity/sonar-reasoning',
+      'gpt-4-turbo': 'openai/gpt-4-turbo',
+      'claude-3-opus': 'anthropic/claude-3-opus',
+      'claude-3-haiku': 'anthropic/claude-3-haiku',
+      'gemini-pro': 'google/gemini-pro',
+      'llama-3-70b': 'meta-llama/llama-3-70b-instruct',
+      'mistral-large': 'mistralai/mistral-large',
+      'qwen-2-5': 'qwen/qwen-2.5-72b-instruct',
+      'pi-mini': 'inflection/inflection-pi',
+      'command-r-plus': 'cohere/command-r-plus',
+      'llama-3-1-8b': 'meta-llama/llama-3.1-8b-instruct',
+    };
+
     // Default model handling
     let targetModel = model;
     let systemPrompt = customSystemPrompt || "You are a helpful, intelligent, and precise AI assistant. Answer the user's questions clearly and accurately.";
@@ -55,8 +77,8 @@ export async function POST(request: NextRequest) {
       
         IDENTITY:
         - You are Ooverta.
-        - If asked "what model is this?", reply "I am Ooverta, an AI assistant."
-        - If asked "what site is this?", reply "You are on Roovert.com."
+        - If asked "what model is this?", reply "I am Ooverta, an AI model developed by Roovert. I am being improved as you are reading this!"
+        - If asked "what site is this?", reply "You are on Roovert.com, a pretty neat site!"
         
         STYLE:
         - Be helpful, clear, and direct.
@@ -64,8 +86,8 @@ export async function POST(request: NextRequest) {
         - Use internet search data (provided by the underlying engine) to answer current events if needed.`;
       }
     } else {
-        // Ensure no whitespace in model ID
-        targetModel = targetModel.trim();
+      // Map model ID to API ID if it exists in the map, otherwise use the model ID directly
+      targetModel = MODEL_MAP[model] || model.trim();
     }
 
     const respondWithSimulation = (reason: string) =>

@@ -6,13 +6,26 @@ import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTrian
 
 const MODELS = [
   { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
-  { id: 'gemini-flash', name: 'Gemini 2.0 Flash', apiId: 'google/gemini-2.0-flash-exp:free', category: 'Standard', description: 'Fast, efficient, google-powered.' },
+  { id: 'gemini-flash', name: 'Gemini Flash', apiId: 'google/gemini-flash-1.5:free', category: 'Standard', description: 'Fast, efficient, google-powered.' },
   { id: 'deepseek-free', name: 'DeepSeek R1', apiId: 'deepseek/deepseek-r1-0528:free', category: 'Standard', description: 'Fast, efficient reasoning.' },
   { id: 'nemotron-30b', name: 'Nvidia Nemotron 30B', apiId: 'nvidia/nemotron-3-nano-30b-a3b:free', category: 'Standard', description: 'Compact, powerful Nvidia model.' },
   { id: 'llama-405b', name: 'Llama 3.1 405B', apiId: 'nousresearch/hermes-3-llama-3.1-405b:free', category: 'Advanced', description: 'Massive open-source intelligence.' },
   { id: 'gpt-4o', name: 'GPT-4o', apiId: 'openai/gpt-4o', category: 'Advanced', description: 'Top-tier general intelligence.' },
   { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', apiId: 'anthropic/claude-3.5-sonnet', category: 'Advanced', description: 'Nuanced and articulate.' },
   { id: 'perplexity', name: 'Perplexity', apiId: 'perplexity/sonar-reasoning', category: 'Advanced', description: 'Real-time search engine.' },
+];
+
+const MORE_MODELS = [
+  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', apiId: 'openai/gpt-4-turbo', category: 'Advanced', description: 'Enhanced GPT-4 with improved speed.' },
+  { id: 'claude-3-opus', name: 'Claude 3 Opus', apiId: 'anthropic/claude-3-opus', category: 'Advanced', description: 'Most capable Claude model.' },
+  { id: 'claude-3-haiku', name: 'Claude 3 Haiku', apiId: 'anthropic/claude-3-haiku', category: 'Standard', description: 'Fast and efficient Claude model.' },
+  { id: 'gemini-pro', name: 'Gemini Pro', apiId: 'google/gemini-pro', category: 'Standard', description: 'Google advanced reasoning model.' },
+  { id: 'llama-3-70b', name: 'Llama 3 70B', apiId: 'meta-llama/llama-3-70b-instruct', category: 'Standard', description: 'Large open-source model.' },
+  { id: 'mistral-large', name: 'Mistral Large', apiId: 'mistralai/mistral-large', category: 'Advanced', description: 'High-performance French model.' },
+  { id: 'qwen-2-5', name: 'Qwen 2.5', apiId: 'qwen/qwen-2.5-72b-instruct', category: 'Advanced', description: 'Alibaba advanced reasoning model.' },
+  { id: 'pi-mini', name: 'Pi Mini', apiId: 'inflection/inflection-pi', category: 'Standard', description: 'Conversational AI assistant.' },
+  { id: 'command-r-plus', name: 'Command R+', apiId: 'cohere/command-r-plus', category: 'Advanced', description: 'Enterprise-grade reasoning.' },
+  { id: 'llama-3-1-8b', name: 'Llama 3.1 8B', apiId: 'meta-llama/llama-3.1-8b-instruct', category: 'Standard', description: 'Lightweight efficient model.' },
 ];
 
 const QUICK_PROMPTS = [
@@ -35,30 +48,105 @@ const LAYOUTS = [
   { id: 'wide', name: 'Spacious' },
 ];
 
-// Looks - Complete visual transformations
+// Looks - Modern 2025-2026 design trends
 const LOOKS = [
-  { id: 'default', name: 'Default', description: 'Clean, modern interface', category: 'basic' },
-  { id: 'wildwest', name: 'Wild West', description: 'Dusty saloon vibes with rustic charm', category: 'themed' },
-  { id: 'frutigeraero', name: 'Frutiger Aero', description: 'Y2K nostalgia with nature & tech fusion', category: 'themed' },
-  { id: 'cyberpunk', name: 'Cyberpunk', description: 'Neon-soaked dystopian future', category: 'themed' },
-  { id: 'matrix', name: 'Matrix', description: 'Green code rain aesthetic', category: 'themed' },
-  { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s vibes', category: 'themed' },
-  { id: 'minimalist', name: 'Minimalist', description: 'Ultra-clean, focused design', category: 'style' },
-  { id: 'darkmode', name: 'Dark Mode Pro', description: 'Deep blacks with vibrant accents', category: 'style' },
-  { id: 'neon', name: 'Neon Nights', description: 'Electric neon on dark background', category: 'style' },
-  { id: 'ocean', name: 'Ocean Depths', description: 'Deep blue aquatic theme', category: 'nature' },
-  { id: 'forest', name: 'Forest Canopy', description: 'Green nature-inspired palette', category: 'nature' },
-  { id: 'sunset', name: 'Sunset Glow', description: 'Warm orange and pink gradients', category: 'nature' },
-  { id: 'space', name: 'Deep Space', description: 'Cosmic darkness with stars', category: 'nature' },
-  { id: 'paper', name: 'Paper & Ink', description: 'Vintage paper texture aesthetic', category: 'vintage' },
-  { id: 'blueprint', name: 'Blueprint', description: 'Technical drawing with grid lines', category: 'vintage' },
+  { id: 'default', name: 'Default', description: 'Clean, modern interface', category: 'essential' },
+  { id: 'neominimal', name: 'Neo-Minimal', description: 'Minimalism with depth and soft shadows', category: 'essential' },
+  { id: 'monochrome', name: 'Monochrome', description: 'High contrast single-color design', category: 'essential' },
+  { id: 'depth', name: 'Depth Field', description: '3D layers with realistic shadows', category: 'modern' },
+  { id: 'bold', name: 'Bold Typography', description: 'Experimental fonts with maximum impact', category: 'modern' },
+  { id: 'sustainable', name: 'Sustainable', description: 'Eco-friendly green design palette', category: 'modern' },
+  { id: 'accessible', name: 'High Contrast', description: 'Accessible design with WCAG compliance', category: 'modern' },
+  { id: 'nocturne', name: 'Nocturne', description: 'Deep night with orange accents', category: 'dark' },
+  { id: 'obsidian', name: 'Obsidian', description: 'Deep violet-black with purple glow', category: 'dark' },
+  { id: 'midnight', name: 'Midnight', description: 'Slate blue with sky accents', category: 'dark' },
+  { id: 'aether', name: 'Aether', description: 'Light indigo with split-grid layout', category: 'light' },
+  { id: 'atlas', name: 'Atlas', description: 'Brutalist blueprint aesthetic', category: 'light' },
+  { id: 'cyberpunk', name: 'Cyberpunk', description: 'Neon grid with green matrix', category: 'themed' },
+  { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s aesthetic', category: 'themed' },
+  { id: 'space', name: 'Deep Space', description: 'Cosmic darkness with stars', category: 'themed' },
 ];
+
+// More Models Modal Component
+function MoreModelsModal({ isOpen, onClose, currentModelId, setModelId }: any) {
+  if (!isOpen) return null;
+
+  const categories = ['Standard', 'Advanced'];
+  const modelsByCategory = categories.map(cat => ({
+    category: cat,
+    models: MORE_MODELS.filter(m => m.category === cat)
+  }));
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 text-[var(--foreground)]">
+      <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative w-full max-w-4xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
+          <h2 className="text-2xl font-light tracking-wide flex items-center gap-2">
+            <Zap className="w-6 h-6 text-[var(--accent)]" />
+            More Models
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
+          {modelsByCategory.map(({ category, models }) => (
+            <motion.section 
+              key={category}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            >
+              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">
+                {category}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {models.map((model, idx) => (
+                  <motion.button
+                    key={model.id}
+                    onClick={() => { setModelId(model.id); onClose(); }}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2, delay: idx * 0.03, ease: 'easeOut' }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`p-4 rounded-xl border transition-all duration-300 text-left ${
+                      currentModelId === model.id 
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20' 
+                        : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
+                    }`}
+                  >
+                    <div className="font-medium text-[var(--foreground)] mb-1 flex items-center gap-2">
+                      {model.name}
+                      {model.category === 'Advanced' && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]">PRO</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-[var(--muted)]">{model.description}</div>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.section>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 // Looks Modal Component
 function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
   if (!isOpen) return null;
 
-  const categories = ['basic', 'themed', 'style', 'nature', 'vintage'];
+  const categories = ['essential', 'modern', 'dark', 'light', 'themed'];
   const looksByCategory = categories.map(cat => ({
     category: cat,
     looks: LOOKS.filter(l => l.category === cat)
@@ -321,7 +409,15 @@ function SettingsModal({
 
           {/* Model Section */}
           <section>
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono">Default Intelligence</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] font-mono">Default Intelligence</h3>
+              <button
+                onClick={onOpenMoreModels}
+                className="text-xs text-[var(--accent)] hover:text-[var(--accent)]/80 transition-colors px-3 py-1.5 rounded-lg border border-[var(--border)] hover:border-[var(--accent)]/40 hover:bg-[var(--surface)]"
+              >
+                More Models
+              </button>
+            </div>
             <div className="grid gap-2">
               {MODELS.map(model => (
                 <button
@@ -694,6 +790,7 @@ export default function Page() {
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
+  const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
   const [look, setLook] = useState('default');
   const [layout, setLayout] = useState('standard');
   const [fontSize, setFontSize] = useState('normal');
@@ -877,6 +974,19 @@ export default function Page() {
             currentLook={look}
             setLook={setLook}
             onOpenLooks={() => setIsLooksOpen(true)}
+            onOpenMoreModels={() => setIsMoreModelsOpen(true)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* More Models Modal */}
+      <AnimatePresence>
+        {isMoreModelsOpen && (
+          <MoreModelsModal
+            isOpen={isMoreModelsOpen}
+            onClose={() => setIsMoreModelsOpen(false)}
+            currentModelId={selectedModelId}
+            setModelId={setSelectedModelId}
           />
         )}
       </AnimatePresence>
@@ -899,7 +1009,7 @@ export default function Page() {
       {look === 'space' && <ParticleBackground />}
 
       {/* Main Content Area */}
-      <main className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-hidden">
+      <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-hidden">
         
         {/* Landing Hero (Shown when NOT in Chat Mode) */}
         <AnimatePresence mode="wait">

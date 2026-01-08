@@ -73,3 +73,23 @@ lerna-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# SQLite database (privacy-focused visitor tracking)
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Internal documentation and setup guides (not for public GitHub)
+API_SETUP.md
+CUSTOM_DOMAIN_SETUP.md
+DEPLOYMENT.md
+DNS_SETUP_STEPS.md
+FIND_YOUR_REGISTRAR.md
+PORKBUN_CLICK_GUIDE.md
+PORKBUN_DNS_SETUP.md
+PORKBUN_DNS_TROUBLESHOOTING.md
+REAL_TRACKING_SETUP.md
+PRIVACY_TRACKING_SETUP.md
+TRACKING_QUICK_START.md
+database-schema.sql

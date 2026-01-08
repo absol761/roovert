@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getDatabase } from '@/app/lib/db';
 import { kv } from '@vercel/kv';
 
 export async function GET() {
@@ -9,19 +10,32 @@ export async function GET() {
   const elapsedMs = now.getTime() - launchDate.getTime();
   const elapsedDays = Math.max(1, elapsedMs / (1000 * 60 * 60 * 24));
   
-  // 2. Get Real Unique Visitor Count from KV (if available)
+  // 2. Get Real Unique Visitor Count from SQLite (primary) or KV (fallback)
   let uniqueMinds = 42; // Fallback baseline
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    try {
-      const realCount = await kv.get('unique_visitors');
-      if (realCount) uniqueMinds = Number(realCount);
-    } catch (e) {
-      console.error('KV Read Error', e);
+  
+  // Try SQLite first (privacy-focused tracking)
+  try {
+    const db = getDatabase();
+    const result = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
+    if (result && result.count > 0) {
+      uniqueMinds = result.count;
     }
-  } else {
-    // Fallback: Deterministic Growth Model
+  } catch (sqliteError) {
+    console.error('SQLite Read Error:', sqliteError);
+    // Fallback to KV if SQLite fails
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      try {
+        const realCount = await kv.get('unique_visitors');
+        if (realCount) uniqueMinds = Number(realCount);
+      } catch (e) {
+        console.error('KV Read Error', e);
+      }
+    }
+  }
+  
+  // Final fallback: Deterministic Growth Model
+  if (uniqueMinds === 42) {
     const initialUsers = 42;
-    // Faster simulated growth for demo
     const growthRate = 0.15; 
     const randomFactor = Math.floor(Math.random() * 5); 
     uniqueMinds = Math.floor(initialUsers * Math.pow(1 + growthRate, elapsedDays)) + randomFactor;
