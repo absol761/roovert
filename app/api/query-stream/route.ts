@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const payload = await request.json();
-    const { query, model, systemPrompt: customSystemPrompt, conversationHistory } = payload;
+    const { query, model, systemPrompt: customSystemPrompt, conversationHistory, image } = payload;
     
     if (!query || typeof query !== 'string') {
       return new Response(
@@ -68,13 +68,24 @@ export async function POST(request: NextRequest) {
       'llama-3-1-8b': 'meta-llama/llama-3.1-8b-instruct',
     };
 
+    // If image is provided, use vision-capable model
+    // Default to Gemini 2.0 Flash for vision if no model specified or if current model doesn't support vision
+    const visionModels = ['google/gemini-2.0-flash-exp:free', 'google/gemini-flash-1.5:free', 'google/gemini-pro', 'meta-llama/llama-4-maverick:free'];
+    const needsVision = !!image;
+    const currentModelSupportsVision = model && visionModels.includes(MODEL_MAP[model] || model);
+
     // Default model handling
     let targetModel = model;
     let systemPrompt = customSystemPrompt || "You are a helpful, intelligent, and precise AI assistant. Answer the user's questions clearly and accurately.";
 
     // Ooverta (Default) Configuration - Optimized for speed
     if (!model || model === 'ooverta') {
-      targetModel = 'perplexity/sonar-reasoning';
+      if (needsVision) {
+        // Use Gemini for vision by default
+        targetModel = 'google/gemini-2.0-flash-exp:free';
+      } else {
+        targetModel = 'perplexity/sonar-reasoning';
+      }
       if (!customSystemPrompt) {
         systemPrompt = `You are Ooverta, a helpful AI assistant on Roovert.com.
       
@@ -87,10 +98,17 @@ export async function POST(request: NextRequest) {
         - Be helpful, clear, and direct.
         - Provide accurate information.
         - Use internet search data (provided by the underlying engine) to answer current events if needed.
-        - Keep responses concise and focused for faster delivery.`;
+        - Keep responses concise and focused for faster delivery.
+        ${needsVision ? '- You can see and analyze images. Describe what you see clearly and accurately.' : ''}`;
       }
     } else {
       targetModel = MODEL_MAP[model] || model.trim();
+      
+      // If image provided but model doesn't support vision, switch to Gemini
+      if (needsVision && !currentModelSupportsVision) {
+        console.warn(`Model ${targetModel} doesn't support vision, switching to Gemini 2.0 Flash`);
+        targetModel = 'google/gemini-2.0-flash-exp:free';
+      }
     }
 
     if (!apiKey) {
@@ -114,6 +132,50 @@ export async function POST(request: NextRequest) {
         const encoder = new TextEncoder();
         
         try {
+          // Build messages array with conversation history
+          // Content can be string or array (for vision)
+          type MessageContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+          const messages: Array<{ 
+            role: 'system' | 'user' | 'assistant'; 
+            content: MessageContent 
+          }> = [
+            {
+              role: 'system',
+              content: systemPrompt
+            }
+          ];
+
+          // Add conversation history if provided
+          if (conversationHistory && Array.isArray(conversationHistory)) {
+            // Validate and add history messages
+            for (const msg of conversationHistory) {
+              if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
+                messages.push({
+                  role: msg.role,
+                  content: msg.content as MessageContent // Can be string or array for vision
+                });
+              }
+            }
+          }
+
+          // Add current user query with image if present
+          if (image) {
+            // Vision format: array with text and image
+            messages.push({
+              role: 'user',
+              content: [
+                { type: 'text', text: userQuery },
+                { type: 'image_url', image_url: { url: image } }
+              ]
+            });
+          } else {
+            // Standard format: string only
+            messages.push({
+              role: 'user',
+              content: userQuery,
+            });
+          }
+
           const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -122,48 +184,13 @@ export async function POST(request: NextRequest) {
               'X-Title': siteName,
               'Content-Type': 'application/json',
             },
-            // Build messages array with conversation history
-            const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-              {
-                role: 'system',
-                content: systemPrompt
-              }
-            ];
-
-            // Add conversation history if provided
-            if (conversationHistory && Array.isArray(conversationHistory)) {
-              // Validate and add history messages
-              for (const msg of conversationHistory) {
-                if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
-                  messages.push({
-                    role: msg.role,
-                    content: msg.content
-                  });
-                }
-              }
-            }
-
-            // Add current user query
-            messages.push({
-              role: 'user',
-              content: userQuery,
-            });
-
-            const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'HTTP-Referer': siteUrl,
-                'X-Title': siteName,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: targetModel,
-                messages: messages,
-                temperature: 0.7,
-                max_tokens: 2000,
-                stream: true, // Enable streaming
-              }),
+            body: JSON.stringify({
+              model: targetModel,
+              messages: messages,
+              temperature: 0.7,
+              max_tokens: 2000,
+              stream: true, // Enable streaming
+            }),
           });
 
           if (!upstream.ok) {
@@ -182,7 +209,8 @@ export async function POST(request: NextRequest) {
             if (modelLabel === 'ooverta' && errorMessage.includes('No endpoints found')) {
               try {
                 // Build fallback messages with conversation history
-                const fallbackMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+                type FallbackMessageContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+                const fallbackMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: FallbackMessageContent }> = [
                   { role: 'system', content: systemPrompt }
                 ];
                 
@@ -191,13 +219,24 @@ export async function POST(request: NextRequest) {
                     if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
                       fallbackMessages.push({
                         role: msg.role,
-                        content: msg.content
+                        content: msg.content as FallbackMessageContent
                       });
                     }
                   }
                 }
                 
-                fallbackMessages.push({ role: 'user', content: userQuery });
+                // Add current message with image if present
+                if (image) {
+                  fallbackMessages.push({
+                    role: 'user',
+                    content: [
+                      { type: 'text', text: userQuery },
+                      { type: 'image_url', image_url: { url: image } }
+                    ]
+                  });
+                } else {
+                  fallbackMessages.push({ role: 'user', content: userQuery });
+                }
 
                 const fallback = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                   method: 'POST',

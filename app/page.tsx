@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square, Paperclip, Image as ImageIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -760,11 +760,13 @@ export default function Page() {
   const [query, setQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
-  const [history, setHistory] = useState<Array<{ query: string; response: string; model: string }>>([]);
+  const [history, setHistory] = useState<Array<{ query: string; response: string; model: string; image?: string }>>([]);
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [isChatMode, setIsChatMode] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -782,6 +784,7 @@ export default function Page() {
   
   const inputRef = useRef<HTMLInputElement>(null);
   const responseEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleWidget = (widgetId: string) => {
     setClosedWidgets(prev => {
@@ -855,6 +858,42 @@ export default function Page() {
     }
   };
 
+  // Image upload handler
+  const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image size must be less than 10MB');
+      return;
+    }
+
+    setImageFile(file);
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setSelectedImage(base64String);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImageFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -874,10 +913,36 @@ export default function Page() {
 
     try {
       // Build conversation history in the format expected by the API
-      const conversationHistory = history.map(h => [
-        { role: 'user' as const, content: h.query },
-        { role: 'assistant' as const, content: h.response }
-      ]).flat();
+      // Preserve image data in history
+      const conversationHistory = history.map(h => {
+        const userMsg: any = { role: 'user' as const };
+        
+        // If history entry has an image, use vision format
+        if (h.image) {
+          userMsg.content = [
+            { type: 'text', text: h.query },
+            { type: 'image_url', image_url: { url: h.image } }
+          ];
+        } else {
+          userMsg.content = h.query;
+        }
+        
+        return [
+          userMsg,
+          { role: 'assistant' as const, content: h.response }
+        ];
+      }).flat();
+
+      // Build current message with image if present
+      let currentMessageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+      if (selectedImage) {
+        currentMessageContent = [
+          { type: 'text', text: trimmedQuery },
+          { type: 'image_url', image_url: { url: selectedImage } }
+        ];
+      } else {
+        currentMessageContent = trimmedQuery;
+      }
 
       const res = await fetch('/api/query-stream', {
         method: 'POST',
@@ -886,6 +951,7 @@ export default function Page() {
         },
         body: JSON.stringify({
           query: trimmedQuery,
+          image: selectedImage || undefined,
           model: selectedModel.apiId,
           systemPrompt: systemPrompt || undefined,
           conversationHistory: conversationHistory
@@ -932,10 +998,20 @@ export default function Page() {
               setAbortController(null);
               setHistory(prev => [
                 ...prev,
-                { query: trimmedQuery, response: fullResponse, model: selectedModelId },
+                { 
+                  query: trimmedQuery, 
+                  response: fullResponse, 
+                  model: selectedModelId,
+                  image: selectedImage || undefined
+                },
               ]);
               setResponse(null); // Clear current response after adding to history
               setQuery('');
+              setSelectedImage(null); // Clear image after sending
+              setImageFile(null);
+              if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+              }
               // Auto-scroll to bottom after adding to history
               setTimeout(() => {
                 responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1218,6 +1294,15 @@ export default function Page() {
                                 <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold mb-2">
                                   You
                                 </div>
+                                {entry.image && (
+                                  <div className="mb-3 rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)]">
+                                    <img
+                                      src={entry.image}
+                                      alt="User uploaded"
+                                      className="max-w-full max-h-[300px] object-contain"
+                                    />
+                                  </div>
+                                )}
                                 <div className="text-[var(--foreground)] text-lg leading-relaxed font-light">
                                   {entry.query}
                                 </div>
@@ -1405,6 +1490,33 @@ export default function Page() {
 
                   {/* Input Deck */}
                   <div className="command-deck w-full mt-6">
+                    {/* Image Preview */}
+                    <AnimatePresence>
+                      {selectedImage && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="mb-4 relative inline-block"
+                        >
+                          <div className="relative rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)] p-2">
+                            <img
+                              src={selectedImage}
+                              alt="Preview"
+                              className="max-w-[200px] max-h-[200px] object-contain rounded-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleRemoveImage}
+                              className="absolute top-2 right-2 p-1.5 bg-[var(--hud-bg)] backdrop-blur-sm border border-[var(--border)] rounded-full hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                     <form onSubmit={handleSubmit} className="relative">
                       <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-4 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
                         <div className="flex items-center gap-4">
@@ -1458,6 +1570,24 @@ export default function Page() {
                               )}
                             </AnimatePresence>
                           </div>
+
+                          {/* Image Upload Button */}
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageSelect}
+                            className="hidden"
+                            id="image-upload"
+                            disabled={isProcessing}
+                          />
+                          <label
+                            htmlFor="image-upload"
+                            className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Upload image"
+                          >
+                            <Paperclip className="w-5 h-5" />
+                          </label>
 
                           {/* Fullscreen Toggle */}
                           <button
