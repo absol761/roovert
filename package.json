@@ -2,6 +2,7 @@
   "name": "roovert",
   "version": "0.1.0",
   "private": true,
+  "description": "AI interface for querying multiple models with web-aware responses",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

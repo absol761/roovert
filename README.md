@@ -2,7 +2,7 @@
 
 Rigorously Pursuing Truth. An AI Engine of Truth.
 
-A minimalist AI interface built with Next.js. Query multiple AI models through a single unified interface. The default model (Ooverta) uses web-aware reasoning to provide accurate, up-to-date information.
+A Next.js application for querying multiple AI models through a unified interface. The default model (Ooverta) provides web-aware responses with real-time information access.
 
 ## Getting Started
 
@@ -45,19 +45,26 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Features
 
-- Multiple AI model support (GPT-4o, Claude 3.5 Sonnet, Gemini, Llama, Perplexity, and more)
-- Web-aware default model with real-time information access
-- Privacy-focused visitor tracking (no cookies, hashed identifiers only)
-- Customizable interface with multiple themes and layouts
-- Real-time stats and visitor analytics
+- Access to multiple AI models via OpenRouter (GPT-4o, Claude, Gemini, Llama, Perplexity, and others)
+- Default Ooverta model with web search capabilities
+- Image upload and vision support for AI models
+- Conversation memory and history management
+- Message editing and regeneration
+- Privacy-focused visitor tracking using hashed identifiers
+- Customizable themes and interface layouts
+- Real-time streaming responses
+- Code block syntax highlighting and copy functionality
 
 ## Tech Stack
 
-- Next.js 16 with App Router
+- Next.js 16 (App Router)
 - TypeScript
 - Tailwind CSS 4
-- SQLite for visitor tracking
-- OpenRouter API for model access
+- Framer Motion for animations
+- React Markdown for response rendering
+- Vercel KV for visitor tracking (production)
+- SQLite for local development
+- OpenRouter API for AI model access
 
 ## Project Structure
 
@@ -100,7 +107,7 @@ Required environment variables:
 
 ## Design
 
-The interface uses a minimalist design with high-contrast typography. Dark mode is the default with a deep black background (#050505) and teal accent color (#008080). The tone is direct and focused, avoiding generic helper text.
+The interface supports multiple visual themes and layouts. Users can customize the appearance, font size, and layout style. The design emphasizes clarity and performance with smooth animations and responsive layouts.
 
 ## License
 
