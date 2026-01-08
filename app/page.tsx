@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square, Paperclip, Image as ImageIcon, Edit2, RefreshCw, Search, TrendingUp, Code, Users, Star, ArrowRight, Activity, BookOpen, ExternalLink } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -1096,7 +1097,7 @@ export default function Page() {
             </div>
             
             <div className="hidden md:flex items-center gap-8">
-              {['Mission', 'Research', 'API', 'Careers'].map((item) => (
+              {['Mission', 'Research', 'API'].map((item) => (
                 <a
                   key={item}
                   href={`#${item.toLowerCase()}`}
@@ -1105,6 +1106,12 @@ export default function Page() {
                   {item}
                 </a>
               ))}
+              <Link
+                href="/careers"
+                className="text-sm text-[var(--foreground)]/70 hover:text-[var(--accent)] transition-colors uppercase tracking-wider"
+              >
+                Careers
+              </Link>
             </div>
           </div>
         </div>
