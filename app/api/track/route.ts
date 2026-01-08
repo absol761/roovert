@@ -19,43 +19,31 @@ export async function POST(request: Request) {
     const visitorHash = createVisitorHash(ipAddress, userAgent);
     
     const now = Date.now();
-    const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
     
     // Try Vercel KV first (primary for production/serverless)
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
       try {
-        const visitorKey = `visitor_hash:${visitorHash}`;
-        const lastSeen = await kv.get(visitorKey) as number | null;
+        const visitorKey = `visitor:${visitorHash}`;
         
-        if (lastSeen) {
-          // Existing visitor
-          const isNewVisit = lastSeen < twentyFourHoursAgo;
-          await kv.set(visitorKey, now, { ex: 86400 * 365 }); // Update last seen, extend expiry
-          
-          if (isNewVisit) {
-            await kv.incr('total_visits'); // Increment total visits
-          }
-          
-          const count = await kv.get('unique_visitors') as number || 0;
-          return NextResponse.json({
-            success: true,
-            isNew: false,
-            isNewVisit: isNewVisit,
-            totalUniqueVisitors: count,
-          });
-        } else {
-          // New unique visitor
-          await kv.set(visitorKey, now, { ex: 86400 * 365, nx: true }); // Set if not exists
-          const count = await kv.incr('unique_visitors');
-          await kv.incr('total_visits');
-          
-          return NextResponse.json({
-            success: true,
-            isNew: true,
-            isNewVisit: true,
-            totalUniqueVisitors: count,
-          });
+        // Use SET with nx: true to ensure visitor is only counted once (lifetime unique)
+        // No expiry (TTL) means the visitor is remembered forever
+        const setResult = await kv.set(visitorKey, true, { nx: true });
+        
+        let isNew = false;
+        if (setResult === 'OK') {
+          // Brand new visitor - increment the unique counter
+          await kv.incr('unique_visitors');
+          isNew = true;
         }
+        
+        // Get the current total unique visitors count
+        const totalUniqueVisitors = (await kv.get('unique_visitors') as number) || 0;
+        
+        return NextResponse.json({
+          success: true,
+          isNew: isNew,
+          totalUniqueVisitors: totalUniqueVisitors,
+        });
       } catch (kvError) {
         console.error('KV tracking error:', kvError);
         // Fall through to SQLite fallback
@@ -66,50 +54,25 @@ export async function POST(request: Request) {
     try {
       const db = getDatabase();
       
-      // Check if this visitor has been seen before
-      const existingVisitor = db
-        .prepare('SELECT id, last_seen, visit_count FROM unique_visitors WHERE visitor_hash = ?')
-        .get(visitorHash) as { id: number; last_seen: number; visit_count: number } | undefined;
+      // Use INSERT OR IGNORE to match KV's "set if not exists" logic
+      // This ensures a visitor is only counted once (lifetime unique)
+      const insertResult = db
+        .prepare(
+          'INSERT OR IGNORE INTO unique_visitors (visitor_hash, first_seen, last_seen, visit_count) VALUES (?, ?, ?, 1)'
+        )
+        .run(visitorHash, now, now);
       
-      if (existingVisitor) {
-        // Visitor exists - check if last visit was more than 24 hours ago
-        const isNewVisit = existingVisitor.last_seen < twentyFourHoursAgo;
-        
-        if (isNewVisit) {
-          // Update last_seen and increment visit_count
-          db.prepare(
-            'UPDATE unique_visitors SET last_seen = ?, visit_count = visit_count + 1 WHERE id = ?'
-          ).run(now, existingVisitor.id);
-        } else {
-          // Same visitor within 24 hours - just update last_seen, don't increment count
-          db.prepare('UPDATE unique_visitors SET last_seen = ? WHERE id = ?').run(now, existingVisitor.id);
-        }
-        
-        // Get total unique visitor count
-        const totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
-        
-        return NextResponse.json({
-          success: true,
-          isNew: false,
-          isNewVisit: isNewVisit,
-          totalUniqueVisitors: totalCount.count,
-        });
-      } else {
-        // New unique visitor - insert into database
-        db.prepare(
-          'INSERT INTO unique_visitors (visitor_hash, first_seen, last_seen, visit_count) VALUES (?, ?, ?, 1)'
-        ).run(visitorHash, now, now);
-        
-        // Get total unique visitor count
-        const totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
-        
-        return NextResponse.json({
-          success: true,
-          isNew: true,
-          isNewVisit: true,
-          totalUniqueVisitors: totalCount.count,
-        });
-      }
+      // Check if a new row was inserted (changes > 0 means it was a new visitor)
+      const isNew = insertResult.changes > 0;
+      
+      // Get total unique visitor count
+      const totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
+      
+      return NextResponse.json({
+        success: true,
+        isNew: isNew,
+        totalUniqueVisitors: totalCount.count,
+      });
     } catch (dbError) {
       console.error('Database error in tracking:', dbError);
       
