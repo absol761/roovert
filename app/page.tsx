@@ -900,6 +900,12 @@ export default function Page() {
     setAbortController(controller);
 
     try {
+      // Build conversation history in the format expected by the API
+      const conversationHistory = history.map(h => [
+        { role: 'user' as const, content: h.query },
+        { role: 'assistant' as const, content: h.response }
+      ]).flat();
+
       const res = await fetch('/api/query-stream', {
         method: 'POST',
         headers: {
@@ -908,7 +914,8 @@ export default function Page() {
         body: JSON.stringify({
           query: trimmedQuery,
           model: selectedModel.apiId,
-          systemPrompt: systemPrompt || undefined
+          systemPrompt: systemPrompt || undefined,
+          conversationHistory: conversationHistory
         }),
         signal: controller.signal,
       });
@@ -954,7 +961,12 @@ export default function Page() {
                 ...prev,
                 { query: trimmedQuery, response: fullResponse, model: selectedModelId },
               ]);
+              setResponse(null); // Clear current response after adding to history
               setQuery('');
+              // Auto-scroll to bottom after adding to history
+              setTimeout(() => {
+                responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
               return;
             }
           } catch (e) {
@@ -1215,12 +1227,109 @@ export default function Page() {
                 {/* Main Chat Stack (Right/Center) */}
                 <section className={`chat-stack flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen || (closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot')) ? 'col-span-full' : ''}`}>
                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 min-h-[40vh]">
-                    {/* Response Area */}
+                    {/* Conversation History */}
+                    <div className="space-y-6 mb-6">
+                      {history.map((entry, idx) => (
+                        <div key={idx} className="space-y-4">
+                          {/* User Message */}
+                          <motion.div
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6 shadow-xl"
+                          >
+                            <div className="flex items-start gap-4">
+                              <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
+                                <Zap className="w-5 h-5 text-[var(--accent)]" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold mb-2">
+                                  You
+                                </div>
+                                <div className="text-[var(--foreground)] text-lg leading-relaxed font-light">
+                                  {entry.query}
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+
+                          {/* AI Response */}
+                          <motion.div
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6 shadow-xl"
+                          >
+                            <div className="flex items-start gap-4">
+                              <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
+                                <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold mb-2">
+                                  {MODELS.find(m => m.id === entry.model)?.name || 'AI'}
+                                </div>
+                                <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
+                                  <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    rehypePlugins={[rehypeHighlight]}
+                                    components={{
+                                      code: ({ node, inline, className, children, ...props }: any) => {
+                                        const match = /language-(\w+)/.exec(className || '');
+                                        const code = String(children).replace(/\n$/, '');
+                                        const isCopied = copiedCodeBlock === code;
+                                        
+                                        return !inline ? (
+                                          <div className="relative my-4">
+                                            <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
+                                              <span className="text-xs text-[var(--muted)] font-mono">
+                                                {match ? match[1] : 'code'}
+                                              </span>
+                                              <button
+                                                onClick={() => copyCodeBlock(code)}
+                                                className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                              >
+                                                {isCopied ? (
+                                                  <>
+                                                    <Check className="w-3 h-3" />
+                                                    Copied
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <Copy className="w-3 h-3" />
+                                                    Copy
+                                                  </>
+                                                )}
+                                              </button>
+                                            </div>
+                                            <pre className={`${className} m-0 rounded-b-lg rounded-t-none overflow-x-auto`} {...props}>
+                                              <code className={className} {...props}>
+                                                {children}
+                                              </code>
+                                            </pre>
+                                          </div>
+                                        ) : (
+                                          <code className={`${className} bg-[var(--surface-strong)] px-1.5 py-0.5 rounded text-sm`} {...props}>
+                                            {children}
+                                          </code>
+                                        );
+                                      },
+                                    }}
+                                  >
+                                    {entry.response}
+                                  </ReactMarkdown>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Current Response (if processing or showing latest) */}
                     <AnimatePresence mode="popLayout">
-                      {(response || isProcessing) ? (
+                      {(response || isProcessing) && (
                         <motion.div
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
                           className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 shadow-xl mb-6"
                         >
                           <div className="flex items-start gap-4">
@@ -1309,13 +1418,16 @@ export default function Page() {
                             </div>
                           </div>
                         </motion.div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] opacity-50">
-                          <Zap className="w-12 h-12 mb-4" />
-                          <p>Ready to query.</p>
-                        </div>
                       )}
                     </AnimatePresence>
+
+                    {/* Empty State */}
+                    {history.length === 0 && !response && !isProcessing && (
+                      <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] opacity-50">
+                        <Zap className="w-12 h-12 mb-4" />
+                        <p>Ready to query.</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Input Deck */}

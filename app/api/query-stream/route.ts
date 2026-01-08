@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const payload = await request.json();
-    const { query, model, systemPrompt: customSystemPrompt } = payload;
+    const { query, model, systemPrompt: customSystemPrompt, conversationHistory } = payload;
     
     if (!query || typeof query !== 'string') {
       return new Response(
@@ -37,6 +37,10 @@ export async function POST(request: NextRequest) {
 
     userQuery = query;
     modelLabel = model || 'ooverta';
+
+    // Build conversation history from provided history
+    // conversationHistory should be an array of { role: 'user' | 'assistant', content: string }
+    const conversationMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
 
     const apiKey = process.env.OPENROUTER_API_KEY?.trim();
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://roovert.com';
@@ -118,22 +122,48 @@ export async function POST(request: NextRequest) {
               'X-Title': siteName,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              model: targetModel,
-              messages: [
-                {
-                  role: 'system',
-                  content: systemPrompt
-                },
-                {
-                  role: 'user',
-                  content: userQuery,
-                },
-              ],
-              temperature: 0.7,
-              max_tokens: 2000,
-              stream: true, // Enable streaming
-            }),
+            // Build messages array with conversation history
+            const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+              {
+                role: 'system',
+                content: systemPrompt
+              }
+            ];
+
+            // Add conversation history if provided
+            if (conversationHistory && Array.isArray(conversationHistory)) {
+              // Validate and add history messages
+              for (const msg of conversationHistory) {
+                if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
+                  messages.push({
+                    role: msg.role,
+                    content: msg.content
+                  });
+                }
+              }
+            }
+
+            // Add current user query
+            messages.push({
+              role: 'user',
+              content: userQuery,
+            });
+
+            const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'HTTP-Referer': siteUrl,
+                'X-Title': siteName,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: targetModel,
+                messages: messages,
+                temperature: 0.7,
+                max_tokens: 2000,
+                stream: true, // Enable streaming
+              }),
           });
 
           if (!upstream.ok) {
@@ -151,6 +181,24 @@ export async function POST(request: NextRequest) {
             // Fallback for ooverta
             if (modelLabel === 'ooverta' && errorMessage.includes('No endpoints found')) {
               try {
+                // Build fallback messages with conversation history
+                const fallbackMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+                  { role: 'system', content: systemPrompt }
+                ];
+                
+                if (conversationHistory && Array.isArray(conversationHistory)) {
+                  for (const msg of conversationHistory) {
+                    if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
+                      fallbackMessages.push({
+                        role: msg.role,
+                        content: msg.content
+                      });
+                    }
+                  }
+                }
+                
+                fallbackMessages.push({ role: 'user', content: userQuery });
+
                 const fallback = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                   method: 'POST',
                   headers: {
@@ -161,10 +209,7 @@ export async function POST(request: NextRequest) {
                   },
                   body: JSON.stringify({
                     model: 'nousresearch/hermes-3-llama-3.1-405b:free',
-                    messages: [
-                      { role: 'system', content: systemPrompt },
-                      { role: 'user', content: userQuery }
-                    ],
+                    messages: fallbackMessages,
                     stream: true,
                   })
                 });
