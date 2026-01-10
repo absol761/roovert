@@ -31,26 +31,60 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Handle unhandled Promise rejections from media play() calls
-              // This prevents console errors from browser extensions or third-party scripts
-              window.addEventListener('unhandledrejection', function(event) {
-                const error = event.reason;
-                // Check if it's a media play/pause error
-                if (error && (
-                  error.name === 'AbortError' ||
-                  error.name === 'NotAllowedError' ||
-                  (error.message && (
-                    error.message.includes('play()') ||
-                    error.message.includes('pause()') ||
-                    error.message.includes('interrupted') ||
-                    error.message.includes('playback')
-                  ))
-                )) {
-                  // Silently handle media playback errors
-                  event.preventDefault();
-                  return;
-                }
-              });
+              // Suppress errors from browser extensions and third-party scripts
+              (function() {
+                // Suppress console errors from browser extensions
+                const originalError = console.error;
+                console.error = function(...args) {
+                  const message = args.join(' ');
+                  // Suppress known browser extension errors
+                  if (
+                    message.includes('browser_extension') ||
+                    message.includes('Content Script Bridge') ||
+                    message.includes('Floating K') ||
+                    message.includes('Kami') ||
+                    message.includes('Invalid Authorization') ||
+                    message.includes('unexpected_response') ||
+                    message.includes('api/browser_extension')
+                  ) {
+                    return; // Silently ignore extension errors
+                  }
+                  // Call original for legitimate errors
+                  originalError.apply(console, args);
+                };
+
+                // Handle unhandled Promise rejections from media play() calls and extensions
+                window.addEventListener('unhandledrejection', function(event) {
+                  const error = event.reason;
+                  const errorMessage = error?.message || error?.toString() || '';
+                  
+                  // Check if it's a media play/pause error
+                  if (error && (
+                    error.name === 'AbortError' ||
+                    error.name === 'NotAllowedError' ||
+                    (error.message && (
+                      error.message.includes('play()') ||
+                      error.message.includes('pause()') ||
+                      error.message.includes('interrupted') ||
+                      error.message.includes('playback')
+                    ))
+                  )) {
+                    event.preventDefault();
+                    return;
+                  }
+                  
+                  // Suppress browser extension API errors
+                  if (
+                    errorMessage.includes('browser_extension') ||
+                    errorMessage.includes('Invalid Authorization') ||
+                    errorMessage.includes('unexpected_response') ||
+                    errorMessage.includes('Kami')
+                  ) {
+                    event.preventDefault();
+                    return;
+                  }
+                });
+              })();
             `,
           }}
         />
