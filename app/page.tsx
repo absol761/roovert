@@ -837,6 +837,38 @@ export default function Page() {
   
   const inputRef = useRef<HTMLInputElement>(null);
   const responseEndRef = useRef<HTMLDivElement>(null);
+
+  // Periodically check model availability (every 5 minutes)
+  useEffect(() => {
+    const checkModelAvailability = async () => {
+      try {
+        const response = await fetch('/api/model-availability');
+        const data = await response.json();
+        
+        if (data.available) {
+          // Update unavailable models based on API response
+          const unavailable = new Set<string>();
+          for (const [modelId, isAvailable] of Object.entries(data.available)) {
+            if (!isAvailable) {
+              unavailable.add(modelId);
+            }
+          }
+          setUnavailableModels(unavailable);
+        }
+      } catch (error) {
+        // Silently fail - don't break the UI
+        console.debug('Model availability check failed:', error);
+      }
+    };
+
+    // Check immediately on mount
+    checkModelAvailability();
+
+    // Then check every 5 minutes
+    const interval = setInterval(checkModelAvailability, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleWidget = (widgetId: string) => {
@@ -1256,6 +1288,19 @@ export default function Page() {
       )) {
         // Mark this model as unavailable temporarily (for 5 minutes)
         setUnavailableModels(prev => new Set(prev).add(selectedModelId));
+        
+        // Report to API for tracking
+        fetch('/api/model-availability', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modelId: selectedModelId,
+            error: error.message,
+          }),
+        }).catch(() => {
+          // Silently fail - local state is the source of truth
+        });
+        
         // Remove from unavailable list after 5 minutes
         setTimeout(() => {
           setUnavailableModels(prev => {

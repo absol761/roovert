@@ -38,6 +38,9 @@ export function ConsentBanner() {
     localStorage.setItem(CONSENT_KEY, 'accepted');
     localStorage.setItem(`${CONSENT_KEY}_date`, new Date().toISOString());
     
+    // Track consent click for visitor count
+    trackConsentClick();
+    
     // Initialize Segment after consent
     if (typeof window !== 'undefined') {
       initializeSegment();
@@ -54,11 +57,45 @@ export function ConsentBanner() {
     localStorage.setItem(CONSENT_KEY, 'declined');
     localStorage.setItem(`${CONSENT_KEY}_date`, new Date().toISOString());
     
+    // Track consent click for visitor count (even if declined)
+    trackConsentClick();
+    
     // Animate out
     setTimeout(() => {
       setShowBanner(false);
     }, 300);
   };
+
+  // Track consent click (counts as a visitor)
+  function trackConsentClick() {
+    if (typeof window === 'undefined') return;
+    
+    // Check if we've already counted this session
+    const sessionKey = 'roovert_consent_counted_' + new Date().toDateString();
+    const alreadyCounted = sessionStorage.getItem(sessionKey);
+    
+    if (alreadyCounted) {
+      return; // Already counted today
+    }
+    
+    // Mark as counted
+    sessionStorage.setItem(sessionKey, 'true');
+    
+    // Increment count in localStorage
+    const countKey = 'roovert_consent_clicks';
+    const currentCount = parseInt(localStorage.getItem(countKey) || '0', 10);
+    localStorage.setItem(countKey, String(currentCount + 1));
+    
+    // Also sync to server (non-blocking)
+    fetch('/api/consent-count', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'click' }),
+      keepalive: true,
+    }).catch(() => {
+      // Silently fail - local storage is the source of truth
+    });
+  }
 
   if (!showBanner) return null;
 
