@@ -63,7 +63,6 @@ const LOOKS = [
   { id: 'sustainable', name: 'Sustainable', description: 'Eco-friendly green design palette', category: 'modern' },
   { id: 'accessible', name: 'High Contrast', description: 'Accessible design with WCAG compliance', category: 'modern' },
   { id: 'nocturne', name: 'Nocturne', description: 'Deep night with orange accents', category: 'dark' },
-  { id: 'obsidian', name: 'Obsidian', description: 'Deep violet-black with purple glow', category: 'dark' },
   { id: 'midnight', name: 'Midnight', description: 'Slate blue with sky accents', category: 'dark' },
   { id: 'aether', name: 'Aether', description: 'Light indigo with split-grid layout', category: 'light' },
   { id: 'atlas', name: 'Atlas', description: 'Brutalist blueprint aesthetic', category: 'light' },
@@ -853,7 +852,7 @@ export default function Page() {
 
   // Apply Look & Layout
   useEffect(() => {
-    document.documentElement.setAttribute('data-look', look);
+    document.documentElement.setAttribute('data-theme', look);
     document.documentElement.setAttribute('data-layout', layout);
     document.documentElement.setAttribute('data-speed', dataSaver ? 'none' : 'normal');
     document.documentElement.setAttribute('data-size', fontSize);
@@ -911,6 +910,65 @@ export default function Page() {
     }
   };
 
+  // Image compression utility
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Calculate new dimensions (max 2048px on longest side, maintain aspect ratio)
+          const MAX_DIMENSION = 2048;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height && width > MAX_DIMENSION) {
+            height = (height * MAX_DIMENSION) / width;
+            width = MAX_DIMENSION;
+          } else if (height > MAX_DIMENSION) {
+            width = (width * MAX_DIMENSION) / height;
+            height = MAX_DIMENSION;
+          }
+          
+          // Create canvas and compress
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          // Draw image with high quality scaling
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Convert to base64 with compression (quality 0.85 for good balance)
+          const quality = 0.85;
+          const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+          
+          // Check if compressed size is still too large (> 4MB base64 = ~3MB actual)
+          // Base64 is ~33% larger than binary, so 4MB base64 ≈ 3MB binary
+          if (compressedBase64.length > 4 * 1024 * 1024) {
+            // Try again with lower quality
+            const lowerQuality = 0.7;
+            const moreCompressed = canvas.toDataURL('image/jpeg', lowerQuality);
+            resolve(moreCompressed);
+          } else {
+            resolve(compressedBase64);
+          }
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Image upload handler
   const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -922,21 +980,29 @@ export default function Page() {
       return;
     }
 
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Image size must be less than 10MB');
+    // Validate file size (max 20MB before compression)
+    if (file.size > 20 * 1024 * 1024) {
+      alert('Image size must be less than 20MB. Large images will be automatically compressed.');
       return;
     }
 
     setImageFile(file);
 
-    // Convert to base64
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = reader.result as string;
-      setSelectedImage(base64String);
-    };
-    reader.readAsDataURL(file);
+    try {
+      // Compress image before converting to base64
+      const compressedBase64 = await compressImage(file);
+      setSelectedImage(compressedBase64);
+    } catch (error) {
+      console.error('Image compression error:', error);
+      alert('Failed to process image. Please try a different image.');
+      // Fallback to original if compression fails
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setSelectedImage(base64String);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleRemoveImage = () => {
@@ -1013,7 +1079,15 @@ export default function Page() {
       });
 
       if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+        // Handle specific error cases
+        if (res.status === 413) {
+          setStatusNote('Image is too large. Please try a smaller image or compress it before uploading.');
+          setIsProcessing(false);
+          setAbortController(null);
+          return;
+        }
+        const errorText = await res.text().catch(() => 'Unknown error');
+        throw new Error(`HTTP error! status: ${res.status}${errorText ? ` - ${errorText}` : ''}`);
       }
 
       const reader = res.body?.getReader();
@@ -1094,6 +1168,13 @@ export default function Page() {
             error.message.includes('playback')
           ))) {
         return; // Silently ignore media playback errors
+      }
+      // Handle 413 Payload Too Large errors
+      if (error.message && error.message.includes('413')) {
+        setStatusNote('Image is too large. The image has been compressed, but it may still be too large. Please try a smaller image.');
+        setIsProcessing(false);
+        setAbortController(null);
+        return;
       }
       console.error('Query failed:', error);
       const fallbackMessage = error?.message || 'Upstream unavailable. Check OpenRouter connectivity.';

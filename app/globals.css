@@ -72,23 +72,6 @@
   --hud-bg: rgba(255, 255, 255, 0.9);
 }
 
-/* Obsidian (Deep Violet/Dark) */
-[data-theme='obsidian'] {
-  --background: #030014; /* Very dark violet/black */
-  --foreground: #e9d5ff; /* Light violet white */
-  --accent: #8b5cf6;     /* Violet-500 */
-  --accent-glow: rgba(139, 92, 246, 0.3);
-  --panel-bg: rgba(17, 10, 40, 0.6);
-  --border: rgba(139, 92, 246, 0.2);
-  --panel-radius: 32px;
-  --surface: rgba(35, 17, 58, 0.55);
-  --surface-strong: rgba(35, 17, 58, 0.78);
-  --chip-bg: rgba(139, 92, 246, 0.12);
-  --muted: rgba(233, 213, 255, 0.7);
-  --muted-strong: rgba(233, 213, 255, 0.9);
-  --hud-bg: rgba(8, 4, 18, 0.92);
-}
-
 /* Midnight (Deep Blue/Slate) */
 [data-theme='midnight'] {
   --background: #0f172a; /* Slate-900 */
@@ -142,23 +125,23 @@
   --hud-bg: rgba(2, 6, 18, 0.95);
 }
 
-/* Atlas Grid (Brutalist blueprint) */
+/* Atlas Grid (Brutalist blueprint) - Unique industrial design */
 [data-theme='atlas'] {
-  --background: #f5f2ec;
-  --foreground: #1f1b16;
-  --accent: #0f766e;
-  --accent-glow: rgba(15, 118, 110, 0.25);
-  --panel-bg: rgba(255, 255, 255, 0.96);
-  --border: rgba(15, 23, 42, 0.25);
-  --panel-radius: 6px;
+  --background: #1a1a1a; /* Dark industrial base */
+  --foreground: #e8e6e3; /* Warm off-white */
+  --accent: #ff6b35; /* Vibrant orange-red accent */
+  --accent-glow: rgba(255, 107, 53, 0.4);
+  --panel-bg: #2a2a2a; /* Darker panel background */
+  --border: #ff6b35; /* Bold orange borders */
+  --panel-radius: 0px; /* Sharp corners for brutalist look */
   --panel-border-style: solid;
-  --panel-border-width: 1px;
-  --surface: rgba(255, 255, 255, 0.9);
-  --surface-strong: rgba(15, 23, 42, 0.08);
-  --chip-bg: rgba(15, 23, 42, 0.08);
-  --muted: rgba(31, 27, 22, 0.6);
-  --muted-strong: rgba(31, 27, 22, 0.8);
-  --hud-bg: rgba(255, 255, 255, 0.95);
+  --panel-border-width: 2px; /* Thicker borders */
+  --surface: rgba(42, 42, 42, 0.95);
+  --surface-strong: rgba(58, 58, 58, 0.98);
+  --chip-bg: rgba(255, 107, 53, 0.15);
+  --muted: rgba(232, 230, 227, 0.6);
+  --muted-strong: rgba(232, 230, 227, 0.85);
+  --hud-bg: rgba(26, 26, 26, 0.98);
 }
 
 @theme inline {
@@ -537,25 +520,28 @@ body::before {
 }
 
 [data-theme='atlas'] body::before {
-  background-image: linear-gradient(rgba(28, 25, 23, 0.05) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(28, 25, 23, 0.05) 1px, transparent 1px);
-  background-size: 60px 60px, 60px 60px;
+  background-image: 
+    repeating-linear-gradient(0deg, rgba(255, 107, 53, 0.03) 0px, transparent 1px, transparent 40px, rgba(255, 107, 53, 0.03) 41px),
+    repeating-linear-gradient(90deg, rgba(255, 107, 53, 0.03) 0px, transparent 1px, transparent 40px, rgba(255, 107, 53, 0.03) 41px);
+  background-size: 40px 40px;
   opacity: 1;
 }
 
 [data-theme='atlas'] .theme-shell {
-  gap: 5rem;
+  gap: 4rem;
 }
 
 [data-theme='atlas'] .hero-stack {
   text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.15em;
+  font-weight: 600;
 }
 
 [data-theme='atlas'] .glass-panel {
   border-radius: 0 !important;
-  border: 1px solid rgba(15, 23, 42, 0.3) !important;
-  box-shadow: 12px 12px 0 rgba(15, 23, 42, 0.15);
+  border: 2px solid var(--accent) !important;
+  box-shadow: 8px 8px 0 rgba(255, 107, 53, 0.3), 0 0 0 1px rgba(255, 107, 53, 0.1);
+  background: var(--panel-bg) !important;
 }
 
 [data-theme='atlas'] .widgets-stack {
@@ -564,7 +550,12 @@ body::before {
 }
 
 [data-theme='atlas'] .interface-grid {
-  gap: 3.5rem;
+  gap: 2.5rem;
+}
+
+[data-theme='atlas'] nav {
+  border-bottom: 2px solid var(--accent);
+  background: var(--hud-bg);
 }
 
 /* Smooth scrolling */
