@@ -916,6 +916,17 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unavailableModels, selectedModelId]);
 
+  // Check if image upload should be disabled
+  // Disable if:
+  // 1. Selected model is unavailable (would cause provider errors)
+  // 2. No API key configured (would cause "local inference mode" errors)
+  const isImageUploadDisabled = !selectedModel || unavailableModels.has(selectedModelId);
+  const imageUploadDisabledReason = !selectedModel 
+    ? 'No model selected' 
+    : unavailableModels.has(selectedModelId)
+    ? 'Model temporarily unavailable'
+    : '';
+
   const injectPrompt = (prompt: string) => {
     setIsChatMode(true); // Enter Chat Mode
     setQuery(prompt);
@@ -1023,6 +1034,14 @@ export default function Page() {
   const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Prevent upload if disabled (model unavailable or API key missing)
+    if (isImageUploadDisabled) {
+      event.target.value = ''; // Clear the input
+      setStatusNote(`Image upload is disabled: ${imageUploadDisabledReason}. Please select an available model.`);
+      setTimeout(() => setStatusNote(null), 5000);
+      return;
+    }
 
     // Security: Validate file extension (MIME type can be spoofed)
     const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
@@ -2121,12 +2140,16 @@ while (true) {
                             onChange={handleImageSelect}
                             className="hidden"
                             id="image-upload"
-                            disabled={isProcessing}
+                            disabled={isProcessing || isImageUploadDisabled}
                           />
                           <label
                             htmlFor="image-upload"
-                            className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Upload image"
+                            className={`p-2 rounded-lg transition-colors ${
+                              isImageUploadDisabled
+                                ? 'opacity-40 cursor-not-allowed'
+                                : 'hover:bg-[var(--surface-strong)] cursor-pointer text-[var(--muted)] hover:text-[var(--foreground)]'
+                            }`}
+                            title={isImageUploadDisabled ? `Image upload disabled: ${imageUploadDisabledReason}` : 'Upload image'}
                           >
                             <Paperclip className="w-5 h-5" />
                           </label>
