@@ -72,13 +72,13 @@ const LOOKS = [
 ];
 
 // More Models Modal Component
-function MoreModelsModal({ isOpen, onClose, currentModelId, setModelId }: any) {
+function MoreModelsModal({ isOpen, onClose, currentModelId, setModelId, unavailableModels = new Set() }: any) {
   if (!isOpen) return null;
 
   const categories = ['Standard', 'Advanced'];
   const modelsByCategory = categories.map(cat => ({
     category: cat,
-    models: MORE_MODELS.filter(m => m.category === cat)
+    models: MORE_MODELS.filter(m => m.category === cat && !unavailableModels.has(m.id))
   }));
 
   return (
@@ -418,12 +418,15 @@ function SettingsModal({
             </h3>
             <div className="space-y-4">
                 <div className="space-y-2">
-                    <label className="text-xs text-[var(--muted)] uppercase">Custom System Prompt</label>
+                    <label htmlFor="system-prompt" className="text-xs text-[var(--muted)] uppercase">Custom System Prompt</label>
                     <textarea 
+                        id="system-prompt"
+                        name="system-prompt"
                         value={systemPrompt}
                         onChange={(e) => setSystemPrompt(e.target.value)}
                         placeholder="e.g., 'You are a pirate...' or 'Explain like I'm 5'"
                         className="w-full h-24 bg-[var(--background)] border border-[var(--border)] rounded-xl p-3 text-sm resize-none focus:border-[var(--accent)] outline-none"
+                        aria-label="Custom system prompt"
                     />
                 </div>
                 <button
@@ -447,7 +450,7 @@ function SettingsModal({
               </button>
             </div>
             <div className="grid gap-2">
-              {MODELS.map(model => (
+              {availableModels.map(model => (
                 <button
                   key={model.id}
                   onClick={() => setModelId(model.id)}
@@ -828,6 +831,8 @@ export default function Page() {
     }
     return true;
   });
+  // Track unavailable models (models that have failed recently)
+  const [unavailableModels, setUnavailableModels] = useState<Set<string>>(new Set());
   
   const inputRef = useRef<HTMLInputElement>(null);
   const responseEndRef = useRef<HTMLDivElement>(null);
@@ -864,7 +869,19 @@ export default function Page() {
     }
   }, [look, layout, fontSize, dataSaver]);
 
-  const selectedModel = MODELS.find(m => m.id === selectedModelId) || MODELS[0];
+  // Filter out unavailable models
+  const availableModels = MODELS.filter(m => !unavailableModels.has(m.id));
+  const selectedModel = availableModels.find(m => m.id === selectedModelId) || availableModels[0];
+  
+  // If selected model becomes unavailable, switch to first available
+  useEffect(() => {
+    if (selectedModelId && unavailableModels.has(selectedModelId)) {
+      if (availableModels.length > 0) {
+        setSelectedModelId(availableModels[0].id);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unavailableModels, selectedModelId]);
 
   const injectPrompt = (prompt: string) => {
     setIsChatMode(true); // Enter Chat Mode
@@ -1115,6 +1132,27 @@ export default function Page() {
             if (data.content) {
               fullResponse += data.content;
               setResponse(fullResponse);
+              
+              // Check if response indicates model error (provider error, rate limit, etc.)
+              if (typeof data.content === 'string' && (
+                data.content.includes('Provider Error') ||
+                data.content.includes('rate limit') ||
+                data.content.includes('quota') ||
+                data.content.includes('limit exceeded') ||
+                data.content.includes('Systems Notice') ||
+                data.content.includes('Provider returned error')
+              )) {
+                // Mark model as unavailable temporarily (for 5 minutes)
+                setUnavailableModels(prev => new Set(prev).add(selectedModelId));
+                setTimeout(() => {
+                  setUnavailableModels(prev => {
+                    const next = new Set(prev);
+                    next.delete(selectedModelId);
+                    return next;
+                  });
+                }, 5 * 60 * 1000); // 5 minutes
+              }
+              
               // Auto-scroll to bottom
               setTimeout(() => {
                 responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1145,6 +1183,25 @@ export default function Page() {
                 responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
               }, 100);
               return;
+            }
+            
+            // Check if response indicates model error
+            if (data.content && typeof data.content === 'string' && (
+              data.content.includes('Provider Error') ||
+              data.content.includes('rate limit') ||
+              data.content.includes('quota') ||
+              data.content.includes('limit exceeded') ||
+              data.content.includes('Systems Notice')
+            )) {
+              // Mark model as unavailable temporarily
+              setUnavailableModels(prev => new Set(prev).add(selectedModelId));
+              setTimeout(() => {
+                setUnavailableModels(prev => {
+                  const next = new Set(prev);
+                  next.delete(selectedModelId);
+                  return next;
+                });
+              }, 5 * 60 * 1000); // 5 minutes
             }
           } catch (e) {
             // Skip invalid JSON
@@ -1178,6 +1235,27 @@ export default function Page() {
       }
       console.error('Query failed:', error);
       const fallbackMessage = error?.message || 'Upstream unavailable. Check OpenRouter connectivity.';
+      
+      // Check if error indicates model is unavailable (provider error, rate limit, etc.)
+      if (error.message && (
+        error.message.includes('Provider Error') ||
+        error.message.includes('rate limit') ||
+        error.message.includes('quota') ||
+        error.message.includes('limit exceeded') ||
+        error.message.includes('unavailable')
+      )) {
+        // Mark this model as unavailable temporarily (for 5 minutes)
+        setUnavailableModels(prev => new Set(prev).add(selectedModelId));
+        // Remove from unavailable list after 5 minutes
+        setTimeout(() => {
+          setUnavailableModels(prev => {
+            const next = new Set(prev);
+            next.delete(selectedModelId);
+            return next;
+          });
+        }, 5 * 60 * 1000); // 5 minutes
+      }
+      
       setResponse(`System notice: ${fallbackMessage}`);
       setStatusNote('Simulation mode engaged — verify environment keys.');
       setIsProcessing(false);
@@ -1294,6 +1372,7 @@ export default function Page() {
             onClose={() => setIsMoreModelsOpen(false)}
             currentModelId={selectedModelId}
             setModelId={setSelectedModelId}
+            unavailableModels={unavailableModels}
           />
         )}
       </AnimatePresence>
@@ -1532,13 +1611,19 @@ while (true) {
                     <div className="mb-4 glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-3">
                       <div className="flex items-center gap-3">
                         <Search className="w-4 h-4 text-[var(--muted)]" />
+                        <label htmlFor="search-conversation" className="sr-only">
+                          Search conversation history
+                        </label>
                         <input
+                          id="search-conversation"
+                          name="search-conversation"
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder="Search conversation history..."
                           className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] placeholder:text-[var(--muted)]"
                           autoFocus
+                          aria-label="Search conversation history"
                         />
                         <button
                           onClick={() => {
@@ -1945,7 +2030,7 @@ while (true) {
                                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
                                   className="absolute bottom-full left-0 mb-2 w-56 bg-[var(--hud-bg)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden z-20 max-h-64 overflow-y-auto custom-scrollbar"
                                 >
-                                  {MODELS.map(model => (
+                                  {availableModels.map(model => (
                                     <button
                                       key={model.id}
                                       type="button"
@@ -1994,14 +2079,20 @@ while (true) {
                             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
                           </button>
 
+                          <label htmlFor="query-input" className="sr-only">
+                            Ask {selectedModel.name} anything
+                          </label>
                           <input
                             ref={inputRef}
+                            id="query-input"
+                            name="query"
                             type="text"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder={`Ask ${selectedModel.name} anything... `}
                             className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
                             disabled={isProcessing}
+                            aria-label="Query input"
                           />
                           <button
                             type="submit"
