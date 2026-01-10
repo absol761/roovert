@@ -32,6 +32,10 @@ Set up environment variables. Create a `.env.local` file in the root directory:
 OPENROUTER_API_KEY=your_api_key_here
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
+# Optional: Admin API key (for testing /api/admin/visitors endpoint locally)
+# If not set, admin endpoint will return 503 in local development
+AI_GATEWAY_API_KEY=your_admin_key_here
+
 # Optional: Segment.io Analytics (for anonymous user analytics)
 # Get your write key from https://app.segment.com/
 NEXT_PUBLIC_SEGMENT_WRITE_KEY=your_segment_write_key_here
@@ -112,6 +116,7 @@ Required environment variables:
 - `NEXT_PUBLIC_APP_URL` - Your application URL
 
 Optional environment variables:
+- `AI_GATEWAY_API_KEY` - Admin API key for accessing `/api/admin/visitors` endpoint (required in production, optional for local dev)
 - `NEXT_PUBLIC_SEGMENT_WRITE_KEY` - Segment.io write key for anonymous analytics (get from [app.segment.com](https://app.segment.com/))
 
 ## Design
