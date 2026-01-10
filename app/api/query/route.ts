@@ -28,9 +28,26 @@ export async function POST(request: NextRequest) {
     const payload = await request.json();
     const { query, model, systemPrompt: customSystemPrompt } = payload;
     
+    // Input validation: Query
+    const MAX_QUERY_LENGTH = 10000; // characters
     if (!query || typeof query !== 'string') {
       return NextResponse.json(
         { error: 'Query is required' },
+        { status: 400 }
+      );
+    }
+    if (query.length > MAX_QUERY_LENGTH) {
+      return NextResponse.json(
+        { error: `Query too long. Maximum ${MAX_QUERY_LENGTH} characters allowed.` },
+        { status: 400 }
+      );
+    }
+
+    // Input validation: System prompt
+    const MAX_SYSTEM_PROMPT_LENGTH = 2000; // characters
+    if (customSystemPrompt && typeof customSystemPrompt === 'string' && customSystemPrompt.length > MAX_SYSTEM_PROMPT_LENGTH) {
+      return NextResponse.json(
+        { error: `System prompt too long. Maximum ${MAX_SYSTEM_PROMPT_LENGTH} characters allowed.` },
         { status: 400 }
       );
     }
@@ -42,7 +59,7 @@ export async function POST(request: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://roovert.com';
     const siteName = 'Roovert';
 
-    // Model ID to API ID mapping
+    // Model ID to API ID mapping - ALLOWLIST ONLY
     const MODEL_MAP: Record<string, string> = {
       'ooverta': 'google/gemini-2.0-flash-exp:free', // Changed to reliable Gemini model
       'gemini-flash': 'google/gemini-2.0-flash-exp:free',
@@ -63,6 +80,9 @@ export async function POST(request: NextRequest) {
       'command-r-plus': 'cohere/command-r-plus',
       'llama-3-1-8b': 'meta-llama/llama-3.1-8b-instruct',
     };
+    
+    // Security: Validate model against allowlist to prevent injection
+    const ALLOWED_MODEL_IDS = new Set(Object.keys(MODEL_MAP));
 
     // Default model handling
     let targetModel = model;
@@ -86,8 +106,23 @@ export async function POST(request: NextRequest) {
         - Use internet search data (provided by the underlying engine) to answer current events if needed.`;
       }
     } else {
-      // Map model ID to API ID if it exists in the map, otherwise use the model ID directly
-      targetModel = MODEL_MAP[model] || model.trim();
+      // Security: Validate model ID against allowlist
+      if (!ALLOWED_MODEL_IDS.has(model)) {
+        return NextResponse.json(
+          { error: 'Invalid model specified. Please select a model from the allowed list.' },
+          { status: 400 }
+        );
+      }
+      
+      // Look up model in allowlist
+      targetModel = MODEL_MAP[model];
+      
+      if (!targetModel) {
+        return NextResponse.json(
+          { error: 'Model not found in allowlist' },
+          { status: 400 }
+        );
+      }
     }
 
     const respondWithSimulation = (reason: string) =>

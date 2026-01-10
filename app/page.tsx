@@ -992,14 +992,23 @@ export default function Page() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
+    // Security: Validate file extension (MIME type can be spoofed)
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+    if (!allowedExtensions.includes(fileExtension)) {
+      alert('Invalid file type. Please select a JPG, PNG, GIF, or WebP image.');
+      return;
+    }
+
+    // Validate file type (MIME type check)
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file');
       return;
     }
 
     // Validate file size (max 20MB before compression)
-    if (file.size > 20 * 1024 * 1024) {
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+    if (file.size > MAX_FILE_SIZE) {
       alert('Image size must be less than 20MB. Large images will be automatically compressed.');
       return;
     }
@@ -1809,6 +1818,9 @@ while (true) {
                                   <ReactMarkdown
                                     remarkPlugins={[remarkGfm]}
                                     rehypePlugins={[rehypeHighlight]}
+                                    // Security: Disable HTML rendering to prevent XSS
+                                    disallowedElements={['script', 'iframe', 'object', 'embed']}
+                                    unwrapDisallowed={true}
                                     components={{
                                       code: ({ node, inline, className, children, ...props }: any) => {
                                         const match = /language-(\w+)/.exec(className || '');
@@ -1906,6 +1918,9 @@ while (true) {
                                     <ReactMarkdown
                                       remarkPlugins={[remarkGfm]}
                                       rehypePlugins={[rehypeHighlight]}
+                                      // Security: Disable HTML rendering to prevent XSS
+                                      disallowedElements={['script', 'iframe', 'object', 'embed']}
+                                      unwrapDisallowed={true}
                                       components={{
                                         code: ({ node, inline, className, children, ...props }: any) => {
                                           const match = /language-(\w+)/.exec(className || '');

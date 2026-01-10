@@ -7,20 +7,29 @@ import { getDatabase } from '@/app/lib/db';
  * 
  * Returns statistics about unique visitors.
  * 
- * Security Note: In production, you should add authentication/authorization
- * to protect this endpoint. For example:
- * - Check for an admin API key in headers
- * - Verify JWT token
- * - Check session authentication
- * 
- * Example protection:
- * const adminKey = request.headers.get('x-admin-key');
- * if (adminKey !== process.env.ADMIN_API_KEY) {
- *   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
- * }
+ * Security: Protected by admin API key authentication.
  */
 export async function GET(request: Request) {
   try {
+    // Authentication check
+    const adminKey = request.headers.get('x-admin-key');
+    const expectedKey = process.env.ADMIN_API_KEY;
+    
+    if (!expectedKey) {
+      console.error('ADMIN_API_KEY not configured');
+      return NextResponse.json(
+        { error: 'Admin access not configured' },
+        { status: 503 }
+      );
+    }
+    
+    if (!adminKey || adminKey !== expectedKey) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
     const db = getDatabase();
     
     // Get total unique visitors

@@ -1,5 +1,9 @@
 import { NextRequest } from 'next/server';
 
+// Route segment config - increase timeout and allow larger bodies
+export const maxDuration = 60; // 60 seconds for image processing
+export const runtime = 'nodejs';
+
 function buildSimulationResponse(query: string, reason: string, modelLabel: string) {
   const trimmed = query?.trim();
   const focusLine = trimmed
@@ -25,14 +29,97 @@ export async function POST(request: NextRequest) {
   let modelLabel = 'ooverta';
 
   try {
-    const payload = await request.json();
+    let payload;
+    try {
+      payload = await request.json();
+    } catch (jsonError: any) {
+      // Handle JSON parsing errors (often caused by payload too large)
+      if (jsonError.message && jsonError.message.includes('body')) {
+        return new Response(
+          JSON.stringify({ error: 'Payload too large. Please compress your image or use a smaller file.' }),
+          { status: 413, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      throw jsonError;
+    }
+    
     const { query, model, systemPrompt: customSystemPrompt, conversationHistory, image } = payload;
     
+    // Security: Validate image size on server side
+    const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB
+    if (image && typeof image === 'string') {
+      // Base64 images are ~33% larger than binary
+      // 20MB binary ≈ 26.6MB base64
+      const base64Size = image.length * 0.75; // Approximate binary size
+      if (base64Size > MAX_IMAGE_SIZE) {
+        return new Response(
+          JSON.stringify({ error: 'Image too large. Maximum 20MB allowed.' }),
+          { status: 413, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    
+    // Input validation: Query
+    const MAX_QUERY_LENGTH = 10000; // characters
     if (!query || typeof query !== 'string') {
       return new Response(
         JSON.stringify({ error: 'Query is required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
+    }
+    if (query.length > MAX_QUERY_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Query too long. Maximum ${MAX_QUERY_LENGTH} characters allowed.` }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Input validation: System prompt
+    const MAX_SYSTEM_PROMPT_LENGTH = 2000; // characters
+    if (customSystemPrompt && typeof customSystemPrompt === 'string' && customSystemPrompt.length > MAX_SYSTEM_PROMPT_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `System prompt too long. Maximum ${MAX_SYSTEM_PROMPT_LENGTH} characters allowed.` }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Input validation: Conversation history
+    const MAX_HISTORY_LENGTH = 50; // messages
+    if (conversationHistory && Array.isArray(conversationHistory)) {
+      if (conversationHistory.length > MAX_HISTORY_LENGTH) {
+        return new Response(
+          JSON.stringify({ error: `Conversation history too long. Maximum ${MAX_HISTORY_LENGTH} messages allowed.` }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      // Validate each message structure
+      for (const msg of conversationHistory) {
+        if (!msg || typeof msg !== 'object') {
+          return new Response(
+            JSON.stringify({ error: 'Invalid message format in conversation history' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        if (!msg.role || !['user', 'assistant'].includes(msg.role)) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid message role. Must be "user" or "assistant"' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        if (!msg.content || (typeof msg.content !== 'string' && !Array.isArray(msg.content))) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid message content format' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        // Validate content length if string
+        if (typeof msg.content === 'string' && msg.content.length > MAX_QUERY_LENGTH) {
+          return new Response(
+            JSON.stringify({ error: `Message content too long. Maximum ${MAX_QUERY_LENGTH} characters allowed.` }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      }
     }
 
     userQuery = query;
@@ -46,7 +133,7 @@ export async function POST(request: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://roovert.com';
     const siteName = 'Roovert';
 
-    // Model ID to API ID mapping
+    // Model ID to API ID mapping - ALLOWLIST ONLY
     const MODEL_MAP: Record<string, string> = {
       'ooverta': 'google/gemini-2.0-flash-exp:free', // Changed to reliable Gemini model
       'gemini-flash': 'google/gemini-2.0-flash-exp:free',
@@ -67,6 +154,9 @@ export async function POST(request: NextRequest) {
       'command-r-plus': 'cohere/command-r-plus',
       'llama-3-1-8b': 'meta-llama/llama-3.1-8b-instruct',
     };
+    
+    // Security: Validate model against allowlist to prevent injection
+    const ALLOWED_MODEL_IDS = new Set(Object.keys(MODEL_MAP));
 
     // If image is provided, use vision-capable model
     // Default to Gemini 2.0 Flash for vision if no model specified or if current model doesn't support vision
@@ -102,12 +192,22 @@ export async function POST(request: NextRequest) {
         ${needsVision ? '- You can see and analyze images. Describe what you see clearly and accurately.' : ''}`;
       }
     } else {
-      // First check if model is already an API ID (starts with google/, openai/, etc.)
-      if (model.includes('/')) {
-        targetModel = model.trim();
-      } else {
-        // Otherwise, look it up in MODEL_MAP
-        targetModel = MODEL_MAP[model] || model.trim();
+      // Security: Validate model ID against allowlist
+      if (!ALLOWED_MODEL_IDS.has(model)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid model specified. Please select a model from the allowed list.' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Look up model in allowlist
+      targetModel = MODEL_MAP[model];
+      
+      if (!targetModel) {
+        return new Response(
+          JSON.stringify({ error: 'Model not found in allowlist' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
       }
       
       // If image provided but model doesn't support vision, switch to Gemini
@@ -151,10 +251,12 @@ export async function POST(request: NextRequest) {
             }
           ];
 
-          // Add conversation history if provided
+          // Add conversation history if provided (already validated above)
           if (conversationHistory && Array.isArray(conversationHistory)) {
-            // Validate and add history messages
-            for (const msg of conversationHistory) {
+            // Limit to last MAX_HISTORY_LENGTH messages to prevent memory issues
+            const limitedHistory = conversationHistory.slice(-MAX_HISTORY_LENGTH);
+            // Add history messages
+            for (const msg of limitedHistory) {
               if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
                 messages.push({
                   role: msg.role,
@@ -325,7 +427,20 @@ export async function POST(request: NextRequest) {
             return;
           }
 
+          // DoS protection: Set limits for streaming
+          const MAX_STREAM_DURATION = 60 * 1000; // 60 seconds
+          const MAX_RESPONSE_LENGTH = 100000; // 100k characters
+          const startTime = Date.now();
+          let totalLength = 0;
+
           while (true) {
+            // Check timeout
+            if (Date.now() - startTime > MAX_STREAM_DURATION) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: '\n\n[Stream timeout - response too long]', done: true })}\n\n`));
+              controller.close();
+              return;
+            }
+
             const { done, value } = await reader.read();
             if (done) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`));
@@ -349,6 +464,13 @@ export async function POST(request: NextRequest) {
                 const finishReason = data.choices?.[0]?.finish_reason;
 
                 if (content) {
+                  // Check response length limit
+                  totalLength += content.length;
+                  if (totalLength > MAX_RESPONSE_LENGTH) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: '\n\n[Response too long - truncated]', done: true })}\n\n`));
+                    controller.close();
+                    return;
+                  }
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content, done: false })}\n\n`));
                 }
 
