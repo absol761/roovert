@@ -233,7 +233,8 @@ function SettingsModal({
   onOpenLooks,
   onOpenMoreModels,
   neuralNoiseEnabled,
-  setNeuralNoiseEnabled
+  setNeuralNoiseEnabled,
+  availableModels = [] as typeof MODELS
 }: any) {
   if (!isOpen) return null;
 
@@ -450,7 +451,7 @@ function SettingsModal({
               </button>
             </div>
             <div className="grid gap-2">
-              {availableModels.map(model => (
+              {availableModels.map((model: typeof MODELS[0]) => (
                 <button
                   key={model.id}
                   onClick={() => setModelId(model.id)}
@@ -1360,6 +1361,7 @@ export default function Page() {
             onOpenMoreModels={() => setIsMoreModelsOpen(true)}
             neuralNoiseEnabled={neuralNoiseEnabled}
             setNeuralNoiseEnabled={setNeuralNoiseEnabled}
+            availableModels={availableModels}
           />
         )}
       </AnimatePresence>
