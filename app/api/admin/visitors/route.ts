@@ -13,10 +13,10 @@ export async function GET(request: Request) {
   try {
     // Authentication check
     const adminKey = request.headers.get('x-admin-key');
-    const expectedKey = process.env.ADMIN_API_KEY;
+    const expectedKey = process.env.AI_GATEWAY_API_KEY;
     
     if (!expectedKey) {
-      console.error('ADMIN_API_KEY not configured');
+      console.error('AI_GATEWAY_API_KEY not configured');
       return NextResponse.json(
         { error: 'Admin access not configured' },
         { status: 503 }

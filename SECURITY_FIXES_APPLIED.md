@@ -78,7 +78,7 @@ All critical and high-priority security vulnerabilities identified in the securi
 Add to your Vercel project settings:
 
 ```bash
-ADMIN_API_KEY=your-secure-admin-key-here
+AI_GATEWAY_API_KEY=your-secure-admin-key-here
 ```
 
 **Note:** Generate a strong, random key for production:
@@ -117,7 +117,7 @@ openssl rand -hex 32
 
 1. **Rate Limiting:** The current implementation uses in-memory storage. For production with multiple instances, consider using Redis/Upstash.
 
-2. **Admin Key:** Make sure to set `ADMIN_API_KEY` in your Vercel environment variables before deploying.
+2. **Admin Key:** Make sure to set `AI_GATEWAY_API_KEY` in your Vercel environment variables before deploying.
 
 3. **Testing:** Test all API endpoints after deployment to ensure rate limiting doesn't break legitimate use cases.
 
