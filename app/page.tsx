@@ -1098,7 +1098,7 @@ export default function Page() {
         body: JSON.stringify({
           query: trimmedQuery,
           image: selectedImage || undefined,
-          model: selectedModel.apiId,
+          model: selectedModel.id, // Send model ID, not API ID (backend maps it)
           systemPrompt: systemPrompt || undefined,
           conversationHistory: conversationHistory
         }),
