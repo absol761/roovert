@@ -222,7 +222,6 @@ export default function PrivacyPage() {
                 <ul className="list-disc list-inside space-y-2 ml-4">
                   <li><strong>Segment.io:</strong> Analytics service (only loaded with your consent). All IP addresses are anonymized before being sent. See <a href="https://segment.com/legal/privacy/" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">Segment's Privacy Policy</a>.</li>
                   <li><strong>Vercel:</strong> Hosting and infrastructure provider. See <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">Vercel's Privacy Policy</a>.</li>
-                  <li><strong>OpenRouter:</strong> AI model API provider. Your queries are sent to OpenRouter for processing. See <a href="https://openrouter.ai/privacy" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">OpenRouter's Privacy Policy</a>.</li>
                 </ul>
               </div>
             </motion.section>

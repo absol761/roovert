@@ -79,7 +79,6 @@ fetch('https://roovert.com/api/admin/visitors', {
 
 You may also need these (if not already set):
 
-- `OPENROUTER_API_KEY` - Your OpenRouter API key
 - `KV_REST_API_URL` - Vercel KV URL (if using KV)
 - `KV_REST_API_TOKEN` - Vercel KV token (if using KV)
 - `NEXT_PUBLIC_APP_URL` - Your app URL (e.g., `https://roovert.com`)

@@ -1,6 +1,6 @@
 # Vercel AI Gateway Integration
 
-This application now supports Vercel AI Gateway as an alternative to OpenRouter for AI model access.
+This application supports Vercel AI Gateway for AI model access.
 
 ## Setup
 
@@ -25,14 +25,9 @@ AI_GATEWAY_BASE_URL=https://your-gateway-url.com/v1
 
 ### 3. API Endpoints
 
-The application now has two AI endpoints:
+The application has the following AI endpoint:
 
-#### `/api/query-stream` (OpenRouter - Existing)
-- Uses OpenRouter API
-- Requires: `OPENROUTER_API_KEY`
-- Supports all OpenRouter models
-
-#### `/api/query-gateway` (AI Gateway - New)
+#### `/api/query-gateway` (AI Gateway)
 - Uses Vercel AI Gateway
 - Requires: `AI_GATEWAY_API_KEY`
 - Uses Vercel AI SDK for streaming
@@ -42,22 +37,10 @@ The application now has two AI endpoints:
 
 ### Frontend Integration
 
-To use AI Gateway instead of OpenRouter, update the fetch call in `app/page.tsx`:
+The frontend uses the AI Gateway endpoint. The fetch call in `app/page.tsx` should use:
 
 ```typescript
-// Change from:
-const res = await fetch('/api/query-stream', {
-
-// To:
 const res = await fetch('/api/query-gateway', {
-```
-
-Or make it configurable:
-
-```typescript
-const useGateway = process.env.NEXT_PUBLIC_USE_AI_GATEWAY === 'true';
-const endpoint = useGateway ? '/api/query-gateway' : '/api/query-stream';
-const res = await fetch(endpoint, {
 ```
 
 ### Supported Models
@@ -108,12 +91,12 @@ curl -X POST http://localhost:3000/api/query-gateway \
   }'
 ```
 
-## Migration Guide
+## Setup Guide
 
-To migrate from OpenRouter to AI Gateway:
+To set up AI Gateway:
 
 1. Set `AI_GATEWAY_API_KEY` in environment variables
-2. Update frontend to use `/api/query-gateway` endpoint
+2. Ensure frontend uses `/api/query-gateway` endpoint
 3. Test with your models
 4. Monitor performance and costs
 

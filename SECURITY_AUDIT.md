@@ -84,7 +84,7 @@ targetModel = MODEL_MAP[model];
 
 **Impact:**
 - **DoS attacks:** Unlimited requests can overwhelm the server
-- **API cost escalation:** Unlimited calls to OpenRouter API
+- **API cost escalation:** Unlimited calls to external APIs
 - **Resource exhaustion:** Memory/CPU exhaustion from concurrent requests
 
 **Affected Endpoints:**
@@ -414,7 +414,7 @@ db.prepare('INSERT OR IGNORE INTO unique_visitors (visitor_hash, first_seen, las
 **Finding:** API keys are properly stored in environment variables and not exposed in code.
 
 ```typescript
-const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+const apiKey = process.env.API_KEY?.trim();
 ```
 
 **Recommendation:** Continue this practice. Consider using a secrets management service for production.

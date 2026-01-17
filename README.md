@@ -28,7 +28,6 @@ npm install
 Set up environment variables. Create a `.env.local` file in the root directory:
 
 ```bash
-OPENROUTER_API_KEY=your_api_key_here
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Optional: Admin API key (for testing /api/admin/visitors endpoint locally)
@@ -40,7 +39,7 @@ AI_GATEWAY_API_KEY=your_admin_key_here
 NEXT_PUBLIC_SEGMENT_WRITE_KEY=your_segment_write_key_here
 ```
 
-Get your OpenRouter API key from [openrouter.ai](https://openrouter.ai). Never commit `.env.local` or any file containing secrets.
+Never commit `.env.local` or any file containing secrets.
 
 **Note:** The Segment write key is optional. If not provided, analytics will be disabled and no warning will be shown in production.
 
@@ -54,7 +53,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Features
 
-- Access to multiple AI models via OpenRouter (GPT-4o, Claude, Gemini, Llama, Perplexity, and others)
+- Access to multiple AI models
 - Default Ooverta model with web search capabilities
 - Image upload and vision support for AI models
 - Conversation memory and history management
@@ -73,7 +72,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - React Markdown for response rendering
 - Vercel KV for visitor tracking (production)
 - SQLite for local development
-- OpenRouter API for AI model access
 
 ## Project Structure
 
@@ -111,7 +109,6 @@ Deploy to Vercel:
 4. Deploy
 
 Required environment variables:
-- `OPENROUTER_API_KEY` - Your OpenRouter API key
 - `NEXT_PUBLIC_APP_URL` - Your application URL
 
 Optional environment variables:

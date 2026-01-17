@@ -838,27 +838,11 @@ export default function Page() {
   const inputRef = useRef<HTMLInputElement>(null);
   const responseEndRef = useRef<HTMLDivElement>(null);
 
-  // Periodically check model availability (every 5 minutes)
+  // Model availability checking removed - endpoint deleted
   useEffect(() => {
     const checkModelAvailability = async () => {
-      try {
-        const response = await fetch('/api/model-availability');
-        const data = await response.json();
-        
-        if (data.available) {
-          // Update unavailable models based on API response
-          const unavailable = new Set<string>();
-          for (const [modelId, isAvailable] of Object.entries(data.available)) {
-            if (!isAvailable) {
-              unavailable.add(modelId);
-            }
-          }
-          setUnavailableModels(unavailable);
-        }
-      } catch (error) {
-        // Silently fail - don't break the UI
-        console.debug('Model availability check failed:', error);
-      }
+      // Model availability endpoint removed
+      // Availability is now handled client-side based on errors
     };
 
     // Check immediately on mount
@@ -1141,7 +1125,7 @@ export default function Page() {
         currentMessageContent = trimmedQuery;
       }
 
-      const res = await fetch('/api/query-stream', {
+      const res = await fetch('/api/query-gateway', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1295,7 +1279,7 @@ export default function Page() {
         return;
       }
       console.error('Query failed:', error);
-      const fallbackMessage = error?.message || 'Upstream unavailable. Check OpenRouter connectivity.';
+      const fallbackMessage = error?.message || 'Upstream unavailable.';
       
       // Check if error indicates model is unavailable (provider error, rate limit, etc.)
       if (error.message && (
@@ -1308,17 +1292,7 @@ export default function Page() {
         // Mark this model as unavailable temporarily (for 5 minutes)
         setUnavailableModels(prev => new Set(prev).add(selectedModelId));
         
-        // Report to API for tracking
-        fetch('/api/model-availability', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            modelId: selectedModelId,
-            error: error.message,
-          }),
-        }).catch(() => {
-          // Silently fail - local state is the source of truth
-        });
+        // Model availability tracking endpoint removed
         
         // Remove from unavailable list after 5 minutes
         setTimeout(() => {
@@ -1581,7 +1555,7 @@ export default function Page() {
                 {[
                   {
                     title: 'API Integration',
-                    code: `fetch('/api/query-stream', {
+                    code: `fetch('/api/query-gateway', {
   method: 'POST',
   body: JSON.stringify({
     query: 'Explain AI',
@@ -1819,7 +1793,7 @@ while (true) {
                                             currentMessageContent = entry.query;
                                           }
 
-                                          const res = await fetch('/api/query-stream', {
+                                          const res = await fetch('/api/query-gateway', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({
