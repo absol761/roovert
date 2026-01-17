@@ -10,7 +10,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^3.0.7",
+    "@ai-sdk/groq": "^3.0.10",
     "@vercel/kv": "^3.0.0",
     "ai": "^6.0.26",
     "better-sqlite3": "^12.5.0",

@@ -10,29 +10,22 @@ import rehypeHighlight from 'rehype-highlight';
 import { checkConsentAndInitialize } from './components/ConsentBanner';
 import { NeuralNoise } from './components/NeuralNoise';
 
-const MODELS = [
-  { id: 'ooverta', name: 'Ooverta (Default)', apiId: 'ooverta', category: 'Standard', description: 'The engine of truth. Web-aware.' },
-  { id: 'gemini-flash', name: 'Gemini Flash', apiId: 'google/gemini-2.0-flash-exp:free', category: 'Standard', description: 'Fast, efficient, google-powered.' },
-  { id: 'deepseek-free', name: 'DeepSeek R1', apiId: 'deepseek/deepseek-r1-0528:free', category: 'Standard', description: 'Fast, efficient reasoning.' },
-  { id: 'nemotron-30b', name: 'Nvidia Nemotron 30B', apiId: 'nvidia/nemotron-3-nano-30b-a3b:free', category: 'Standard', description: 'Compact, powerful Nvidia model.' },
-  { id: 'llama-405b', name: 'Llama 3.1 405B', apiId: 'nousresearch/hermes-3-llama-3.1-405b:free', category: 'Advanced', description: 'Massive open-source intelligence.' },
-  { id: 'gpt-4o', name: 'GPT-4o', apiId: 'openai/gpt-4o', category: 'Advanced', description: 'Top-tier general intelligence.' },
-  { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', apiId: 'anthropic/claude-3.5-sonnet', category: 'Advanced', description: 'Nuanced and articulate.' },
-  { id: 'perplexity', name: 'Perplexity', apiId: 'perplexity/sonar-reasoning', category: 'Advanced', description: 'Real-time search engine.' },
+interface Model {
+  id: string;
+  name: string;
+  apiId: string;
+  category: string;
+  description: string;
+}
+
+const MODELS: Model[] = [
+  { id: 'ooverta', name: 'Ooverta (Llama 4 Scout)', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Standard', description: 'The flagship Llama 4 model. Multimodal & ultra-precise.' },
+  { id: 'llama-4-scout', name: 'Llama 4 Scout', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Standard', description: 'Meta\'s latest mixture-of-experts model.' },
+  { id: 'llama-3.3-70b', name: 'Llama 3.3 70B', apiId: 'llama-3.3-70b-versatile', category: 'Advanced', description: 'The peak of Llama 3 performance.' },
+  { id: 'llama-3.1-8b', name: 'Llama 3.1 8B', apiId: 'llama-3.1-8b-instant', category: 'Standard', description: 'Extremely fast and lightweight.' },
 ];
 
-const MORE_MODELS = [
-  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', apiId: 'openai/gpt-4-turbo', category: 'Advanced', description: 'Enhanced GPT-4 with improved speed.' },
-  { id: 'claude-3-opus', name: 'Claude 3 Opus', apiId: 'anthropic/claude-3-opus', category: 'Advanced', description: 'Most capable Claude model.' },
-  { id: 'claude-3-haiku', name: 'Claude 3 Haiku', apiId: 'anthropic/claude-3-haiku', category: 'Standard', description: 'Fast and efficient Claude model.' },
-  { id: 'gemini-pro', name: 'Gemini Pro', apiId: 'google/gemini-pro', category: 'Standard', description: 'Google advanced reasoning model.' },
-  { id: 'llama-3-70b', name: 'Llama 3 70B', apiId: 'meta-llama/llama-3-70b-instruct', category: 'Standard', description: 'Large open-source model.' },
-  { id: 'mistral-large', name: 'Mistral Large', apiId: 'mistralai/mistral-large', category: 'Advanced', description: 'High-performance French model.' },
-  { id: 'qwen-2-5', name: 'Qwen 2.5', apiId: 'qwen/qwen-2.5-72b-instruct', category: 'Advanced', description: 'Alibaba advanced reasoning model.' },
-  { id: 'pi-mini', name: 'Pi Mini', apiId: 'inflection/inflection-pi', category: 'Standard', description: 'Conversational AI assistant.' },
-  { id: 'command-r-plus', name: 'Command R+', apiId: 'cohere/command-r-plus', category: 'Advanced', description: 'Enterprise-grade reasoning.' },
-  { id: 'llama-3-1-8b', name: 'Llama 3.1 8B', apiId: 'meta-llama/llama-3.1-8b-instruct', category: 'Standard', description: 'Lightweight efficient model.' },
-];
+const MORE_MODELS: Model[] = [];
 
 const QUICK_PROMPTS = [
   'Stress test this assumption about AGI timelines.',
@@ -84,7 +77,7 @@ function MoreModelsModal({ isOpen, onClose, currentModelId, setModelId, unavaila
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -103,7 +96,7 @@ function MoreModelsModal({ isOpen, onClose, currentModelId, setModelId, unavaila
 
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
           {modelsByCategory.map(({ category, models }) => (
-            <motion.section 
+            <motion.section
               key={category}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -122,11 +115,10 @@ function MoreModelsModal({ isOpen, onClose, currentModelId, setModelId, unavaila
                     transition={{ duration: 0.2, delay: idx * 0.03, ease: 'easeOut' }}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`p-4 rounded-xl border transition-all duration-300 text-left ${
-                      currentModelId === model.id 
-                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20' 
-                        : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
-                    }`}
+                    className={`p-4 rounded-xl border transition-all duration-300 text-left ${currentModelId === model.id
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20'
+                      : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
+                      }`}
                   >
                     <div className="font-medium text-[var(--foreground)] mb-1 flex items-center gap-2">
                       {model.name}
@@ -159,7 +151,7 @@ function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -178,7 +170,7 @@ function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
 
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-8" style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
           {looksByCategory.map(({ category, looks }) => (
-            <motion.section 
+            <motion.section
               key={category}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -198,11 +190,10 @@ function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
                     transition={{ duration: 0.2, delay: idx * 0.03, ease: 'easeOut' }}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`look-preview-button p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden ${
-                      currentLook === look.id 
-                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20' 
-                        : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
-                    }`}
+                    className={`look-preview-button p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden ${currentLook === look.id
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20'
+                      : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
+                      }`}
                   >
                     <div className="font-medium text-[var(--foreground)] mb-1 relative z-10 transition-transform duration-300">{look.name}</div>
                     <div className="text-xs text-[var(--muted)] relative z-10">{look.description}</div>
@@ -219,9 +210,9 @@ function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
 }
 
 // Settings Modal Component
-function SettingsModal({ 
-  isOpen, 
-  onClose, 
+function SettingsModal({
+  isOpen,
+  onClose,
   currentModelId, setModelId,
   layout, setLayout,
   fontSize, setFontSize,
@@ -252,7 +243,7 @@ function SettingsModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/70 backdrop-blur-sm" onClick={onClose} />
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -264,20 +255,20 @@ function SettingsModal({
             System Configuration
           </h2>
           <div className="flex items-center gap-2">
-            <button 
-                onClick={handleReset}
-                className="text-xs text-[var(--muted)] hover:text-[var(--accent)] transition-colors px-3 py-1.5 rounded-lg border border-transparent hover:border-[var(--border)] hover:bg-[var(--surface)]"
+            <button
+              onClick={handleReset}
+              className="text-xs text-[var(--muted)] hover:text-[var(--accent)] transition-colors px-3 py-1.5 rounded-lg border border-transparent hover:border-[var(--border)] hover:bg-[var(--surface)]"
             >
-                Reset Defaults
+              Reset Defaults
             </button>
             <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
-                <X className="w-5 h-5" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-8" style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
-          
+
           {/* Looks Section - Quick Select or Browse More */}
           <section>
             <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2 flex items-center gap-2">
@@ -305,19 +296,18 @@ function SettingsModal({
           <section>
             <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Layout</h3>
             <div className="grid grid-cols-3 gap-2">
-            {LAYOUTS.map(l => (
+              {LAYOUTS.map(l => (
                 <button
-                key={l.id}
-                onClick={() => setLayout(l.id)}
-                className={`px-3 py-2 rounded-lg border text-sm transition-all ${
-                    layout === l.id
+                  key={l.id}
+                  onClick={() => setLayout(l.id)}
+                  className={`px-3 py-2 rounded-lg border text-sm transition-all ${layout === l.id
                     ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
                     : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
-                }`}
+                    }`}
                 >
-                {l.name}
+                  {l.name}
                 </button>
-            ))}
+              ))}
             </div>
           </section>
 
@@ -325,117 +315,111 @@ function SettingsModal({
           <section>
             <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Appearance & Style</h3>
             <div className="grid gap-8">
-                <div>
-                    <h4 className="text-xs text-[var(--muted)] mb-2 uppercase">Text Size</h4>
-                    <div className="flex gap-2">
-                        {['small', 'normal', 'large'].map((size) => (
-                            <button
-                                key={size}
-                                onClick={() => setFontSize(size)}
-                                className={`flex-1 px-3 py-2 text-xs rounded-lg border transition-colors ${
-                                    fontSize === size 
-                                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]' 
-                                    : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]'
-                                }`}
-                            >
-                                {size.charAt(0).toUpperCase() + size.slice(1)}
-                            </button>
-                        ))}
-                    </div>
+              <div>
+                <h4 className="text-xs text-[var(--muted)] mb-2 uppercase">Text Size</h4>
+                <div className="flex gap-2">
+                  {['small', 'normal', 'large'].map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => setFontSize(size)}
+                      className={`flex-1 px-3 py-2 text-xs rounded-lg border transition-colors ${fontSize === size
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
+                        : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                        }`}
+                    >
+                      {size.charAt(0).toUpperCase() + size.slice(1)}
+                    </button>
+                  ))}
                 </div>
+              </div>
             </div>
           </section>
 
           {/* Preferences Section - Toggles */}
           <section className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
             <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono flex items-center gap-2">
-                <Monitor className="w-4 h-4" /> Preferences
+              <Monitor className="w-4 h-4" /> Preferences
             </h3>
             <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="text-sm font-medium flex items-center gap-2">
-                            Data Saver Mode
-                            {dataSaver && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20">ACTIVE</span>}
-                        </div>
-                        <div className="text-xs text-[var(--muted)]">Reduces animations & blur effects</div>
-                    </div>
-                    <button
-                        onClick={() => setDataSaver(!dataSaver)}
-                        className={`relative w-11 h-6 rounded-full transition-colors ${
-                            dataSaver ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
-                        }`}
-                    >
-                        <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                            dataSaver ? 'translate-x-5' : 'translate-x-0'
-                        }`} />
-                    </button>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    Data Saver Mode
+                    {dataSaver && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20">ACTIVE</span>}
+                  </div>
+                  <div className="text-xs text-[var(--muted)]">Reduces animations & blur effects</div>
                 </div>
+                <button
+                  onClick={() => setDataSaver(!dataSaver)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${dataSaver ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
+                    }`}
+                >
+                  <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${dataSaver ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                </button>
+              </div>
 
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="text-sm font-medium flex items-center gap-2">
-                            Focus Mode
-                            {focusMode && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20">ACTIVE</span>}
-                        </div>
-                        <div className="text-xs text-[var(--muted)]">Hide all distractions during chat</div>
-                    </div>
-                    <button
-                        onClick={() => setFocusMode(!focusMode)}
-                        className={`p-2 rounded-lg border transition-colors ${
-                            focusMode ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]' : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]'
-                        }`}
-                    >
-                        {focusMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    Focus Mode
+                    {focusMode && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20">ACTIVE</span>}
+                  </div>
+                  <div className="text-xs text-[var(--muted)]">Hide all distractions during chat</div>
                 </div>
+                <button
+                  onClick={() => setFocusMode(!focusMode)}
+                  className={`p-2 rounded-lg border transition-colors ${focusMode ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]' : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]'
+                    }`}
+                >
+                  {focusMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
 
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="text-sm font-medium flex items-center gap-2">
-                            Neural Background
-                            {neuralNoiseEnabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20">ACTIVE</span>}
-                        </div>
-                        <div className="text-xs text-[var(--muted)]">Animated neural network background effect</div>
-                    </div>
-                    <button
-                        onClick={() => setNeuralNoiseEnabled(!neuralNoiseEnabled)}
-                        className={`relative w-11 h-6 rounded-full transition-colors ${
-                            neuralNoiseEnabled ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
-                        }`}
-                    >
-                        <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                            neuralNoiseEnabled ? 'translate-x-5' : 'translate-x-0'
-                        }`} />
-                    </button>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    Neural Background
+                    {neuralNoiseEnabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20">ACTIVE</span>}
+                  </div>
+                  <div className="text-xs text-[var(--muted)]">Animated neural network background effect</div>
                 </div>
+                <button
+                  onClick={() => setNeuralNoiseEnabled(!neuralNoiseEnabled)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${neuralNoiseEnabled ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
+                    }`}
+                >
+                  <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${neuralNoiseEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                </button>
+              </div>
             </div>
           </section>
 
           {/* AI Configuration */}
           <section className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
             <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono flex items-center gap-2">
-                <Zap className="w-4 h-4" /> Intelligence Override
+              <Zap className="w-4 h-4" /> Intelligence Override
             </h3>
             <div className="space-y-4">
-                <div className="space-y-2">
-                    <label htmlFor="system-prompt" className="text-xs text-[var(--muted)] uppercase">Custom System Prompt</label>
-                    <textarea 
-                        id="system-prompt"
-                        name="system-prompt"
-                        value={systemPrompt}
-                        onChange={(e) => setSystemPrompt(e.target.value)}
-                        placeholder="e.g., 'You are a pirate...' or 'Explain like I'm 5'"
-                        className="w-full h-24 bg-[var(--background)] border border-[var(--border)] rounded-xl p-3 text-sm resize-none focus:border-[var(--accent)] outline-none"
-                        aria-label="Custom system prompt"
-                    />
-                </div>
-                <button
-                    onClick={onExportChat}
-                    className="w-full flex items-center justify-center gap-2 py-2 bg-[var(--surface-strong)] hover:bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm transition-colors"
-                >
-                    <Download className="w-4 h-4" /> Export Conversation Log
-                </button>
+              <div className="space-y-2">
+                <label htmlFor="system-prompt" className="text-xs text-[var(--muted)] uppercase">Custom System Prompt</label>
+                <textarea
+                  id="system-prompt"
+                  name="system-prompt"
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  placeholder="e.g., 'You are a pirate...' or 'Explain like I'm 5'"
+                  className="w-full h-24 bg-[var(--background)] border border-[var(--border)] rounded-xl p-3 text-sm resize-none focus:border-[var(--accent)] outline-none"
+                  aria-label="Custom system prompt"
+                />
+              </div>
+              <button
+                onClick={onExportChat}
+                className="w-full flex items-center justify-center gap-2 py-2 bg-[var(--surface-strong)] hover:bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm transition-colors"
+              >
+                <Download className="w-4 h-4" /> Export Conversation Log
+              </button>
             </div>
           </section>
 
@@ -455,11 +439,10 @@ function SettingsModal({
                 <button
                   key={model.id}
                   onClick={() => setModelId(model.id)}
-                  className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
-                    currentModelId === model.id 
-                      ? 'border-[var(--accent)] bg-[var(--accent)]/10' 
-                      : 'border-[var(--border)] hover:border-[var(--accent)]/30 bg-[var(--surface)]'
-                  }`}
+                  className={`flex items-center justify-between p-4 rounded-xl border transition-all ${currentModelId === model.id
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                    : 'border-[var(--border)] hover:border-[var(--accent)]/30 bg-[var(--surface)]'
+                    }`}
                 >
                   <div className="text-left">
                     <div className="font-medium flex items-center gap-2 text-[var(--foreground)]">
@@ -488,13 +471,13 @@ function Widgets() {
   const [news, setNews] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('/api/news').then(res => res.json()).then(setNews).catch(() => {});
+    fetch('/api/news').then(res => res.json()).then(setNews).catch(() => { });
   }, []);
 
   return (
     <div className="widgets-stack flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
       {/* News Widget */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.1 }}
@@ -507,11 +490,11 @@ function Widgets() {
         {news.length > 0 ? (
           <div className="space-y-3">
             {news.map((story: any) => (
-          <a
-                key={story.id} 
-                href={story.url} 
-            target="_blank"
-            rel="noopener noreferrer"
+              <a
+                key={story.id}
+                href={story.url}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="block text-sm hover:text-[var(--accent)] transition-colors truncate"
               >
                 • {story.title}
@@ -568,7 +551,7 @@ function LiveStats() {
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 5000); 
+    const interval = setInterval(fetchStats, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -692,7 +675,7 @@ function ParticleBackground() {
         const dx = mouseX - particle.x;
         const dy = mouseY - particle.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (distance < 120) {
           const force = (120 - distance) / 120;
           particle.vx += (dx * force * 0.0005) * deltaTime;
@@ -742,7 +725,7 @@ function ParticleBackground() {
             );
             gradient.addColorStop(0, `rgba(0, 212, 255, ${opacity})`);
             gradient.addColorStop(1, `rgba(0, 212, 255, ${opacity * 0.5})`);
-            
+
             ctx.beginPath();
             ctx.moveTo(particle.x, particle.y);
             ctx.lineTo(otherParticle.x, otherParticle.y);
@@ -777,7 +760,7 @@ function ParticleBackground() {
 // Clock Component for Nav
 function NavClock() {
   const [time, setTime] = useState<string>('');
-  
+
   useEffect(() => {
     const updateTime = () => {
       setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
@@ -811,7 +794,7 @@ export default function Page() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  
+
   const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
@@ -834,7 +817,7 @@ export default function Page() {
   });
   // Track unavailable models (models that have failed recently)
   const [unavailableModels, setUnavailableModels] = useState<Set<string>>(new Set());
-  
+
   const inputRef = useRef<HTMLInputElement>(null);
   const responseEndRef = useRef<HTMLDivElement>(null);
 
@@ -878,18 +861,18 @@ export default function Page() {
     document.documentElement.setAttribute('data-layout', layout);
     document.documentElement.setAttribute('data-speed', dataSaver ? 'none' : 'normal');
     document.documentElement.setAttribute('data-size', fontSize);
-    
+
     if (dataSaver) {
-        document.documentElement.classList.add('data-saver');
+      document.documentElement.classList.add('data-saver');
     } else {
-        document.documentElement.classList.remove('data-saver');
+      document.documentElement.classList.remove('data-saver');
     }
   }, [look, layout, fontSize, dataSaver]);
 
   // Filter out unavailable models
   const availableModels = MODELS.filter(m => !unavailableModels.has(m.id));
   const selectedModel = availableModels.find(m => m.id === selectedModelId) || availableModels[0];
-  
+
   // If selected model becomes unavailable, switch to first available
   useEffect(() => {
     if (selectedModelId && unavailableModels.has(selectedModelId)) {
@@ -905,11 +888,11 @@ export default function Page() {
   // 1. Selected model is unavailable (would cause provider errors)
   // 2. No API key configured (would cause "local inference mode" errors)
   const isImageUploadDisabled = !selectedModel || unavailableModels.has(selectedModelId);
-  const imageUploadDisabledReason = !selectedModel 
-    ? 'No model selected' 
+  const imageUploadDisabledReason = !selectedModel
+    ? 'No model selected'
     : unavailableModels.has(selectedModelId)
-    ? 'Model temporarily unavailable'
-    : '';
+      ? 'Model temporarily unavailable'
+      : '';
 
   const injectPrompt = (prompt: string) => {
     setIsChatMode(true); // Enter Chat Mode
@@ -966,7 +949,7 @@ export default function Page() {
           const MAX_DIMENSION = 2048;
           let width = img.width;
           let height = img.height;
-          
+
           if (width > height && width > MAX_DIMENSION) {
             height = (height * MAX_DIMENSION) / width;
             width = MAX_DIMENSION;
@@ -974,27 +957,27 @@ export default function Page() {
             width = (width * MAX_DIMENSION) / height;
             height = MAX_DIMENSION;
           }
-          
+
           // Create canvas and compress
           const canvas = document.createElement('canvas');
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
-          
+
           if (!ctx) {
             reject(new Error('Could not get canvas context'));
             return;
           }
-          
+
           // Draw image with high quality scaling
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, width, height);
-          
+
           // Convert to base64 with compression (quality 0.85 for good balance)
           const quality = 0.85;
           const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
-          
+
           // Check if compressed size is still too large (> 4MB base64 = ~3MB actual)
           // Base64 is ~33% larger than binary, so 4MB base64 ≈ 3MB binary
           if (compressedBase64.length > 4 * 1024 * 1024) {
@@ -1097,7 +1080,7 @@ export default function Page() {
       // Preserve image data in history
       const conversationHistory = history.map(h => {
         const userMsg: any = { role: 'user' as const };
-        
+
         // If history entry has an image, use vision format
         if (h.image) {
           userMsg.content = [
@@ -1107,7 +1090,7 @@ export default function Page() {
         } else {
           userMsg.content = h.query;
         }
-        
+
         return [
           userMsg,
           { role: 'assistant' as const, content: h.response }
@@ -1163,7 +1146,7 @@ export default function Page() {
 
       while (true) {
         const { done, value } = await reader.read();
-        
+
         if (done) {
           break;
         }
@@ -1177,7 +1160,7 @@ export default function Page() {
             if (data.content) {
               fullResponse += data.content;
               setResponse(fullResponse);
-              
+
               // Check if response indicates model error (provider error, rate limit, etc.)
               if (typeof data.content === 'string' && (
                 data.content.includes('Provider Error') ||
@@ -1197,7 +1180,7 @@ export default function Page() {
                   });
                 }, 5 * 60 * 1000); // 5 minutes
               }
-              
+
               // Auto-scroll to bottom
               setTimeout(() => {
                 responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1208,9 +1191,9 @@ export default function Page() {
               setAbortController(null);
               setHistory(prev => [
                 ...prev,
-                { 
-                  query: trimmedQuery, 
-                  response: fullResponse, 
+                {
+                  query: trimmedQuery,
+                  response: fullResponse,
                   model: selectedModelId,
                   image: selectedImage || undefined
                 },
@@ -1229,7 +1212,7 @@ export default function Page() {
               }, 100);
               return;
             }
-            
+
             // Check if response indicates model error
             if (data.content && typeof data.content === 'string' && (
               data.content.includes('Provider Error') ||
@@ -1262,13 +1245,13 @@ export default function Page() {
         return;
       }
       // Suppress media playback errors (from browser extensions or third-party scripts)
-      if (error.name === 'NotAllowedError' || 
-          (error.message && (
-            error.message.includes('play()') || 
-            error.message.includes('pause()') ||
-            error.message.includes('interrupted') ||
-            error.message.includes('playback')
-          ))) {
+      if (error.name === 'NotAllowedError' ||
+        (error.message && (
+          error.message.includes('play()') ||
+          error.message.includes('pause()') ||
+          error.message.includes('interrupted') ||
+          error.message.includes('playback')
+        ))) {
         return; // Silently ignore media playback errors
       }
       // Handle 413 Payload Too Large errors
@@ -1280,7 +1263,7 @@ export default function Page() {
       }
       console.error('Query failed:', error);
       const fallbackMessage = error?.message || 'Upstream unavailable.';
-      
+
       // Check if error indicates model is unavailable (provider error, rate limit, etc.)
       if (error.message && (
         error.message.includes('Provider Error') ||
@@ -1291,9 +1274,9 @@ export default function Page() {
       )) {
         // Mark this model as unavailable temporarily (for 5 minutes)
         setUnavailableModels(prev => new Set(prev).add(selectedModelId));
-        
+
         // Model availability tracking endpoint removed
-        
+
         // Remove from unavailable list after 5 minutes
         setTimeout(() => {
           setUnavailableModels(prev => {
@@ -1303,7 +1286,7 @@ export default function Page() {
           });
         }, 5 * 60 * 1000); // 5 minutes
       }
-      
+
       setResponse(`System notice: ${fallbackMessage}`);
       setStatusNote('Simulation mode engaged — verify environment keys.');
       setIsProcessing(false);
@@ -1332,11 +1315,11 @@ export default function Page() {
   }, [query, isProcessing]);
 
   return (
-      <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
-        {/* Neural Noise Background - Only when not in chat mode and enabled */}
-        {!isChatMode && neuralNoiseEnabled && <NeuralNoise isChatMode={isChatMode} currentLook={look} />}
-        
-        {/* Animated Background */}
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
+      {/* Neural Noise Background - Only when not in chat mode and enabled */}
+      {!isChatMode && neuralNoiseEnabled && <NeuralNoise isChatMode={isChatMode} currentLook={look} />}
+
+      {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[var(--accent)]/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[var(--accent)]/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
@@ -1347,24 +1330,24 @@ export default function Page() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
-              <button 
-                onClick={() => setIsChatMode(false)} 
+              <button
+                onClick={() => setIsChatMode(false)}
                 className="text-2xl font-bold bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent hover:opacity-80 transition-opacity"
               >
                 ROOVERT
               </button>
               <div className="flex items-center gap-2">
-                <button 
-                    onClick={() => setIsSettingsOpen(true)}
-                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--accent)]"
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--accent)]"
                 >
-                    <Settings className="w-3 h-3" />
-                    <span>Config</span>
+                  <Settings className="w-3 h-3" />
+                  <span>Config</span>
                 </button>
                 <NavClock />
               </div>
             </div>
-            
+
             <div className="hidden md:flex items-center gap-8">
               <a
                 href="#mission"
@@ -1386,8 +1369,8 @@ export default function Page() {
       {/* Settings Modal */}
       <AnimatePresence>
         {isSettingsOpen && (
-          <SettingsModal 
-            isOpen={isSettingsOpen} 
+          <SettingsModal
+            isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
             currentModelId={selectedModelId}
             setModelId={setSelectedModelId}
@@ -1429,7 +1412,7 @@ export default function Page() {
       {/* Looks Modal */}
       <AnimatePresence>
         {isLooksOpen && (
-          <LooksModal 
+          <LooksModal
             isOpen={isLooksOpen}
             onClose={() => setIsLooksOpen(false)}
             currentLook={look}
@@ -1445,11 +1428,11 @@ export default function Page() {
 
       {/* Main Content Area */}
       <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-hidden">
-        
+
         {/* Landing Hero (Shown when NOT in Chat Mode) */}
         <AnimatePresence mode="wait">
           {!isChatMode && (
-            <motion.div 
+            <motion.div
               key="hero"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1597,7 +1580,7 @@ while (true) {
         {/* Chat Interface (Shown in Chat Mode) */}
         <AnimatePresence>
           {isChatMode && (
-            <motion.div 
+            <motion.div
               key="chat"
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1608,49 +1591,49 @@ while (true) {
               <div className="interface-grid h-full">
                 {/* Intel Panel (Left) - Hidden in Fullscreen */}
                 {!isFullscreen && (
-                <section className={`intel-panel hidden lg:grid content-start gap-4 transition-all duration-300 ${closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot') ? 'hidden' : ''}`}>
-                  {!closedWidgets.has('active-intel') && (
-                    <div className="intel-card relative">
-                      <button
-                        onClick={() => toggleWidget('active-intel')}
-                        className="absolute top-3 right-3 p-1 rounded-full hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                        title="Close widget"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                      <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Active Intelligence</span>
-                      <h3 className="font-light">{selectedModel.name}</h3>
-                      <p>{selectedModel.description}</p>
-                      <button 
-                        onClick={() => setIsChatMode(false)}
-                        className="mt-6 text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
-                      >
-                        <X className="w-3 h-3" /> End Session
-                      </button>
-                    </div>
-                  )}
-
-                  {!closedWidgets.has('ops-snapshot') && (
-                    <div className="intel-card relative">
-                      <button
-                        onClick={() => toggleWidget('ops-snapshot')}
-                        className="absolute top-3 right-3 p-1 rounded-full hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                        title="Close widget"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                      <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Ops Snapshot</span>
-                      <div className="mt-4 space-y-4">
-                        {SIGNALS.map(signal => (
-                          <div key={signal.title}>
-                            <p className="text-xs uppercase tracking-[0.45em] text-[var(--foreground)]/40">{signal.title}</p>
-                            <p className="text-base mt-1 text-[var(--foreground)]/80">{signal.detail}</p>
-                          </div>
-                        ))}
+                  <section className={`intel-panel hidden lg:grid content-start gap-4 transition-all duration-300 ${closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot') ? 'hidden' : ''}`}>
+                    {!closedWidgets.has('active-intel') && (
+                      <div className="intel-card relative">
+                        <button
+                          onClick={() => toggleWidget('active-intel')}
+                          className="absolute top-3 right-3 p-1 rounded-full hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                          title="Close widget"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Active Intelligence</span>
+                        <h3 className="font-light">{selectedModel.name}</h3>
+                        <p>{selectedModel.description}</p>
+                        <button
+                          onClick={() => setIsChatMode(false)}
+                          className="mt-6 text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" /> End Session
+                        </button>
                       </div>
-                    </div>
-                  )}
-                </section>
+                    )}
+
+                    {!closedWidgets.has('ops-snapshot') && (
+                      <div className="intel-card relative">
+                        <button
+                          onClick={() => toggleWidget('ops-snapshot')}
+                          className="absolute top-3 right-3 p-1 rounded-full hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                          title="Close widget"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Ops Snapshot</span>
+                        <div className="mt-4 space-y-4">
+                          {SIGNALS.map(signal => (
+                            <div key={signal.title}>
+                              <p className="text-xs uppercase tracking-[0.45em] text-[var(--foreground)]/40">{signal.title}</p>
+                              <p className="text-base mt-1 text-[var(--foreground)]/80">{signal.detail}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </section>
                 )}
 
                 {/* Main Chat Stack (Right/Center) */}
@@ -1686,7 +1669,7 @@ while (true) {
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 min-h-[40vh]">
                     {/* Conversation History */}
                     <div className="space-y-6 mb-6">
@@ -1700,214 +1683,214 @@ while (true) {
                           const originalIdx = history.indexOf(entry);
                           return (
                             <div key={originalIdx} className="space-y-4">
-                          {/* User Message */}
-                          <motion.div
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6 shadow-xl"
-                          >
-                            <div className="flex items-start gap-4">
-                              <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
-                                <Zap className="w-5 h-5 text-[var(--accent)]" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold mb-2">
-                                  You
-                                </div>
-                                {entry.image && (
-                                  <div className="mb-3 rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)]">
-                                    <img
-                                      src={entry.image}
-                                      alt="User uploaded"
-                                      className="max-w-full max-h-[300px] object-contain"
-                                    />
+                              {/* User Message */}
+                              <motion.div
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6 shadow-xl"
+                              >
+                                <div className="flex items-start gap-4">
+                                  <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
+                                    <Zap className="w-5 h-5 text-[var(--accent)]" />
                                   </div>
-                                )}
-                                <div className="text-[var(--foreground)] text-lg leading-relaxed font-light">
-                                  {entry.query}
-                                </div>
-                              </div>
-                            </div>
-                          </motion.div>
-
-                          {/* AI Response */}
-                          <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6 shadow-xl"
-                          >
-                            <div className="flex items-start gap-4">
-                              <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
-                                <Sparkles className="w-5 h-5 text-[var(--accent)]" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
-                                    {MODELS.find(m => m.id === entry.model)?.name || 'AI'}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold mb-2">
+                                      You
+                                    </div>
+                                    {entry.image && (
+                                      <div className="mb-3 rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)]">
+                                        <img
+                                          src={entry.image}
+                                          alt="User uploaded"
+                                          className="max-w-full max-h-[300px] object-contain"
+                                        />
+                                      </div>
+                                    )}
+                                    <div className="text-[var(--foreground)] text-lg leading-relaxed font-light">
+                                      {entry.query}
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      onClick={() => {
-                                        setQuery(entry.query);
-                                        setSelectedImage(entry.image || null);
-                                        setEditingIndex(idx);
-                                        inputRef.current?.focus();
-                                      }}
-                                      className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                                      title="Edit & Regenerate"
-                                    >
-                                      <Edit2 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={async () => {
-                                        // Regenerate with same query
-                                        setIsProcessing(true);
-                                        setResponse('');
-                                        const controller = new AbortController();
-                                        setAbortController(controller);
-                                        
-                                        try {
-                                          const conversationHistory = history.slice(0, idx).map(h => {
-                                            const userMsg: any = { role: 'user' as const };
-                                            if (h.image) {
-                                              userMsg.content = [
-                                                { type: 'text', text: h.query },
-                                                { type: 'image_url', image_url: { url: h.image } }
-                                              ];
-                                            } else {
-                                              userMsg.content = h.query;
-                                            }
-                                            return [
-                                              userMsg,
-                                              { role: 'assistant' as const, content: h.response }
-                                            ];
-                                          }).flat();
-                                          
-                                          let currentMessageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
-                                          if (entry.image) {
-                                            currentMessageContent = [
-                                              { type: 'text', text: entry.query },
-                                              { type: 'image_url', image_url: { url: entry.image } }
-                                            ];
-                                          } else {
-                                            currentMessageContent = entry.query;
-                                          }
+                                </div>
+                              </motion.div>
 
-                                          const res = await fetch('/api/query-gateway', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
-                                              query: entry.query,
-                                              image: entry.image || undefined,
-                                              model: selectedModelId,
-                                              systemPrompt: systemPrompt || undefined,
-                                              conversationHistory: conversationHistory
-                                            }),
-                                            signal: controller.signal,
-                                          });
+                              {/* AI Response */}
+                              <motion.div
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6 shadow-xl"
+                              >
+                                <div className="flex items-start gap-4">
+                                  <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
+                                    <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
+                                        {MODELS.find(m => m.id === entry.model)?.name || 'AI'}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => {
+                                            setQuery(entry.query);
+                                            setSelectedImage(entry.image || null);
+                                            setEditingIndex(idx);
+                                            inputRef.current?.focus();
+                                          }}
+                                          className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                          title="Edit & Regenerate"
+                                        >
+                                          <Edit2 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={async () => {
+                                            // Regenerate with same query
+                                            setIsProcessing(true);
+                                            setResponse('');
+                                            const controller = new AbortController();
+                                            setAbortController(controller);
 
-                                          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                                          
-                                          const reader = res.body?.getReader();
-                                          const decoder = new TextDecoder();
-                                          if (!reader) throw new Error('No reader available');
-
-                                          let fullResponse = '';
-                                          while (true) {
-                                            const { done, value } = await reader.read();
-                                            if (done) break;
-                                            const chunk = decoder.decode(value, { stream: true });
-                                            const lines = chunk.split('\n').filter(line => line.trim() && line.startsWith('data: '));
-                                            for (const line of lines) {
-                                              try {
-                                                const data = JSON.parse(line.slice(6));
-                                                if (data.content) {
-                                                  fullResponse += data.content;
-                                                  setResponse(fullResponse);
+                                            try {
+                                              const conversationHistory = history.slice(0, idx).map(h => {
+                                                const userMsg: any = { role: 'user' as const };
+                                                if (h.image) {
+                                                  userMsg.content = [
+                                                    { type: 'text', text: h.query },
+                                                    { type: 'image_url', image_url: { url: h.image } }
+                                                  ];
+                                                } else {
+                                                  userMsg.content = h.query;
                                                 }
-                                                if (data.done) {
-                                                  setIsProcessing(false);
-                                                  setAbortController(null);
-                                                  setHistory(prev => {
-                                                    const newHistory = [...prev];
-                                                    newHistory[idx] = { ...newHistory[idx], response: fullResponse };
-                                                    return newHistory;
-                                                  });
-                                                  setResponse(null);
-                                                  return;
+                                                return [
+                                                  userMsg,
+                                                  { role: 'assistant' as const, content: h.response }
+                                                ];
+                                              }).flat();
+
+                                              let currentMessageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+                                              if (entry.image) {
+                                                currentMessageContent = [
+                                                  { type: 'text', text: entry.query },
+                                                  { type: 'image_url', image_url: { url: entry.image } }
+                                                ];
+                                              } else {
+                                                currentMessageContent = entry.query;
+                                              }
+
+                                              const res = await fetch('/api/query-gateway', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                  query: entry.query,
+                                                  image: entry.image || undefined,
+                                                  model: selectedModelId,
+                                                  systemPrompt: systemPrompt || undefined,
+                                                  conversationHistory: conversationHistory
+                                                }),
+                                                signal: controller.signal,
+                                              });
+
+                                              if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+                                              const reader = res.body?.getReader();
+                                              const decoder = new TextDecoder();
+                                              if (!reader) throw new Error('No reader available');
+
+                                              let fullResponse = '';
+                                              while (true) {
+                                                const { done, value } = await reader.read();
+                                                if (done) break;
+                                                const chunk = decoder.decode(value, { stream: true });
+                                                const lines = chunk.split('\n').filter(line => line.trim() && line.startsWith('data: '));
+                                                for (const line of lines) {
+                                                  try {
+                                                    const data = JSON.parse(line.slice(6));
+                                                    if (data.content) {
+                                                      fullResponse += data.content;
+                                                      setResponse(fullResponse);
+                                                    }
+                                                    if (data.done) {
+                                                      setIsProcessing(false);
+                                                      setAbortController(null);
+                                                      setHistory(prev => {
+                                                        const newHistory = [...prev];
+                                                        newHistory[idx] = { ...newHistory[idx], response: fullResponse };
+                                                        return newHistory;
+                                                      });
+                                                      setResponse(null);
+                                                      return;
+                                                    }
+                                                  } catch (e) { }
                                                 }
-                                              } catch (e) {}
+                                              }
+                                            } catch (error: any) {
+                                              console.error('Regenerate error:', error);
+                                              setIsProcessing(false);
+                                              setAbortController(null);
                                             }
-                                          }
-                                        } catch (error: any) {
-                                          console.error('Regenerate error:', error);
-                                          setIsProcessing(false);
-                                          setAbortController(null);
-                                        }
-                                      }}
-                                      className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                                      title="Regenerate Response"
-                                    >
-                                      <RefreshCw className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                </div>
-                                <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
-                                  <ReactMarkdown
-                                    remarkPlugins={[remarkGfm]}
-                                    rehypePlugins={[rehypeHighlight]}
-                                    // Security: Disable HTML rendering to prevent XSS
-                                    disallowedElements={['script', 'iframe', 'object', 'embed']}
-                                    unwrapDisallowed={true}
-                                    components={{
-                                      code: ({ node, inline, className, children, ...props }: any) => {
-                                        const match = /language-(\w+)/.exec(className || '');
-                                        const code = String(children).replace(/\n$/, '');
-                                        const isCopied = copiedCodeBlock === code;
-                                        
-                                        return !inline ? (
-                                          <div className="relative my-4">
-                                            <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
-                                              <span className="text-xs text-[var(--muted)] font-mono">
-                                                {match ? match[1] : 'code'}
-                                              </span>
-                                              <button
-                                                onClick={() => copyCodeBlock(code)}
-                                                className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                                              >
-                                                {isCopied ? (
-                                                  <>
-                                                    <Check className="w-3 h-3" />
-                                                    Copied
-                                                  </>
-                                                ) : (
-                                                  <>
-                                                    <Copy className="w-3 h-3" />
-                                                    Copy
-                                                  </>
-                                                )}
-                                              </button>
-                                            </div>
-                                            <pre className={`${className} m-0 rounded-b-lg rounded-t-none overflow-x-auto`} {...props}>
-                                              <code className={className} {...props}>
+                                          }}
+                                          className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                          title="Regenerate Response"
+                                        >
+                                          <RefreshCw className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
+                                      <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
+                                        rehypePlugins={[rehypeHighlight]}
+                                        // Security: Disable HTML rendering to prevent XSS
+                                        disallowedElements={['script', 'iframe', 'object', 'embed']}
+                                        unwrapDisallowed={true}
+                                        components={{
+                                          code: ({ node, inline, className, children, ...props }: any) => {
+                                            const match = /language-(\w+)/.exec(className || '');
+                                            const code = String(children).replace(/\n$/, '');
+                                            const isCopied = copiedCodeBlock === code;
+
+                                            return !inline ? (
+                                              <div className="relative my-4">
+                                                <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
+                                                  <span className="text-xs text-[var(--muted)] font-mono">
+                                                    {match ? match[1] : 'code'}
+                                                  </span>
+                                                  <button
+                                                    onClick={() => copyCodeBlock(code)}
+                                                    className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                                  >
+                                                    {isCopied ? (
+                                                      <>
+                                                        <Check className="w-3 h-3" />
+                                                        Copied
+                                                      </>
+                                                    ) : (
+                                                      <>
+                                                        <Copy className="w-3 h-3" />
+                                                        Copy
+                                                      </>
+                                                    )}
+                                                  </button>
+                                                </div>
+                                                <pre className={`${className} m-0 rounded-b-lg rounded-t-none overflow-x-auto`} {...props}>
+                                                  <code className={className} {...props}>
+                                                    {children}
+                                                  </code>
+                                                </pre>
+                                              </div>
+                                            ) : (
+                                              <code className={`${className} bg-[var(--surface-strong)] px-1.5 py-0.5 rounded text-sm`} {...props}>
                                                 {children}
                                               </code>
-                                            </pre>
-                                          </div>
-                                        ) : (
-                                          <code className={`${className} bg-[var(--surface-strong)] px-1.5 py-0.5 rounded text-sm`} {...props}>
-                                            {children}
-                                          </code>
-                                        );
-                                      },
-                                    }}
-                                  >
-                                    {entry.response}
-                                  </ReactMarkdown>
+                                            );
+                                          },
+                                        }}
+                                      >
+                                        {entry.response}
+                                      </ReactMarkdown>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                          </motion.div>
+                              </motion.div>
                             </div>
                           );
                         })}
@@ -1964,7 +1947,7 @@ while (true) {
                                           const match = /language-(\w+)/.exec(className || '');
                                           const code = String(children).replace(/\n$/, '');
                                           const isCopied = copiedCodeBlock === code;
-                                          
+
                                           return !inline ? (
                                             <div className="relative my-4">
                                               <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
@@ -2076,7 +2059,7 @@ while (true) {
                               <span className="hidden sm:inline">{selectedModel.name}</span>
                               <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
                             </button>
-                            
+
                             <AnimatePresence>
                               {isModelMenuOpen && (
                                 <motion.div
@@ -2093,9 +2076,8 @@ while (true) {
                                         setSelectedModelId(model.id);
                                         setIsModelMenuOpen(false);
                                       }}
-                                      className={`w-full text-left px-4 py-3 text-xs transition-colors hover:bg-[var(--surface-strong)] flex items-center justify-between ${
-                                        selectedModelId === model.id ? 'text-[var(--accent)] bg-[var(--surface)]' : 'text-[var(--foreground)]'
-                                      }`}
+                                      className={`w-full text-left px-4 py-3 text-xs transition-colors hover:bg-[var(--surface-strong)] flex items-center justify-between ${selectedModelId === model.id ? 'text-[var(--accent)] bg-[var(--surface)]' : 'text-[var(--foreground)]'
+                                        }`}
                                     >
                                       {model.name}
                                       {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}
@@ -2118,11 +2100,10 @@ while (true) {
                           />
                           <label
                             htmlFor="image-upload"
-                            className={`p-2 rounded-lg transition-colors ${
-                              isImageUploadDisabled
-                                ? 'opacity-40 cursor-not-allowed'
-                                : 'hover:bg-[var(--surface-strong)] cursor-pointer text-[var(--muted)] hover:text-[var(--foreground)]'
-                            }`}
+                            className={`p-2 rounded-lg transition-colors ${isImageUploadDisabled
+                              ? 'opacity-40 cursor-not-allowed'
+                              : 'hover:bg-[var(--surface-strong)] cursor-pointer text-[var(--muted)] hover:text-[var(--foreground)]'
+                              }`}
                             title={isImageUploadDisabled ? `Image upload disabled: ${imageUploadDisabledReason}` : 'Upload image'}
                           >
                             <Paperclip className="w-5 h-5" />

@@ -1,25 +1,27 @@
 import { NextRequest } from 'next/server';
 import { streamText } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
+import { createGroq } from '@ai-sdk/groq';
 
 // Route segment config
 export const maxDuration = 60;
 export const runtime = 'nodejs';
 
-// Vercel AI Gateway configuration
-const gatewayApiKey = process.env.AI_GATEWAY_API_KEY;
+// Groq API configuration
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 function buildSimulationResponse(query: string, reason: string) {
   return [
-    `Systems Notice: ${reason || 'AI Gateway unavailable'}.`,
-    'Roovert is running in local inference mode until AI Gateway is reachable.',
+    `Systems Notice: ${reason || 'AI Service Unavailable'}.`,
+    'Roovert is running in local inference mode until the API is reachable.',
     '',
     `Focus: "${query?.trim() || 'awaiting a concrete prompt'}".`,
     '',
     'Immediate protocol:',
-    '1. Add/verify AI_GATEWAY_API_KEY in Vercel → Project Settings → Environment Variables.',
-    '2. Redeploy Roovert to restore live intelligence.',
-    '3. Re-run this query to resume truth-grade responses.',
+    '1. Add/verify GROQ_API_KEY in .env.local',
+    '2. Restart the server if running locally.',
+    '3. Re-run this query to resume intelligent responses.',
   ].join('\n');
 }
 
@@ -55,29 +57,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const MAX_SYSTEM_PROMPT_LENGTH = 2000;
-    if (customSystemPrompt && typeof customSystemPrompt === 'string' && customSystemPrompt.length > MAX_SYSTEM_PROMPT_LENGTH) {
-      return new Response(
-        JSON.stringify({ error: `System prompt too long. Maximum ${MAX_SYSTEM_PROMPT_LENGTH} characters allowed.` }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Validate conversation history
-    const MAX_HISTORY_LENGTH = 50;
-    if (conversationHistory && Array.isArray(conversationHistory)) {
-      if (conversationHistory.length > MAX_HISTORY_LENGTH) {
-        return new Response(
-          JSON.stringify({ error: `Conversation history too long. Maximum ${MAX_HISTORY_LENGTH} messages allowed.` }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
-    // Check for AI Gateway API key
-    if (!gatewayApiKey) {
-      console.error('AI_GATEWAY_API_KEY is missing');
-      const simulation = buildSimulationResponse(query, 'AI Gateway API key missing');
+    // Check for Groq API key
+    if (!process.env.GROQ_API_KEY) {
+      console.error('GROQ_API_KEY is missing');
+      const simulation = buildSimulationResponse(query, 'Groq API key missing');
       return new Response(
         `data: ${JSON.stringify({ content: simulation, done: true })}\n\n`,
         {
@@ -90,31 +73,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Model mapping for AI Gateway
+    // Model mapping for Groq Models
     const MODEL_MAP: Record<string, string> = {
-      'ooverta': 'google/gemini-2.0-flash-exp:free',
-      'gemini-flash': 'google/gemini-2.0-flash-exp:free',
-      'gpt-4o': 'gpt-4o',
-      'claude-3-5-sonnet': 'claude-3-5-sonnet',
-      'claude-3-opus': 'claude-3-opus',
-      'claude-3-haiku': 'claude-3-haiku',
+      'ooverta': 'meta-llama/llama-4-scout-17b-16e-instruct',
+      'llama-4-scout': 'meta-llama/llama-4-scout-17b-16e-instruct',
+      'llama-3.3-70b': 'llama-3.3-70b-versatile',
+      'llama-3.1-8b': 'llama-3.1-8b-instant',
     };
 
     const ALLOWED_MODEL_IDS = new Set(Object.keys(MODEL_MAP));
-    let targetModel = model || 'ooverta';
+    let targetModelId = 'llama-3.3-70b-versatile';
 
-    // Validate model
-    if (model && !ALLOWED_MODEL_IDS.has(model)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid model specified. Please select a model from the allowed list.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
+    // Model selection logic
     if (model && MODEL_MAP[model]) {
-      targetModel = MODEL_MAP[model];
-    } else if (!model || model === 'ooverta') {
-      targetModel = 'google/gemini-2.0-flash-exp:free';
+      targetModelId = MODEL_MAP[model];
+    } else if (model && ALLOWED_MODEL_IDS.has(model)) {
+      targetModelId = MODEL_MAP[model];
     }
 
     // Build messages
@@ -126,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     // Add conversation history
     if (conversationHistory && Array.isArray(conversationHistory)) {
-      const limitedHistory = conversationHistory.slice(-MAX_HISTORY_LENGTH);
+      const limitedHistory = conversationHistory.slice(-50);
       for (const msg of limitedHistory) {
         if (msg.role && msg.content && (msg.role === 'user' || msg.role === 'assistant')) {
           messages.push({
@@ -150,48 +124,39 @@ export async function POST(request: NextRequest) {
       messages.push({ role: 'user', content: query });
     }
 
-    // Create OpenAI client configured for Vercel AI Gateway
-    // Vercel AI Gateway uses the standard OpenAI-compatible API
-    const openai = createOpenAI({
-      apiKey: gatewayApiKey,
-      // If using Vercel AI Gateway, the baseURL should be your gateway URL
-      // For Cloudflare AI Gateway: 'https://gateway.ai.cloudflare.com/v1'
-      // For custom gateway, set via AI_GATEWAY_BASE_URL env var
-      baseURL: process.env.AI_GATEWAY_BASE_URL || 'https://gateway.ai.cloudflare.com/v1',
-    });
-
     try {
-      // Use Vercel AI SDK to stream the response
+      // Use Vercel AI SDK to stream the response via Groq Provider
       const result = await streamText({
-        model: openai(targetModel),
+        model: groq(targetModelId),
         messages: messages as any,
-        maxTokens: 2000, // Note: Some models may use max_tokens in the model config
-        temperature: 0.7,
-      } as any); // Type assertion to handle SDK version differences
+      });
 
       // Convert to Server-Sent Events format
       const stream = new ReadableStream({
         async start(controller) {
           const encoder = new TextEncoder();
-          
+
           try {
             for await (const chunk of result.textStream) {
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ content: chunk, done: false })}\n\n`)
               );
             }
-            
+
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`)
             );
             controller.close();
           } catch (error: any) {
             console.error('Streaming error:', error);
-            const errorMsg = buildSimulationResponse(query, error?.message || 'Streaming failed');
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ content: errorMsg, done: true })}\n\n`)
-            );
-            controller.close();
+            // Only try to send error if controller is still writable
+            try {
+              const errorMsg = buildSimulationResponse(query, error?.message || 'Streaming failed');
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ content: errorMsg, done: true })}\n\n`)
+              );
+            } catch (ignore) { }
+            try { controller.close(); } catch (ignore) { }
           }
         },
       });
@@ -205,8 +170,8 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (error: any) {
-      console.error('AI Gateway error:', error);
-      const simulation = buildSimulationResponse(query, error?.message || 'AI Gateway request failed');
+      console.error('Groq API error:', error);
+      const simulation = buildSimulationResponse(query, error?.message || 'Groq API request failed');
       return new Response(
         `data: ${JSON.stringify({ content: simulation, done: true })}\n\n`,
         {
