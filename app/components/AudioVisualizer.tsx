@@ -585,7 +585,7 @@ export function AudioVisualizer({ isActive, mode: initialMode = 'sphere', showSe
   return (
     <>
       {/* Background canvas - no pointer events */}
-      <div className="fixed inset-0 z-0 pointer-events-none" style={{ backgroundColor: '#010204' }}>
+      <div className="fixed inset-0 z-[1] pointer-events-none" style={{ backgroundColor: '#010204' }}>
         <div ref={containerRef} className="w-full h-full" />
       </div>
       
