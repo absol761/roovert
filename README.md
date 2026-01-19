@@ -123,6 +123,25 @@ The interface supports multiple visual themes and layouts. Users can customize t
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
+## Credits
+
+### Audio Visualizer Components
+
+The audio visualizer components (Sphere, Grid, Horse, Treadmill, Particles, Waves) are inspired by and based on the excellent work from [r3f-audio-visualizer](https://github.com/dcyoung/r3f-audio-visualizer) by [dcyoung](https://github.com/dcyoung).
+
+**Original Repository:** [https://github.com/dcyoung/r3f-audio-visualizer](https://github.com/dcyoung/r3f-audio-visualizer)  
+**License:** MIT License  
+**Author:** dcyoung
+
+Key implementations adapted from the original repository:
+- InstancedMesh-based visualizers for performance
+- Golden angle (Fibonacci sphere) distribution for sphere visualizer
+- LUT-based color palette system
+- Coordinate mapping patterns for audio reactivity
+- Camera setup and lighting configurations
+
+We are grateful for the open-source contributions that made these visualizations possible.
+
 ## Links
 
 - Repository: [https://github.com/absol761/roovert](https://github.com/absol761/roovert)

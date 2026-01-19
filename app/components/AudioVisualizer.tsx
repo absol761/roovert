@@ -505,7 +505,15 @@ export function AudioVisualizer({ isActive, mode: initialMode = 'sphere', showSe
       {/* Visualizer Selector - On the right side */}
       {showSelector && (
         <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-auto">
-          <VisualizerSelector currentMode={currentMode} onModeChange={setCurrentMode} />
+          <VisualizerSelector 
+            currentMode={currentMode} 
+            onModeChange={(mode: string) => {
+              const validModes: Array<'sphere' | 'horse' | 'treadmill' | 'grid' | 'particles' | 'waves'> = ['sphere', 'horse', 'treadmill', 'grid', 'particles', 'waves'];
+              if (validModes.includes(mode as any)) {
+                setCurrentMode(mode as 'sphere' | 'horse' | 'treadmill' | 'grid' | 'particles' | 'waves');
+              }
+            }} 
+          />
         </div>
       )}
       {!audioStarted && (
@@ -577,7 +585,7 @@ export function AudioVisualizer({ isActive, mode: initialMode = 'sphere', showSe
   return (
     <>
       {/* Background canvas - no pointer events */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
+      <div className="fixed inset-0 z-0 pointer-events-none" style={{ backgroundColor: '#010204' }}>
         <div ref={containerRef} className="w-full h-full" />
       </div>
       

@@ -123,14 +123,20 @@ export default function PrivacyPage() {
                 <div>
                   <h3 className="text-lg font-medium mb-3">2.3 Audio and Interaction Data (Vibe Mode)</h3>
                   <p className="text-[var(--foreground)]/80 leading-relaxed mb-3">
-                    When you enable "Vibe Mode" with audio reactivity:
+                    When you enable "Vibe Mode" with audio reactivity, we request access to your microphone. This is an optional feature that you can enable or disable at any time.
                   </p>
                   <ul className="list-disc list-inside space-y-2 text-[var(--foreground)]/80 ml-4">
-                    <li><strong>Microphone Access:</strong> If you choose audio-reactive mode, we request access to your microphone. Audio data is processed locally in your browser using the Web Audio API and is never transmitted to our servers or stored.</li>
-                    <li><strong>Frequency Data:</strong> We analyze audio frequency data in real-time to create visualizations. This analysis happens entirely in your browser and no audio data leaves your device.</li>
-                    <li><strong>Interaction Tracking:</strong> If you choose interaction-reactive mode, we track typing speed and mouse movement locally to create visualizations. This data is processed in real-time and never stored or transmitted.</li>
-                    <li><strong>No Recording:</strong> We do not record, store, or transmit any audio or interaction data. All processing is done locally and in real-time only.</li>
+                    <li><strong>Microphone Access:</strong> If you choose audio-reactive mode, we request access to your microphone through your browser's standard permissions system. You can grant or deny this permission at any time through your browser settings. We only access your microphone when you explicitly enable audio-reactive Vibe Mode and click "Start Audio".</li>
+                    <li><strong>Local Processing Only:</strong> All audio data is processed entirely within your browser using the Web Audio API. Raw audio is never recorded, stored, or transmitted to our servers or any third parties.</li>
+                    <li><strong>Frequency Analysis:</strong> We analyze audio frequency data in real-time to create visualizations. This analysis happens entirely in your browser using the Web Audio API's AnalyserNode. No audio data leaves your device.</li>
+                    <li><strong>No Audio Storage:</strong> We do not record, store, save, or transmit any audio data. All processing is done in real-time and in memory only. When you close the browser tab or disable Vibe Mode, all audio processing stops immediately.</li>
+                    <li><strong>Interaction Tracking:</strong> If you choose interaction-reactive mode instead of audio-reactive mode, we track typing speed and mouse movement locally to create visualizations. This data is processed in real-time and never stored or transmitted.</li>
+                    <li><strong>Browser Permissions:</strong> Your browser will ask for microphone permission before we can access audio. You can revoke this permission at any time through your browser's settings, which will immediately stop all audio processing.</li>
+                    <li><strong>Third-Party Access:</strong> We do not share microphone access or audio data with any third-party services, analytics providers, or advertising networks.</li>
                   </ul>
+                  <p className="text-[var(--foreground)]/80 leading-relaxed mt-4">
+                    <strong>Your Rights:</strong> You have the right to refuse microphone access, and doing so will not affect your ability to use other features of Roovert. You can disable Vibe Mode at any time, and all audio processing will stop immediately.
+                  </p>
                 </div>
                 <div>
                   <h3 className="text-lg font-medium mb-3">2.4 Analytics Information (With Consent)</h3>
