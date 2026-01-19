@@ -209,13 +209,16 @@ export function AudioVisualizer({ isActive, mode: initialMode = 'sphere', showSe
     };
 
     const { width, height } = updateSize();
-    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.z = 3;
+    const camera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
+    camera.position.set(-17, -6, 6.5);
+    camera.up.set(0, 0, 1);
+    camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(0x010204, 1); // Match background color
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
