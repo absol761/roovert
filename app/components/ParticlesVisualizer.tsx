@@ -85,21 +85,21 @@ function Particles({ audioData, typingSpeed = 0 }: { audioData: Uint8Array | nul
   });
 
   return (
-    <points ref={particlesRef}>
-      <bufferGeometry ref={particleSystemRef}>
-        <bufferAttribute
-          attach="attributes-position"
-          array={new Float32Array(particleCount * 3)}
-          count={particleCount}
-          itemSize={3}
+      <points ref={particlesRef}>
+        <bufferGeometry ref={particleSystemRef}>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[new Float32Array(particleCount * 3), 3]}
+            count={particleCount}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          attach="material"
+          color="white"
+          size={pointSize}
         />
-      </bufferGeometry>
-      <pointsMaterial
-        attach="material"
-        color="white"
-        size={pointSize}
-      />
-    </points>
+      </points>
   );
 }
 
