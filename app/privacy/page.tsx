@@ -121,7 +121,19 @@ export default function PrivacyPage() {
                   </ul>
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium mb-3">2.3 Analytics Information (With Consent)</h3>
+                  <h3 className="text-lg font-medium mb-3">2.3 Audio and Interaction Data (Vibe Mode)</h3>
+                  <p className="text-[var(--foreground)]/80 leading-relaxed mb-3">
+                    When you enable "Vibe Mode" with audio reactivity:
+                  </p>
+                  <ul className="list-disc list-inside space-y-2 text-[var(--foreground)]/80 ml-4">
+                    <li><strong>Microphone Access:</strong> If you choose audio-reactive mode, we request access to your microphone. Audio data is processed locally in your browser using the Web Audio API and is never transmitted to our servers or stored.</li>
+                    <li><strong>Frequency Data:</strong> We analyze audio frequency data in real-time to create visualizations. This analysis happens entirely in your browser and no audio data leaves your device.</li>
+                    <li><strong>Interaction Tracking:</strong> If you choose interaction-reactive mode, we track typing speed and mouse movement locally to create visualizations. This data is processed in real-time and never stored or transmitted.</li>
+                    <li><strong>No Recording:</strong> We do not record, store, or transmit any audio or interaction data. All processing is done locally and in real-time only.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium mb-3">2.4 Analytics Information (With Consent)</h3>
                   <p className="text-[var(--foreground)]/80 leading-relaxed mb-3">
                     If you consent to analytics cookies, we use Segment.io to collect:
                   </p>
@@ -132,7 +144,7 @@ export default function PrivacyPage() {
                   </ul>
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium mb-3">2.4 Information We Do NOT Collect</h3>
+                  <h3 className="text-lg font-medium mb-3">2.5 Information We Do NOT Collect</h3>
                   <p className="text-[var(--foreground)]/80 leading-relaxed mb-3">
                     We do not collect:
                   </p>

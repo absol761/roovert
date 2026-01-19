@@ -3,12 +3,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square, Paperclip, Image as ImageIcon, Edit2, RefreshCw, Search, Code, Users, Star, ArrowRight } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square, Paperclip, Image as ImageIcon, Edit2, RefreshCw, Search, Code, Users, Star, ArrowRight, Paintbrush, Radio } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { checkConsentAndInitialize } from './components/ConsentBanner';
 import { NeuralNoise } from './components/NeuralNoise';
+import { AudioVisualizer } from './components/AudioVisualizer';
 
 interface Model {
   id: string;
@@ -48,20 +49,28 @@ const LAYOUTS = [
 
 // Looks - Modern 2025-2026 design trends
 const LOOKS = [
-  { id: 'default', name: 'Default', description: 'Clean, modern interface', category: 'essential' },
+  { id: 'vibe-mode', name: 'Vibe Mode', description: 'EDM party vibes with audio visualizer', category: 'themed' },
   { id: 'neominimal', name: 'Neo-Minimal', description: 'Minimalism with depth and soft shadows', category: 'essential' },
   { id: 'monochrome', name: 'Monochrome', description: 'High contrast single-color design', category: 'essential' },
   { id: 'depth', name: 'Depth Field', description: '3D layers with realistic shadows', category: 'modern' },
   { id: 'bold', name: 'Bold Typography', description: 'Experimental fonts with maximum impact', category: 'modern' },
   { id: 'sustainable', name: 'Sustainable', description: 'Eco-friendly green design palette', category: 'modern' },
   { id: 'accessible', name: 'High Contrast', description: 'Accessible design with WCAG compliance', category: 'modern' },
+  { id: 'gemini', name: 'Google Gemini', description: 'Inspired by Gemini colors with smooth animations', category: 'modern' },
   { id: 'nocturne', name: 'Nocturne', description: 'Deep night with orange accents', category: 'dark' },
   { id: 'midnight', name: 'Midnight', description: 'Slate blue with sky accents', category: 'dark' },
   { id: 'aether', name: 'Aether', description: 'Light indigo with split-grid layout', category: 'light' },
   { id: 'atlas', name: 'Atlas', description: 'Brutalist blueprint aesthetic', category: 'light' },
-  { id: 'cyberpunk', name: 'Cyberpunk', description: 'Neon grid with green matrix', category: 'themed' },
+  { id: 'earthtone', name: 'Earthtone', description: 'Natural earth colors with warm palette', category: 'themed' },
   { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s aesthetic', category: 'themed' },
   { id: 'space', name: 'Deep Space', description: 'Cosmic darkness with stars', category: 'themed' },
+  { id: 'textured-velvet', name: 'Textured Velvet', description: 'Rich velvet textures with deep colors', category: 'textured' },
+  { id: 'textured-marble', name: 'Textured Marble', description: 'Elegant marble patterns and gradients', category: 'textured' },
+  { id: 'textured-wood', name: 'Textured Wood', description: 'Warm wood grain textures', category: 'textured' },
+  { id: 'textured-glass', name: 'Textured Glass', description: 'Frosted glass with light refraction', category: 'textured' },
+  { id: 'colorway-sunset', name: 'Sunset Colorway', description: 'Warm sunset gradient palette', category: 'colorway' },
+  { id: 'colorway-ocean', name: 'Ocean Colorway', description: 'Cool ocean blues and teals', category: 'colorway' },
+  { id: 'colorway-forest', name: 'Forest Colorway', description: 'Natural greens and earth tones', category: 'colorway' },
 ];
 
 // More Models Modal Component
@@ -142,7 +151,7 @@ function MoreModelsModal({ isOpen, onClose, currentModelId, setModelId, unavaila
 function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
   if (!isOpen) return null;
 
-  const categories = ['essential', 'modern', 'dark', 'light', 'themed'];
+  const categories = ['essential', 'modern', 'dark', 'light', 'themed', 'textured', 'colorway'];
   const looksByCategory = categories.map(cat => ({
     category: cat,
     looks: LOOKS.filter(l => l.category === cat)
@@ -221,7 +230,6 @@ function SettingsModal({
   systemPrompt, setSystemPrompt,
   onExportChat,
   currentLook, setLook,
-  onOpenLooks,
   onOpenMoreModels,
   neuralNoiseEnabled,
   setNeuralNoiseEnabled,
@@ -236,7 +244,6 @@ function SettingsModal({
     setFocusMode(false);
     setSystemPrompt('');
     setModelId('ooverta');
-    setLook('default');
     setNeuralNoiseEnabled(true);
   };
 
@@ -268,29 +275,6 @@ function SettingsModal({
         </div>
 
         <div className="p-6 overflow-y-auto custom-scrollbar space-y-8" style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
-
-          {/* Looks Section - Quick Select or Browse More */}
-          <section>
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2 flex items-center gap-2">
-              <Palette className="w-4 h-4" /> Looks
-            </h3>
-            <div className="flex items-center gap-3">
-              <div className="flex-1 p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-                <div className="text-sm font-medium text-[var(--foreground)] mb-1">
-                  {LOOKS.find(l => l.id === currentLook)?.name || 'Default'}
-                </div>
-                <div className="text-xs text-[var(--muted)]">
-                  {LOOKS.find(l => l.id === currentLook)?.description || 'Current look'}
-                </div>
-              </div>
-              <button
-                onClick={onOpenLooks}
-                className="px-6 py-4 rounded-xl border border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors font-medium"
-              >
-                More
-              </button>
-            </div>
-          </section>
 
           {/* Layout Section - Structure Only */}
           <section>
@@ -466,6 +450,87 @@ function SettingsModal({
   );
 }
 
+// Global Feed Expanded Component
+function GlobalFeedExpanded({ onClose }: { onClose: () => void }) {
+  const [news, setNews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/news')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch news');
+        return res.json();
+      })
+      .then(data => {
+        setNews(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.warn('News fetch error (non-critical):', error);
+        setNews([]);
+        setLoading(false);
+      });
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 'auto', opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={{ duration: 0.3, ease: 'easeInOut' }}
+      className="w-full mb-8 bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl overflow-hidden"
+    >
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-light tracking-wide flex items-center gap-2">
+            <Globe className="w-5 h-5 text-[var(--accent)]" />
+            Global Feed
+          </h2>
+          <button 
+            onClick={onClose} 
+            className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="overflow-y-auto custom-scrollbar max-h-[60vh]">
+          {loading ? (
+            <div className="space-y-3">
+              <div className="h-4 w-full bg-[var(--surface-strong)] rounded animate-pulse" />
+              <div className="h-4 w-3/4 bg-[var(--surface-strong)] rounded animate-pulse" />
+              <div className="h-4 w-5/6 bg-[var(--surface-strong)] rounded animate-pulse" />
+            </div>
+          ) : news.length > 0 ? (
+            <div className="space-y-4">
+              {news.map((story: any) => (
+                <a
+                  key={story.id}
+                  href={story.url || `https://news.ycombinator.com/item?id=${story.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-4 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] hover:border-[var(--accent)] transition-all group"
+                >
+                  <h3 className="text-sm font-medium text-[var(--foreground)] mb-2 group-hover:text-[var(--accent)] transition-colors">
+                    {story.title}
+                  </h3>
+                  {story.by && (
+                    <p className="text-xs text-[var(--muted)]">
+                      by {story.by} {story.score && `• ${story.score} points`}
+                    </p>
+                  )}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[var(--muted)]">No news available at the moment.</p>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // Widgets Component
 function Widgets() {
   const [news, setNews] = useState<any[]>([]);
@@ -530,6 +595,7 @@ function LiveStats() {
     const fetchStats = async () => {
       try {
         const response = await fetch('/api/stats');
+        if (!response.ok) throw new Error('Stats API not available');
         const data = await response.json();
         // Ensure minimum values
         setStats({
@@ -540,7 +606,7 @@ function LiveStats() {
           uptime: data.uptime || '99.9%',
         });
       } catch (error) {
-        console.error('Failed to fetch stats:', error);
+        // Silently handle stats errors - don't spam console
         // Set minimum values on error
         setStats(prev => ({
           ...prev,
@@ -799,7 +865,8 @@ export default function Page() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
   const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
-  const [look, setLook] = useState('default');
+  const [isGlobalFeedOpen, setIsGlobalFeedOpen] = useState(false);
+  const [look, setLook] = useState('midnight');
   const [layout, setLayout] = useState('standard');
   const [fontSize, setFontSize] = useState('normal');
   const [dataSaver, setDataSaver] = useState(false);
@@ -808,6 +875,69 @@ export default function Page() {
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [closedWidgets, setClosedWidgets] = useState<Set<string>>(new Set());
+  const [vibeModeEnabled, setVibeModeEnabled] = useState(false);
+  const [vibeModeType, setVibeModeType] = useState<'audio' | 'interaction'>('audio');
+  const interactionIntensityRef = useRef(0);
+  
+  // Track typing and mouse movement for interaction mode
+  useEffect(() => {
+    if (!vibeModeEnabled || vibeModeType !== 'interaction') {
+      (window as any).__vibeInteractionIntensity = 0;
+      return;
+    }
+
+    let typingTimeout: NodeJS.Timeout;
+    let mouseTimeout: NodeJS.Timeout;
+    let decayInterval: NodeJS.Timeout;
+
+    const handleTyping = () => {
+      interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + 0.3);
+      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
+      
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        // Decay after typing stops
+      }, 100);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // Calculate movement speed
+      const speed = Math.sqrt(e.movementX ** 2 + e.movementY ** 2);
+      const intensity = Math.min(1, speed / 50); // Normalize to 0-1
+      interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + intensity * 0.2);
+      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
+      
+      clearTimeout(mouseTimeout);
+      mouseTimeout = setTimeout(() => {
+        // Decay after mouse stops
+      }, 200);
+    };
+
+    // Decay intensity over time
+    decayInterval = setInterval(() => {
+      interactionIntensityRef.current = Math.max(0, interactionIntensityRef.current * 0.95);
+      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
+    }, 50);
+
+    const inputElements = document.querySelectorAll('input, textarea');
+    inputElements.forEach(el => {
+      el.addEventListener('input', handleTyping);
+      el.addEventListener('keydown', handleTyping);
+    });
+    window.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      inputElements.forEach(el => {
+        el.removeEventListener('input', handleTyping);
+        el.removeEventListener('keydown', handleTyping);
+      });
+      window.removeEventListener('mousemove', handleMouseMove);
+      clearTimeout(typingTimeout);
+      clearTimeout(mouseTimeout);
+      clearInterval(decayInterval);
+      (window as any).__vibeInteractionIntensity = 0;
+    };
+  }, [vibeModeEnabled, vibeModeType]);
   const [neuralNoiseEnabled, setNeuralNoiseEnabled] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('roovert_neural_noise_enabled');
@@ -857,7 +987,8 @@ export default function Page() {
 
   // Apply Look & Layout
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', look);
+    document.documentElement.setAttribute('data-look', look);
+    document.documentElement.setAttribute('data-theme', look); // Keep for backward compatibility
     document.documentElement.setAttribute('data-layout', layout);
     document.documentElement.setAttribute('data-speed', dataSaver ? 'none' : 'normal');
     document.documentElement.setAttribute('data-size', fontSize);
@@ -868,6 +999,7 @@ export default function Page() {
       document.documentElement.classList.remove('data-saver');
     }
   }, [look, layout, fontSize, dataSaver]);
+
 
   // Filter out unavailable models
   const availableModels = MODELS.filter(m => !unavailableModels.has(m.id));
@@ -1314,10 +1446,79 @@ export default function Page() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [query, isProcessing]);
 
+  // Track typing and mouse movement for interaction mode
+  useEffect(() => {
+    if (!vibeModeEnabled || vibeModeType !== 'interaction') {
+      (window as any).__vibeInteractionIntensity = 0;
+      return;
+    }
+
+    let typingTimeout: NodeJS.Timeout;
+    let mouseTimeout: NodeJS.Timeout;
+    let decayInterval: NodeJS.Timeout;
+
+    const handleTyping = () => {
+      interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + 0.3);
+      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
+      
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        // Decay after typing stops
+      }, 100);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // Calculate movement speed
+      const speed = Math.sqrt(e.movementX ** 2 + e.movementY ** 2);
+      const intensity = Math.min(1, speed / 50); // Normalize to 0-1
+      interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + intensity * 0.2);
+      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
+      
+      clearTimeout(mouseTimeout);
+      mouseTimeout = setTimeout(() => {
+        // Decay after mouse stops
+      }, 200);
+    };
+
+    // Decay intensity over time
+    decayInterval = setInterval(() => {
+      interactionIntensityRef.current = Math.max(0, interactionIntensityRef.current * 0.95);
+      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
+    }, 50);
+
+    const inputElements = document.querySelectorAll('input, textarea');
+    inputElements.forEach(el => {
+      el.addEventListener('input', handleTyping);
+      el.addEventListener('keydown', handleTyping);
+    });
+    window.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      inputElements.forEach(el => {
+        el.removeEventListener('input', handleTyping);
+        el.removeEventListener('keydown', handleTyping);
+      });
+      window.removeEventListener('mousemove', handleMouseMove);
+      clearTimeout(typingTimeout);
+      clearTimeout(mouseTimeout);
+      clearInterval(decayInterval);
+      (window as any).__vibeInteractionIntensity = 0;
+    };
+  }, [vibeModeEnabled, vibeModeType]);
+
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
       {/* Neural Noise Background - Only when not in chat mode and enabled */}
       {!isChatMode && neuralNoiseEnabled && <NeuralNoise isChatMode={isChatMode} currentLook={look} />}
+
+      {/* Audio Visualizer for Vibe Mode - Behind chat content only, only in chat mode */}
+      {vibeModeEnabled && isChatMode && (
+        <AudioVisualizer 
+          isActive={true} 
+          mode={vibeModeType === 'audio' ? 'audio' : 'interaction'}
+          showSelector={true}
+        />
+      )}
 
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -1332,7 +1533,15 @@ export default function Page() {
             <div className="flex items-center gap-6">
               <button
                 onClick={() => setIsChatMode(false)}
-                className="text-2xl font-bold bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+                className={`text-2xl font-bold hover:opacity-80 transition-opacity drop-shadow-[0_0_8px_rgba(var(--accent-rgb,0,128,128),0.5)] ${
+                  look === 'vibe-mode' 
+                    ? 'text-white font-black tracking-wider uppercase' 
+                    : 'bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent'
+                }`}
+                style={{ 
+                  textShadow: look === 'vibe-mode' ? '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 20, 147, 0.6), 0 0 60px rgba(204, 255, 0, 0.4)' : undefined,
+                  fontFamily: look === 'vibe-mode' ? '"Arial Black", "Impact", sans-serif' : undefined
+                }}
               >
                 ROOVERT
               </button>
@@ -1348,7 +1557,36 @@ export default function Page() {
               </div>
             </div>
 
+            {/* Theme Selector - Center */}
+            <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
+              <button
+                onClick={() => setIsLooksOpen(true)}
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] hover:border-[var(--accent)] transition-all text-[var(--muted)] hover:text-[var(--accent)] group"
+                title="Change Theme"
+              >
+                <Paintbrush className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+              </button>
+              <button
+                onClick={() => setVibeModeEnabled(!vibeModeEnabled)}
+                className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${
+                  vibeModeEnabled
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
+                }`}
+                title="Toggle Vibe Mode"
+              >
+                <Radio className={`w-5 h-5 ${vibeModeEnabled ? 'animate-pulse' : ''}`} />
+              </button>
+            </div>
+
             <div className="hidden md:flex items-center gap-8">
+              <button
+                onClick={() => setIsGlobalFeedOpen(true)}
+                className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-[var(--surface)] transition-colors text-[var(--foreground)]/70 hover:text-[var(--accent)]"
+                title="Global Feed"
+              >
+                <Globe className="w-5 h-5" />
+              </button>
               <a
                 href="#mission"
                 className="text-sm text-[var(--foreground)]/70 hover:text-[var(--accent)] transition-colors uppercase tracking-wider"
@@ -1387,7 +1625,6 @@ export default function Page() {
             onExportChat={handleExportChat}
             currentLook={look}
             setLook={setLook}
-            onOpenLooks={() => setIsLooksOpen(true)}
             onOpenMoreModels={() => setIsMoreModelsOpen(true)}
             neuralNoiseEnabled={neuralNoiseEnabled}
             setNeuralNoiseEnabled={setNeuralNoiseEnabled}
@@ -1428,6 +1665,13 @@ export default function Page() {
 
       {/* Main Content Area */}
       <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-hidden">
+        
+        {/* Global Feed - Expandable Section */}
+        <AnimatePresence>
+          {isGlobalFeedOpen && (
+            <GlobalFeedExpanded onClose={() => setIsGlobalFeedOpen(false)} />
+          )}
+        </AnimatePresence>
 
         {/* Landing Hero (Shown when NOT in Chat Mode) */}
         <AnimatePresence mode="wait">
@@ -2005,157 +2249,159 @@ while (true) {
                       </div>
                     )}
                   </div>
-
-                  {/* Input Deck */}
-                  <div className="command-deck w-full mt-6">
-                    {/* Image Preview */}
-                    <AnimatePresence>
-                      {selectedImage && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          className="mb-4 relative inline-block"
-                        >
-                          <div className="relative rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)] p-2">
-                            <img
-                              src={selectedImage}
-                              alt="Preview"
-                              className="max-w-[200px] max-h-[200px] object-contain rounded-lg"
-                            />
-                            <button
-                              type="button"
-                              onClick={handleRemoveImage}
-                              className="absolute top-2 right-2 p-1.5 bg-[var(--hud-bg)] backdrop-blur-sm border border-[var(--border)] rounded-full hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    <form onSubmit={handleSubmit} className="relative">
-                      <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-4 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
-                        <div className="flex items-center gap-4">
-                          {isProcessing && (
-                            <button
-                              type="button"
-                              onClick={handleStop}
-                              className="flex items-center gap-2 px-3 py-2 text-sm border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                            >
-                              <Square className="w-4 h-4" />
-                              Stop
-                            </button>
-                          )}
-                          {/* Inline Model Selector */}
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
-                              className="flex items-center gap-2 p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--accent)] text-sm font-medium"
-                            >
-                              <Zap className="w-4 h-4" />
-                              <span className="hidden sm:inline">{selectedModel.name}</span>
-                              <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
-                            </button>
-
-                            <AnimatePresence>
-                              {isModelMenuOpen && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                  className="absolute bottom-full left-0 mb-2 w-56 bg-[var(--hud-bg)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden z-20 max-h-64 overflow-y-auto custom-scrollbar"
-                                >
-                                  {availableModels.map(model => (
-                                    <button
-                                      key={model.id}
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedModelId(model.id);
-                                        setIsModelMenuOpen(false);
-                                      }}
-                                      className={`w-full text-left px-4 py-3 text-xs transition-colors hover:bg-[var(--surface-strong)] flex items-center justify-between ${selectedModelId === model.id ? 'text-[var(--accent)] bg-[var(--surface)]' : 'text-[var(--foreground)]'
-                                        }`}
-                                    >
-                                      {model.name}
-                                      {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}
-                                    </button>
-                                  ))}
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </div>
-
-                          {/* Image Upload Button */}
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageSelect}
-                            className="hidden"
-                            id="image-upload"
-                            disabled={isProcessing || isImageUploadDisabled}
-                          />
-                          <label
-                            htmlFor="image-upload"
-                            className={`p-2 rounded-lg transition-colors ${isImageUploadDisabled
-                              ? 'opacity-40 cursor-not-allowed'
-                              : 'hover:bg-[var(--surface-strong)] cursor-pointer text-[var(--muted)] hover:text-[var(--foreground)]'
-                              }`}
-                            title={isImageUploadDisabled ? `Image upload disabled: ${imageUploadDisabledReason}` : 'Upload image'}
-                          >
-                            <Paperclip className="w-5 h-5" />
-                          </label>
-
-                          {/* Fullscreen Toggle */}
-                          <button
-                            type="button"
-                            onClick={() => setIsFullscreen(!isFullscreen)}
-                            className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-                          >
-                            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-                          </button>
-
-                          <label htmlFor="query-input" className="sr-only">
-                            Ask {selectedModel.name} anything
-                          </label>
-                          <input
-                            ref={inputRef}
-                            id="query-input"
-                            name="query"
-                            type="text"
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder={`Ask ${selectedModel.name} anything... `}
-                            className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
-                            disabled={isProcessing}
-                            aria-label="Query input"
-                          />
-                          <button
-                            type="submit"
-                            disabled={!query.trim() || isProcessing}
-                            className="p-3 bg-[var(--accent)] hover:opacity-90 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[var(--accent)]/20"
-                          >
-                            {isProcessing ? (
-                              <Zap className="w-5 h-5 text-white animate-spin" />
-                            ) : (
-                              <Send className="w-5 h-5 text-white" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </form>
-                    <Widgets />
-                  </div>
                 </section>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
+
+      {/* Input Deck - Fixed at bottom for chat mode */}
+      {isChatMode && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] p-4">
+          <div className="max-w-7xl mx-auto">
+            <AnimatePresence>
+              {selectedImage && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="mb-4 relative inline-block"
+                >
+                  <div className="relative rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)] p-2">
+                    <img
+                      src={selectedImage}
+                      alt="Preview"
+                      className="max-w-[200px] max-h-[200px] object-contain rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="absolute top-2 right-2 p-1.5 bg-[var(--hud-bg)] backdrop-blur-sm border border-[var(--border)] rounded-full hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <form onSubmit={handleSubmit} className="relative">
+              <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-4 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
+                <div className="flex items-center gap-4">
+                  {isProcessing && (
+                    <button
+                      type="button"
+                      onClick={handleStop}
+                      className="flex items-center gap-2 px-3 py-2 text-sm border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                    >
+                      <Square className="w-4 h-4" />
+                      Stop
+                    </button>
+                  )}
+                  {/* Inline Model Selector */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
+                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--accent)] text-sm font-medium"
+                    >
+                      <Zap className="w-4 h-4" />
+                      <span className="hidden sm:inline">{selectedModel.name}</span>
+                      <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    <AnimatePresence>
+                      {isModelMenuOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute bottom-full left-0 mb-2 w-56 bg-[var(--hud-bg)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden z-20 max-h-64 overflow-y-auto custom-scrollbar"
+                        >
+                          {availableModels.map(model => (
+                            <button
+                              key={model.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedModelId(model.id);
+                                setIsModelMenuOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-3 text-xs transition-colors hover:bg-[var(--surface-strong)] flex items-center justify-between ${selectedModelId === model.id ? 'text-[var(--accent)] bg-[var(--surface)]' : 'text-[var(--foreground)]'
+                                }`}
+                            >
+                              {model.name}
+                              {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Image Upload Button */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                    id="image-upload"
+                    disabled={isProcessing || isImageUploadDisabled}
+                  />
+                  <label
+                    htmlFor="image-upload"
+                    className={`p-2 rounded-lg transition-colors ${isImageUploadDisabled
+                      ? 'opacity-40 cursor-not-allowed'
+                      : 'hover:bg-[var(--surface-strong)] cursor-pointer text-[var(--muted)] hover:text-[var(--foreground)]'
+                      }`}
+                    title={isImageUploadDisabled ? `Image upload disabled: ${imageUploadDisabledReason}` : 'Upload image'}
+                  >
+                    <Paperclip className="w-5 h-5" />
+                  </label>
+
+                  {/* Fullscreen Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setIsFullscreen(!isFullscreen)}
+                    className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                    title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                  >
+                    {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                  </button>
+
+                  <label htmlFor="query-input-bottom" className="sr-only">
+                    Ask {selectedModel.name} anything
+                  </label>
+                  <input
+                    ref={inputRef}
+                    id="query-input-bottom"
+                    name="query"
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={`Ask ${selectedModel.name} anything... `}
+                    className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
+                    disabled={isProcessing}
+                    aria-label="Query input"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!query.trim() || isProcessing}
+                    className="p-3 bg-[var(--accent)] hover:opacity-90 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[var(--accent)]/20"
+                  >
+                    {isProcessing ? (
+                      <Zap className="w-5 h-5 text-white animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5 text-white" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Expanded Sections (Only on Landing) */}
       {!isChatMode && (

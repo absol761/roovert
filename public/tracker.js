@@ -32,6 +32,9 @@
       }
       
       // Send tracking request (non-blocking, fire-and-forget)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
       fetch('/api/track', {
         method: 'POST',
         headers: {
@@ -41,14 +44,18 @@
         keepalive: true,
         // Low priority
         priority: 'low',
+        // Add signal timeout to prevent hanging
+        signal: controller.signal,
       })
       .then(function(response) {
-        if (response.ok) {
+        clearTimeout(timeoutId);
+        if (response && response.ok) {
           // Mark as tracked for this session
           sessionStorage.setItem(sessionKey, 'true');
           // Try to get the updated count
           return response.json();
         }
+        return null;
       })
       .then(function(data) {
         // Silently handle response - don't break page if tracking fails
@@ -56,8 +63,10 @@
           // Could update a global counter here if needed
         }
       })
-      .catch(function() {
+      .catch(function(error) {
+        clearTimeout(timeoutId);
         // Silently fail - tracking should never break the page
+        // Suppress all errors - tracking is non-critical
       });
     } catch (e) {
       // Silently fail - tracking should never break the page

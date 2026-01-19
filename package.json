@@ -11,11 +11,15 @@
   },
   "dependencies": {
     "@ai-sdk/groq": "^3.0.10",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "@types/three": "^0.182.0",
     "@vercel/kv": "^3.0.0",
     "ai": "^6.0.26",
     "better-sqlite3": "^12.5.0",
     "framer-motion": "^12.24.7",
     "highlight.js": "^11.11.1",
+    "lil-gui": "^0.21.0",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
     "react": "19.2.3",
@@ -23,7 +27,10 @@
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
     "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "three": "^0.182.0",
+    "three-effectcomposer": "^0.0.1",
+    "three-stdlib": "^2.36.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
