@@ -1614,7 +1614,7 @@ export default function Page() {
   // Visualizer state
   const [visualizerEnabled, setVisualizerEnabled] = useState(false);
   const [visualizerConfigOpen, setVisualizerConfigOpen] = useState(false);
-  const [visualizerMode, setVisualizerMode] = useState<'grid' | 'plane' | 'wave_form'>('wave_form');
+  const [visualizerMode, setVisualizerMode] = useState<'grid' | 'plane' | 'wave_form' | 'manhattan'>('wave_form');
   const [manhattanMapEnabled, setManhattanMapEnabled] = useState(false);
   const [visualizerSpeed, setVisualizerSpeed] = useState(0.3);
   const [visualizerColor1, setVisualizerColor1] = useState('#ff6b35');
