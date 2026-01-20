@@ -1433,28 +1433,86 @@ function R3FVisualizer({
             );
           };
           
-          if (mode === 'manhattan') {
-            return null; // Don't render R3F visualizer for manhattan mode
-          }
+          // Low poly Manhattan scene
+          const renderManhattan = () => {
+            const buildings: React.ReactElement[] = [];
+            const gridSize = 20;
+            const spacing = 0.4;
+            const baseHeight = 0.5;
+            
+            // Create a grid of buildings with varying heights
+            for (let x = 0; x < gridSize; x++) {
+              for (let z = 0; z < gridSize; z++) {
+                // Create Manhattan-like building pattern (taller in center, shorter on edges)
+                const centerX = gridSize / 2;
+                const centerZ = gridSize / 2;
+                const distFromCenter = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2);
+                const maxDist = Math.sqrt(centerX ** 2 + centerZ ** 2);
+                
+                // Height varies based on distance from center and some randomness
+                const heightVariation = 1 - (distFromCenter / maxDist) * 0.7;
+                const randomHeight = 0.3 + Math.random() * 0.7;
+                const height = baseHeight + heightVariation * randomHeight * 3;
+                
+                // Position buildings in a grid
+                const posX = (x - gridSize / 2) * spacing;
+                const posZ = (z - gridSize / 2) * spacing;
+                
+                // Gray color with slight variation
+                const grayValue = 0.4 + Math.random() * 0.2;
+                const color = `rgb(${Math.floor(grayValue * 255)}, ${Math.floor(grayValue * 255)}, ${Math.floor(grayValue * 255)})`;
+                
+                buildings.push(
+                  <mesh key={`building-${x}-${z}`} position={[posX, height / 2, posZ]}>
+                    <boxGeometry args={[spacing * 0.8, height, spacing * 0.8]} />
+                    <meshStandardMaterial color={color} />
+                  </mesh>
+                );
+              }
+            }
+            
+            return <group>{buildings}</group>;
+          };
           
           return (
             <>
-              <color attach="background" args={['#010204']} />
-              <ambientLight intensity={0.8} />
-              <pointLight position={[10, 10, 10]} intensity={1} color={color1} />
-              <pointLight position={[-10, -10, -10]} intensity={1} color={color2} />
-              <pointLight position={[0, 10, 0]} intensity={0.5} />
-              <OrbitControls
-                enablePan={false}
-                enableZoom={true}
-                enableRotate={true}
-                minDistance={5}
-                maxDistance={20}
-                autoRotate={autoOrbit}
-                rotateSpeed={0.5}
-                zoomSpeed={0.8}
-              />
-              {renderVisualizer()}
+              <color attach="background" args={mode === 'manhattan' ? ['#0a0a0a'] : ['#010204']} />
+              {mode === 'manhattan' ? (
+                <>
+                  <ambientLight intensity={0.4} />
+                  <directionalLight position={[10, 10, 5]} intensity={0.8} />
+                  <directionalLight position={[-10, 5, -5]} intensity={0.3} />
+                  <OrbitControls
+                    enablePan={true}
+                    enableZoom={true}
+                    enableRotate={true}
+                    minDistance={5}
+                    maxDistance={30}
+                    autoRotate={autoOrbit}
+                    rotateSpeed={0.5}
+                    zoomSpeed={0.8}
+                  />
+                  {renderManhattan()}
+                </>
+              ) : (
+                <>
+                  <ambientLight intensity={0.8} />
+                  <pointLight position={[10, 10, 10]} intensity={1} color={color1} />
+                  <pointLight position={[-10, -10, -10]} intensity={1} color={color2} />
+                  <pointLight position={[0, 10, 0]} intensity={0.5} />
+                  <OrbitControls
+                    enablePan={false}
+                    enableZoom={true}
+                    enableRotate={true}
+                    minDistance={5}
+                    maxDistance={20}
+                    autoRotate={autoOrbit}
+                    rotateSpeed={0.5}
+                    zoomSpeed={0.8}
+                  />
+                  {renderVisualizer()}
+                </>
+              )}
             </>
           );
         };
