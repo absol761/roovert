@@ -7,7 +7,7 @@ import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTrian
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 // Removed ConsentBanner import - component doesn't exist
 // Removed NeuralNoise and AudioVisualizer imports - not needed for R3F visualizer
 
@@ -941,7 +941,6 @@ function VisualizerConfigPanel({
 
   const modeOptions = [
     { value: 'wave_form', label: 'WAVE_FORM', icon: Waves },
-    { value: 'sphere', label: 'SPHERE', icon: Sparkles },
     { value: 'grid', label: 'GRID', icon: Square },
     { value: 'plane', label: 'PLANE', icon: Square },
   ];
@@ -1180,16 +1179,41 @@ function ManhattanMap({ isEnabled }: { isEnabled: boolean }) {
   useEffect(() => {
     if (!isMounted || !isEnabled || !mapContainer.current || mapRef.current) return;
 
-    // Dynamically import mapbox-gl
-    import('mapbox-gl').then((mapboxglModule) => {
-      const mapboxgl = mapboxglModule.default;
-      
-      // Set access token (you'll need to add this to your env vars)
-      mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+    // Dynamically import maplibre-gl (no token required!)
+    import('maplibre-gl').then((maplibreModule) => {
+      const maplibregl = maplibreModule.default;
 
-      const map = new mapboxgl.Map({
+      // Use a free dark style from MapLibre (no token required)
+      // This uses OpenStreetMap data with a dark theme
+      const map = new maplibregl.Map({
         container: mapContainer.current!,
-        style: 'mapbox://styles/mapbox/dark-v11',
+        style: {
+          version: 8,
+          sources: {
+            'osm': {
+              type: 'raster',
+              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+              tileSize: 256,
+              attribution: '© OpenStreetMap contributors'
+            }
+          },
+          layers: [
+            {
+              id: 'osm-layer',
+              type: 'raster',
+              source: 'osm',
+              minzoom: 0,
+              maxzoom: 22,
+              paint: {
+                'raster-brightness-min': 0.1,
+                'raster-brightness-max': 0.3,
+                'raster-contrast': -0.3,
+                'raster-saturation': -0.8
+              }
+            }
+          ],
+          glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
+        } as any,
         center: [-74.006, 40.7128], // Manhattan coordinates
         zoom: 15,
         pitch: 0,
@@ -1197,36 +1221,6 @@ function ManhattanMap({ isEnabled }: { isEnabled: boolean }) {
       });
 
       map.on('load', () => {
-        // Add building layer with fill-extrusion
-        if (!map.getLayer('3d-buildings')) {
-          map.addLayer({
-            id: '3d-buildings',
-            source: 'composite',
-            'source-layer': 'building',
-            filter: ['==', 'extrude', 'true'],
-            type: 'fill-extrusion',
-            minzoom: 14,
-            paint: {
-              'fill-extrusion-color': '#808080', // Gray color
-              'fill-extrusion-height': [
-                'case',
-                ['has', 'height'],
-                ['get', 'height'],
-                ['has', 'render_height'],
-                ['get', 'render_height'],
-                10
-              ],
-              'fill-extrusion-base': [
-                'case',
-                ['has', 'min_height'],
-                ['get', 'min_height'],
-                0
-              ],
-              'fill-extrusion-opacity': 0.9,
-            },
-          });
-        }
-
         // Animate camera to fly-over view
         map.flyTo({
           center: [-74.006, 40.7128],
@@ -2330,7 +2324,7 @@ export default function Page() {
         selectedPalette={selectedPalette}
         onSelectedPaletteChange={setSelectedPalette}
         onReset={() => {
-          setVisualizerMode('sphere');
+          setVisualizerMode('wave_form');
           setVisualizerSpeed(0.3);
           setVisualizerColor1('#ff6b35');
           setVisualizerColor2('#00d4ff');
