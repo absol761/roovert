@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square, Paperclip, Image as ImageIcon, Edit2, RefreshCw, Search, Code, Users, Star, ArrowRight, Paintbrush, Waves } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square, Paperclip, Image as ImageIcon, Edit2, RefreshCw, Search, Code, Users, Star, ArrowRight, Paintbrush, Waves, MapPin } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import 'mapbox-gl/dist/mapbox-gl.css';
 // Removed ConsentBanner import - component doesn't exist
 // Removed NeuralNoise and AudioVisualizer imports - not needed for R3F visualizer
 
@@ -889,8 +890,8 @@ function VisualizerConfigPanel({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  mode: 'sphere' | 'grid' | 'plane' | 'wave_form';
-  onModeChange: (mode: 'sphere' | 'grid' | 'plane' | 'wave_form') => void;
+  mode: 'grid' | 'plane' | 'wave_form';
+  onModeChange: (mode: 'grid' | 'plane' | 'wave_form') => void;
   speed: number;
   onSpeedChange: (speed: number) => void;
   color1: string;
@@ -1166,9 +1167,101 @@ function VisualizerConfigPanel({
   );
 }
 
+// Manhattan 3D Map Component
+function ManhattanMap({ isEnabled }: { isEnabled: boolean }) {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted || !isEnabled || !mapContainer.current || mapRef.current) return;
+
+    // Dynamically import mapbox-gl
+    import('mapbox-gl').then((mapboxglModule) => {
+      const mapboxgl = mapboxglModule.default;
+      
+      // Set access token (you'll need to add this to your env vars)
+      mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+
+      const map = new mapboxgl.Map({
+        container: mapContainer.current!,
+        style: 'mapbox://styles/mapbox/dark-v11',
+        center: [-74.006, 40.7128], // Manhattan coordinates
+        zoom: 15,
+        pitch: 0,
+        bearing: 0,
+      });
+
+      map.on('load', () => {
+        // Add building layer with fill-extrusion
+        if (!map.getLayer('3d-buildings')) {
+          map.addLayer({
+            id: '3d-buildings',
+            source: 'composite',
+            'source-layer': 'building',
+            filter: ['==', 'extrude', 'true'],
+            type: 'fill-extrusion',
+            minzoom: 14,
+            paint: {
+              'fill-extrusion-color': '#808080', // Gray color
+              'fill-extrusion-height': [
+                'case',
+                ['has', 'height'],
+                ['get', 'height'],
+                ['has', 'render_height'],
+                ['get', 'render_height'],
+                10
+              ],
+              'fill-extrusion-base': [
+                'case',
+                ['has', 'min_height'],
+                ['get', 'min_height'],
+                0
+              ],
+              'fill-extrusion-opacity': 0.9,
+            },
+          });
+        }
+
+        // Animate camera to fly-over view
+        map.flyTo({
+          center: [-74.006, 40.7128],
+          zoom: 16,
+          pitch: 60,
+          bearing: 0,
+          duration: 2000,
+        });
+      });
+
+      mapRef.current = map;
+    });
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [isMounted, isEnabled]);
+
+  if (!isEnabled) return null;
+
+  return (
+    <div
+      ref={mapContainer}
+      className="fixed inset-0 z-40 w-full h-full"
+      style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+    />
+  );
+}
+
 // R3F Visualizer Component - Dynamically loaded
 function R3FVisualizer({
-  mode = 'sphere',
+  mode = 'wave_form',
   speed = 0.3,
   color1 = '#ff6b35',
   color2 = '#00d4ff',
@@ -1182,7 +1275,7 @@ function R3FVisualizer({
   waveFormDouble = false,
   autoOrbit = false,
 }: {
-  mode?: 'sphere' | 'grid' | 'plane' | 'wave_form';
+  mode?: 'grid' | 'plane' | 'wave_form';
   speed?: number;
   color1?: string;
   color2?: string;
@@ -1238,8 +1331,8 @@ function R3FVisualizer({
                 camera.position.set(0, 3, 10);
                 camera.lookAt(0, 0, 0);
               } else {
-                // Sphere - centered view
-                camera.position.set(0, 0, 8);
+                // Plane - default view
+                camera.position.set(0, 8, 8);
                 camera.lookAt(0, 0, 0);
               }
             }
@@ -1272,10 +1365,10 @@ function R3FVisualizer({
               
               for (let i = 0; i < particleCount; i++) {
                 let x, y, z;
-                if (mode === 'sphere' || mode === 'wave_form') {
+                if (mode === 'wave_form') {
                   const theta = Math.acos(1 - 2 * i / particleCount);
                   const phi = Math.PI * (1 + Math.sqrt(5)) * i;
-                  const radius = mode === 'wave_form' ? 5 : 4;
+                  const radius = 5;
                   x = radius * Math.cos(phi) * Math.sin(theta);
                   y = radius * Math.sin(phi) * Math.sin(theta);
                   z = radius * Math.cos(theta);
@@ -1329,9 +1422,9 @@ function R3FVisualizer({
                 let newY = 0;
                 let distance = 0;
                 
-                if (mode === 'sphere' || mode === 'wave_form') {
+                if (mode === 'wave_form') {
                   // For wave_form, use original positions as base
-                  if (mode === 'wave_form' && originalPositionsRef.current) {
+                  if (originalPositionsRef.current) {
                     baseX = originalPositionsRef.current[i * 3];
                     baseY = originalPositionsRef.current[i * 3 + 1];
                     baseZ = originalPositionsRef.current[i * 3 + 2];
@@ -1522,7 +1615,8 @@ export default function Page() {
   // Visualizer state
   const [visualizerEnabled, setVisualizerEnabled] = useState(false);
   const [visualizerConfigOpen, setVisualizerConfigOpen] = useState(false);
-  const [visualizerMode, setVisualizerMode] = useState<'sphere' | 'grid' | 'plane' | 'wave_form'>('sphere');
+  const [visualizerMode, setVisualizerMode] = useState<'grid' | 'plane' | 'wave_form'>('wave_form');
+  const [manhattanMapEnabled, setManhattanMapEnabled] = useState(false);
   const [visualizerSpeed, setVisualizerSpeed] = useState(0.3);
   const [visualizerColor1, setVisualizerColor1] = useState('#ff6b35');
   const [visualizerColor2, setVisualizerColor2] = useState('#00d4ff');
@@ -2332,6 +2426,22 @@ export default function Page() {
                   <Square className="w-5 h-5" />
                 </button>
               )}
+              <button
+                onClick={() => {
+                  setManhattanMapEnabled(!manhattanMapEnabled);
+                  if (manhattanMapEnabled) {
+                    setVisualizerEnabled(false);
+                  }
+                }}
+                className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${
+                  manhattanMapEnabled
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
+                }`}
+                title="Toggle Manhattan 3D Map"
+              >
+                <MapPin className={`w-5 h-5 ${manhattanMapEnabled ? 'animate-pulse' : ''}`} />
+              </button>
             </div>
 
             <div className="hidden md:flex items-center gap-8">
