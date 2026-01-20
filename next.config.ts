@@ -83,6 +83,9 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
+  
+  // Turbopack config - empty to allow webpack config to work
+  turbopack: {},
 };
 
 export default nextConfig;
