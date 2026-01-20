@@ -1253,6 +1253,7 @@ function R3FVisualizer({
             const particleCount = Math.floor(2000 * (0.5 + density));
             const pointsRef = useRef<any>(null);
             const [initialized, setInitialized] = useState(false);
+            const originalPositionsRef = useRef<Float32Array | null>(null);
             
             const hexToRgb = (hex: string) => {
               const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -1303,6 +1304,13 @@ function R3FVisualizer({
                 colors[i * 3 + 2] = 1;
               }
               
+              // Store original positions for wave_form mode
+              if (mode === 'wave_form') {
+                originalPositionsRef.current = new Float32Array(positions);
+              } else {
+                originalPositionsRef.current = null;
+              }
+              
               const geometry = pointsRef.current.geometry;
               geometry.setAttribute('position', new BufferAttribute(positions, 3));
               geometry.setAttribute('color', new BufferAttribute(colors, 3));
@@ -1316,14 +1324,30 @@ function R3FVisualizer({
               const colors = geometry.attributes.color;
               
               for (let i = 0; i < particleCount; i++) {
-                const x = positions.getX(i);
-                const y = positions.getY(i);
-                const z = positions.getZ(i);
-                let newY = y;
+                let x, y, z;
+                let baseX, baseY, baseZ;
+                let newY = 0;
                 let distance = 0;
                 
                 if (mode === 'sphere' || mode === 'wave_form') {
-                  distance = Math.sqrt(x * x + y * y + z * z);
+                  // For wave_form, use original positions as base
+                  if (mode === 'wave_form' && originalPositionsRef.current) {
+                    baseX = originalPositionsRef.current[i * 3];
+                    baseY = originalPositionsRef.current[i * 3 + 1];
+                    baseZ = originalPositionsRef.current[i * 3 + 2];
+                    x = positions.getX(i);
+                    y = positions.getY(i);
+                    z = positions.getZ(i);
+                  } else {
+                    x = positions.getX(i);
+                    y = positions.getY(i);
+                    z = positions.getZ(i);
+                    baseX = x;
+                    baseY = y;
+                    baseZ = z;
+                  }
+                  
+                  distance = Math.sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ);
                   const wave1 = Math.sin(timeRef.current * speed * waveFreq + distance * 0.5);
                   const wave2 = mode === 'wave_form' && waveFormDouble 
                     ? Math.cos(timeRef.current * speed * waveFreq * 1.5 + distance * 0.3)
@@ -1332,21 +1356,23 @@ function R3FVisualizer({
                     ? (wave1 * 0.5 + wave2 * 0.5) * 0.5 + 0.5
                     : (wave1 * 0.6 + wave2 * 0.4) * 0.5 + 0.5;
                   const amplitude = mode === 'wave_form' ? maxAmplitude : 1.0;
-                  // For wave_form, create radial expansion wave effect
-                  if (mode === 'wave_form') {
-                    const baseRadius = Math.sqrt(x * x + y * y + z * z);
+                  
+                  // For wave_form, create radial expansion wave effect using original positions
+                  if (mode === 'wave_form' && originalPositionsRef.current) {
+                    const baseRadius = distance; // Already calculated from original positions
                     const radialOffset = (wave - 0.5) * amplitude * 0.5; // Oscillate around base radius
-                    const newRadius = Math.max(0.1, baseRadius + radialOffset);
+                    const newRadius = baseRadius + radialOffset;
                     if (baseRadius > 0) {
                       const scale = newRadius / baseRadius;
-                      positions.setX(i, x * scale);
-                      positions.setY(i, y * scale);
-                      positions.setZ(i, z * scale);
+                      // Always scale from original positions to prevent cumulative shrinking
+                      positions.setX(i, baseX * scale);
+                      positions.setY(i, baseY * scale);
+                      positions.setZ(i, baseZ * scale);
                     }
                     // Update distance for color calculation
                     distance = newRadius;
                   } else {
-                    newY = y + wave * amplitude * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
+                    newY = baseY + wave * amplitude * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
                   }
                 } else if (mode === 'grid') {
                   distance = Math.sqrt(x * x + z * z);
