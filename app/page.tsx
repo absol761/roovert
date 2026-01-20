@@ -7,7 +7,6 @@ import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTrian
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import 'maplibre-gl/dist/maplibre-gl.css';
 // Removed ConsentBanner import - component doesn't exist
 // Removed NeuralNoise and AudioVisualizer imports - not needed for R3F visualizer
 
@@ -1166,93 +1165,6 @@ function VisualizerConfigPanel({
   );
 }
 
-// Manhattan 3D Map Component
-function ManhattanMap({ isEnabled }: { isEnabled: boolean }) {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isMounted || !isEnabled || !mapContainer.current || mapRef.current) return;
-
-    // Dynamically import maplibre-gl (no token required!)
-    import('maplibre-gl').then((maplibreModule) => {
-      const maplibregl = maplibreModule.default;
-
-      // Use a free dark style from MapLibre (no token required)
-      // This uses OpenStreetMap data with a dark theme
-      const map = new maplibregl.Map({
-        container: mapContainer.current!,
-        style: {
-          version: 8,
-          sources: {
-            'osm': {
-              type: 'raster',
-              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-              tileSize: 256,
-              attribution: '© OpenStreetMap contributors'
-            }
-          },
-          layers: [
-            {
-              id: 'osm-layer',
-              type: 'raster',
-              source: 'osm',
-              minzoom: 0,
-              maxzoom: 22,
-              paint: {
-                'raster-brightness-min': 0.1,
-                'raster-brightness-max': 0.3,
-                'raster-contrast': -0.3,
-                'raster-saturation': -0.8
-              }
-            }
-          ],
-          glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
-        } as any,
-        center: [-74.006, 40.7128], // Manhattan coordinates
-        zoom: 15,
-        pitch: 0,
-        bearing: 0,
-      });
-
-      map.on('load', () => {
-        // Animate camera to fly-over view
-        map.flyTo({
-          center: [-74.006, 40.7128],
-          zoom: 16,
-          pitch: 60,
-          bearing: 0,
-          duration: 2000,
-        });
-      });
-
-      mapRef.current = map;
-    });
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  }, [isMounted, isEnabled]);
-
-  if (!isEnabled) return null;
-
-  return (
-    <div
-      ref={mapContainer}
-      className="fixed inset-0 z-40 w-full h-full"
-      style={{ top: 0, left: 0, right: 0, bottom: 0 }}
-    />
-  );
-}
-
 // R3F Visualizer Component - Dynamically loaded
 function R3FVisualizer({
   mode = 'wave_form',
@@ -1314,7 +1226,7 @@ function R3FVisualizer({
           }, []);
           
           useEffect(() => {
-            if (camera && mode !== 'manhattan') {
+            if (camera) {
               if (mode === 'plane') {
                 camera.position.set(0, 8, 8);
                 camera.lookAt(0, 0, 0);
@@ -1324,6 +1236,12 @@ function R3FVisualizer({
               } else if (mode === 'wave_form') {
                 camera.position.set(0, 3, 10);
                 camera.lookAt(0, 0, 0);
+              } else if (mode === 'manhattan') {
+                // Fly-over view for Manhattan
+                camera.position.set(0, 8, 12);
+                camera.lookAt(0, 0, 0);
+                // Animate to 60 degree pitch
+                camera.rotation.x = -Math.PI / 3; // 60 degrees
               }
             }
           }, [mode, camera]);
@@ -1547,7 +1465,7 @@ function R3FVisualizer({
               fov: 50,
               near: 0.1,
               far: 1000,
-              position: mode === 'plane' ? [0, 8, 8] : mode === 'grid' ? [0, 5, 8] : mode === 'wave_form' ? [0, 3, 10] : [0, 0, 8],
+              position: mode === 'plane' ? [0, 8, 8] : mode === 'grid' ? [0, 5, 8] : mode === 'wave_form' ? [0, 3, 10] : mode === 'manhattan' ? [0, 8, 12] : [0, 8, 8],
             }}
             gl={{ antialias: true, alpha: true }}
             className="w-full h-full"
@@ -1615,7 +1533,6 @@ export default function Page() {
   const [visualizerEnabled, setVisualizerEnabled] = useState(false);
   const [visualizerConfigOpen, setVisualizerConfigOpen] = useState(false);
   const [visualizerMode, setVisualizerMode] = useState<'grid' | 'plane' | 'wave_form' | 'manhattan'>('wave_form');
-  const [manhattanMapEnabled, setManhattanMapEnabled] = useState(false);
   const [visualizerSpeed, setVisualizerSpeed] = useState(0.3);
   const [visualizerColor1, setVisualizerColor1] = useState('#ff6b35');
   const [visualizerColor2, setVisualizerColor2] = useState('#00d4ff');
@@ -2425,22 +2342,6 @@ export default function Page() {
                   <Square className="w-5 h-5" />
                 </button>
               )}
-              <button
-                onClick={() => {
-                  setManhattanMapEnabled(!manhattanMapEnabled);
-                  if (manhattanMapEnabled) {
-                    setVisualizerEnabled(false);
-                  }
-                }}
-                className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${
-                  manhattanMapEnabled
-                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                    : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
-                }`}
-                title="Toggle Manhattan 3D Map"
-              >
-                <MapPin className={`w-5 h-5 ${manhattanMapEnabled ? 'animate-pulse' : ''}`} />
-              </button>
             </div>
 
             <div className="hidden md:flex items-center gap-8">
