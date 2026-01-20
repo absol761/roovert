@@ -942,6 +942,7 @@ function VisualizerConfigPanel({
     { value: 'wave_form', label: 'WAVE_FORM', icon: Waves },
     { value: 'grid', label: 'GRID', icon: Square },
     { value: 'plane', label: 'PLANE', icon: Square },
+    { value: 'manhattan', label: 'MANHATTAN', icon: MapPin },
   ];
 
   return (
