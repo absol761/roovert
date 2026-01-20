@@ -1210,7 +1210,7 @@ function R3FVisualizer({
       ]).then(([r3f, THREE, drei]) => {
         const { Canvas, useThree } = r3f;
         const { BufferAttribute, AdditiveBlending } = THREE;
-        const { OrbitControls } = drei;
+        const { OrbitControls, useGLTF } = drei;
         
         const Scene = () => {
           const { camera } = useThree();
@@ -1433,43 +1433,55 @@ function R3FVisualizer({
             );
           };
           
-          // Low poly Manhattan scene
+          // Enhanced procedural Manhattan with more detail
           const renderManhattan = () => {
             const buildings: React.ReactElement[] = [];
-            const gridSize = 20;
-            const spacing = 0.4;
-            const baseHeight = 0.5;
+            const gridSize = 40; // Larger grid for more detail
+            const spacing = 0.3;
             
-            // Create a grid of buildings with varying heights
+            // Create a more detailed and realistic Manhattan
             for (let x = 0; x < gridSize; x++) {
               for (let z = 0; z < gridSize; z++) {
-                // Create Manhattan-like building pattern (taller in center, shorter on edges)
                 const centerX = gridSize / 2;
                 const centerZ = gridSize / 2;
                 const distFromCenter = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2);
                 const maxDist = Math.sqrt(centerX ** 2 + centerZ ** 2);
                 
-                // Height varies based on distance from center and some randomness
-                const heightVariation = 1 - (distFromCenter / maxDist) * 0.7;
-                const randomHeight = 0.3 + Math.random() * 0.7;
-                const height = baseHeight + heightVariation * randomHeight * 3;
+                // More realistic height distribution - taller in center, with some randomness
+                const heightVariation = 1 - (distFromCenter / maxDist) * 0.5;
+                const randomFactor = 0.3 + Math.random() * 0.7;
+                const height = 0.4 + heightVariation * randomFactor * 5;
                 
-                // Position buildings in a grid
+                // Skip very short buildings to create more realistic cityscape
+                if (height < 0.6) continue;
+                
                 const posX = (x - gridSize / 2) * spacing;
                 const posZ = (z - gridSize / 2) * spacing;
                 
-                // Gray color with slight variation
-                const grayValue = 0.4 + Math.random() * 0.2;
-                const color = `rgb(${Math.floor(grayValue * 255)}, ${Math.floor(grayValue * 255)}, ${Math.floor(grayValue * 255)})`;
+                // More realistic gray colors with variation
+                const grayBase = 0.3 + Math.random() * 0.3;
+                const color = `rgb(${Math.floor(grayBase * 255)}, ${Math.floor(grayBase * 255)}, ${Math.floor(grayBase * 255)})`;
+                
+                // Building width/depth variation for more realism
+                const width = spacing * (0.6 + Math.random() * 0.4);
+                const depth = spacing * (0.6 + Math.random() * 0.4);
                 
                 buildings.push(
                   <mesh key={`building-${x}-${z}`} position={[posX, height / 2, posZ]}>
-                    <boxGeometry args={[spacing * 0.8, height, spacing * 0.8]} />
-                    <meshStandardMaterial color={color} />
+                    <boxGeometry args={[width, height, depth]} />
+                    <meshStandardMaterial color={color} metalness={0.1} roughness={0.8} />
                   </mesh>
                 );
               }
             }
+            
+            // Add ground plane
+            buildings.push(
+              <mesh key="ground" rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+                <planeGeometry args={[gridSize * spacing * 1.2, gridSize * spacing * 1.2]} />
+                <meshStandardMaterial color="#0f0f0f" />
+              </mesh>
+            );
             
             return <group>{buildings}</group>;
           };
