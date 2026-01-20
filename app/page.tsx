@@ -890,8 +890,8 @@ function VisualizerConfigPanel({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  mode: 'grid' | 'plane' | 'wave_form';
-  onModeChange: (mode: 'grid' | 'plane' | 'wave_form') => void;
+  mode: 'grid' | 'plane' | 'wave_form' | 'manhattan';
+  onModeChange: (mode: 'grid' | 'plane' | 'wave_form' | 'manhattan') => void;
   speed: number;
   onSpeedChange: (speed: number) => void;
   color1: string;
@@ -1269,7 +1269,7 @@ function R3FVisualizer({
   waveFormDouble = false,
   autoOrbit = false,
 }: {
-  mode?: 'grid' | 'plane' | 'wave_form';
+  mode?: 'grid' | 'plane' | 'wave_form' | 'manhattan';
   speed?: number;
   color1?: string;
   color2?: string;
@@ -1314,7 +1314,7 @@ function R3FVisualizer({
           }, []);
           
           useEffect(() => {
-            if (camera) {
+            if (camera && mode !== 'manhattan') {
               if (mode === 'plane') {
                 camera.position.set(0, 8, 8);
                 camera.lookAt(0, 0, 0);
@@ -1323,10 +1323,6 @@ function R3FVisualizer({
                 camera.lookAt(0, 0, 0);
               } else if (mode === 'wave_form') {
                 camera.position.set(0, 3, 10);
-                camera.lookAt(0, 0, 0);
-              } else {
-                // Plane - default view
-                camera.position.set(0, 8, 8);
                 camera.lookAt(0, 0, 0);
               }
             }
@@ -1411,24 +1407,23 @@ function R3FVisualizer({
               const colors = geometry.attributes.color;
               
               for (let i = 0; i < particleCount; i++) {
-                let x, y, z;
-                let baseX, baseY, baseZ;
-                let newY = 0;
+                const x = positions.getX(i);
+                const y = positions.getY(i);
+                const z = positions.getZ(i);
+                let newY = y;
                 let distance = 0;
                 
                 if (mode === 'wave_form') {
                   // For wave_form, use original positions as base
+                  let baseX: number;
+                  let baseY: number;
+                  let baseZ: number;
+                  
                   if (originalPositionsRef.current) {
                     baseX = originalPositionsRef.current[i * 3];
                     baseY = originalPositionsRef.current[i * 3 + 1];
                     baseZ = originalPositionsRef.current[i * 3 + 2];
-                    x = positions.getX(i);
-                    y = positions.getY(i);
-                    z = positions.getZ(i);
                   } else {
-                    x = positions.getX(i);
-                    y = positions.getY(i);
-                    z = positions.getZ(i);
                     baseX = x;
                     baseY = y;
                     baseZ = z;
@@ -1462,12 +1457,14 @@ function R3FVisualizer({
                     newY = baseY + wave * amplitude * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
                   }
                 } else if (mode === 'grid') {
+                  // Grid mode - particles arranged in a grid, animated vertically
                   distance = Math.sqrt(x * x + z * z);
                   const wave1 = Math.sin(timeRef.current * speed * 2 + distance * 0.5);
                   const wave2 = Math.sin(timeRef.current * speed * 1.3 + distance * 0.8);
                   const wave = (wave1 * 0.7 + wave2 * 0.3) * 0.5 + 0.5;
                   newY = wave * 2.5 * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
-                } else {
+                } else if (mode === 'plane') {
+                  // Plane mode - particles on a plane, animated with multiple waves
                   distance = Math.sqrt(x * x + z * z);
                   const wave1 = Math.sin(timeRef.current * speed * 2 + distance * 0.5);
                   const wave2 = Math.sin(timeRef.current * speed * 1.5 + x * 2);
@@ -1498,6 +1495,10 @@ function R3FVisualizer({
               colors.needsUpdate = true;
             });
             
+            if (mode === 'manhattan') {
+              return null; // Don't render particles for manhattan mode
+            }
+            
             return (
               <points ref={pointsRef} rotation={mode === 'plane' ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
                 <bufferGeometry />
@@ -1512,6 +1513,10 @@ function R3FVisualizer({
               </points>
             );
           };
+          
+          if (mode === 'manhattan') {
+            return null; // Don't render R3F visualizer for manhattan mode
+          }
           
           return (
             <>
