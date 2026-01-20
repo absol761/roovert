@@ -3,13 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square, Paperclip, Image as ImageIcon, Edit2, RefreshCw, Search, Code, Users, Star, ArrowRight, Paintbrush, Radio } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square, Paperclip, Image as ImageIcon, Edit2, RefreshCw, Search, Code, Users, Star, ArrowRight, Paintbrush, Waves } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { checkConsentAndInitialize } from './components/ConsentBanner';
-import { NeuralNoise } from './components/NeuralNoise';
-import { AudioVisualizer } from './components/AudioVisualizer';
+// Removed ConsentBanner import - component doesn't exist
+// Removed NeuralNoise and AudioVisualizer imports - not needed for R3F visualizer
 
 interface Model {
   id: string;
@@ -846,6 +845,600 @@ function NavClock() {
   );
 }
 
+// Visualizer Configuration Panel Component - Rewritten to match image
+function VisualizerConfigPanel({
+  isOpen,
+  onClose,
+  mode,
+  onModeChange,
+  speed,
+  onSpeedChange,
+  color1,
+  onColor1Change,
+  color2,
+  onColor2Change,
+  density,
+  onDensityChange,
+  invertX,
+  onInvertXChange,
+  invertY,
+  onInvertYChange,
+  scaleX,
+  onScaleXChange,
+  scaleY,
+  onScaleYChange,
+  onReset,
+  waveFormPreset,
+  onWaveFormPresetChange,
+  waveFormDouble,
+  onWaveFormDoubleChange,
+  maxAmplitude,
+  onMaxAmplitudeChange,
+  waveFreq,
+  onWaveFreqChange,
+  colorBackground,
+  onColorBackgroundChange,
+  colorsFollowMusic,
+  onColorsFollowMusicChange,
+  autoOrbit,
+  onAutoOrbitChange,
+  gridPreset,
+  onGridPresetChange,
+  selectedPalette,
+  onSelectedPaletteChange,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  mode: 'sphere' | 'grid' | 'plane' | 'wave_form';
+  onModeChange: (mode: 'sphere' | 'grid' | 'plane' | 'wave_form') => void;
+  speed: number;
+  onSpeedChange: (speed: number) => void;
+  color1: string;
+  onColor1Change: (color: string) => void;
+  color2: string;
+  onColor2Change: (color: string) => void;
+  density: number;
+  onDensityChange: (density: number) => void;
+  invertX: boolean;
+  onInvertXChange: (invert: boolean) => void;
+  invertY: boolean;
+  onInvertYChange: (invert: boolean) => void;
+  scaleX: boolean;
+  onScaleXChange: (scale: boolean) => void;
+  scaleY: boolean;
+  onScaleYChange: (scale: boolean) => void;
+  onReset: () => void;
+  waveFormPreset: 'default' | 'custom';
+  onWaveFormPresetChange: (preset: 'default' | 'custom') => void;
+  waveFormDouble: boolean;
+  onWaveFormDoubleChange: (double: boolean) => void;
+  maxAmplitude: number;
+  onMaxAmplitudeChange: (amplitude: number) => void;
+  waveFreq: number;
+  onWaveFreqChange: (freq: number) => void;
+  colorBackground: boolean;
+  onColorBackgroundChange: (enabled: boolean) => void;
+  colorsFollowMusic: boolean;
+  onColorsFollowMusicChange: (enabled: boolean) => void;
+  autoOrbit: boolean;
+  onAutoOrbitChange: (enabled: boolean) => void;
+  gridPreset: 'default' | 'bands' | 'custom';
+  onGridPresetChange: (preset: 'default' | 'bands' | 'custom') => void;
+  selectedPalette: number;
+  onSelectedPaletteChange: (index: number) => void;
+}) {
+  if (!isOpen) return null;
+
+  const palettes = [
+    ['#4a90e2', '#7b68ee'], ['#ff6b35', '#00d4ff'], ['#ff4757', '#5352ed'],
+    ['#2ed573', '#1e90ff'], ['#ffa502', '#ff6348'], ['#5f27cd', '#00d2d3'],
+    ['#ee5a6f', '#c44569'], ['#00d2ff', '#3a7bd5'], ['#f093fb', '#f5576c'],
+    ['#4facfe', '#00f2fe'], ['#43e97b', '#38f9d7'], ['#fa709a', '#fee140'],
+    ['#30cfd0', '#330867'], ['#a8edea', '#fed6e3'], ['#ff9a9e', '#fecfef'],
+    ['#ffecd2', '#fcb69f'],
+  ];
+
+  const modeOptions = [
+    { value: 'wave_form', label: 'WAVE_FORM', icon: Waves },
+    { value: 'sphere', label: 'SPHERE', icon: Sparkles },
+    { value: 'grid', label: 'GRID', icon: Square },
+    { value: 'plane', label: 'PLANE', icon: Square },
+  ];
+
+  return (
+    <motion.div
+      initial={{ x: 400, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: 400, opacity: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className="fixed right-0 top-0 bottom-0 z-50 w-80 bg-[var(--hud-bg)]/98 backdrop-blur-xl border-l border-[var(--border)] shadow-2xl overflow-y-auto"
+    >
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium text-[var(--foreground)]">Visualizer Config</h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 hover:bg-[var(--surface)] rounded transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div>
+          <label className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2 block font-medium">MODE</label>
+          <div className="relative">
+            <select
+              value={mode}
+              onChange={(e) => onModeChange(e.target.value as any)}
+              className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] appearance-none cursor-pointer hover:border-[var(--accent)] transition-colors pr-10"
+            >
+              {modeOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              <ChevronDown className="w-4 h-4 text-[var(--muted)]" />
+            </div>
+          </div>
+        </div>
+
+        {mode === 'wave_form' && (
+          <div className="space-y-4 border-t border-[var(--border)] pt-4">
+            <label className="text-xs text-[var(--muted)] uppercase tracking-wider block font-medium">Wave Form</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onWaveFormPresetChange('default')}
+                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${
+                  waveFormPreset === 'default'
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
+                }`}
+              >
+                default
+              </button>
+              <button
+                onClick={() => onWaveFormPresetChange('custom')}
+                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${
+                  waveFormPreset === 'custom'
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
+                }`}
+              >
+                custom
+              </button>
+            </div>
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-[var(--muted)]">Double</label>
+              <button
+                onClick={() => onWaveFormDoubleChange(!waveFormDouble)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  waveFormDouble ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+                }`}
+              >
+                <div
+                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                    waveFormDouble ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs text-[var(--muted)]">Max Amplitude</label>
+                <span className="text-xs text-[var(--muted)] font-mono">{maxAmplitude.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="3"
+                step="0.01"
+                value={maxAmplitude}
+                onChange={(e) => onMaxAmplitudeChange(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-[var(--surface)] rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs text-[var(--muted)] flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-[var(--accent)]"></span>
+                  Wave #1 - Freq (hz)
+                </label>
+                <span className="text-xs text-[var(--muted)] font-mono">{waveFreq.toFixed(2)}</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                step="0.01"
+                value={waveFreq}
+                onChange={(e) => onWaveFreqChange(parseFloat(e.target.value))}
+                className="w-full h-1.5 bg-[var(--surface)] rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-[var(--border)] pt-4">
+          <label className="text-xs text-[var(--muted)] uppercase tracking-wider mb-3 block font-medium">Palette</label>
+          <div className="grid grid-cols-4 gap-2">
+            {palettes.map((palette, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  onSelectedPaletteChange(idx);
+                  onColor1Change(palette[0]);
+                  onColor2Change(palette[1]);
+                }}
+                className={`relative aspect-square rounded-full border-2 transition-all ${
+                  selectedPalette === idx
+                    ? 'border-[var(--accent)] scale-110'
+                    : 'border-[var(--border)] hover:border-[var(--accent)]'
+                }`}
+                style={{
+                  background: `linear-gradient(135deg, ${palette[0]}, ${palette[1]})`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3 border-t border-[var(--border)] pt-4">
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-[var(--muted)]">Color Background</label>
+            <button
+              onClick={() => onColorBackgroundChange(!colorBackground)}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                colorBackground ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+              }`}
+            >
+              <div
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  colorBackground ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-[var(--muted)]">Colors Follow Music</label>
+            <button
+              onClick={() => onColorsFollowMusicChange(!colorsFollowMusic)}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                colorsFollowMusic ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+              }`}
+            >
+              <div
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  colorsFollowMusic ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-[var(--muted)]">Auto Orbit Camera</label>
+            <button
+              onClick={() => onAutoOrbitChange(!autoOrbit)}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                autoOrbit ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+              }`}
+            >
+              <div
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                  autoOrbit ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {mode === 'grid' && (
+          <div className="border-t border-[var(--border)] pt-4">
+            <label className="text-xs text-[var(--muted)] uppercase tracking-wider mb-3 block font-medium">Grid Presets</label>
+            <div className="flex gap-2">
+              {(['default', 'bands', 'custom'] as const).map((preset) => (
+                <button
+                  key={preset}
+                  onClick={() => onGridPresetChange(preset)}
+                  className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all capitalize ${
+                    gridPreset === preset
+                      ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-[var(--border)] pt-4">
+          <button
+            onClick={onReset}
+            className="w-full px-4 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all text-sm font-medium"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// R3F Visualizer Component - Dynamically loaded
+function R3FVisualizer({
+  mode = 'sphere',
+  speed = 0.3,
+  color1 = '#ff6b35',
+  color2 = '#00d4ff',
+  density = 0.5,
+  invertX = false,
+  invertY = false,
+  scaleX = true,
+  scaleY = true,
+  maxAmplitude = 1.36,
+  waveFreq = 2.0,
+  waveFormDouble = false,
+  autoOrbit = false,
+}: {
+  mode?: 'sphere' | 'grid' | 'plane' | 'wave_form';
+  speed?: number;
+  color1?: string;
+  color2?: string;
+  density?: number;
+  invertX?: boolean;
+  invertY?: boolean;
+  scaleX?: boolean;
+  scaleY?: boolean;
+  maxAmplitude?: number;
+  waveFreq?: number;
+  waveFormDouble?: boolean;
+  autoOrbit?: boolean;
+}) {
+  const [isMounted, setIsMounted] = useState(false);
+  const [VisualizerCanvas, setVisualizerCanvas] = useState<React.ComponentType | null>(null);
+
+  useEffect(() => {
+    setIsMounted(true);
+    
+    if (typeof window !== 'undefined') {
+      Promise.all([
+        import('@react-three/fiber'),
+        import('three'),
+        import('@react-three/drei')
+      ]).then(([r3f, THREE, drei]) => {
+        const { Canvas, useThree } = r3f;
+        const { BufferAttribute, AdditiveBlending } = THREE;
+        const { OrbitControls } = drei;
+        
+        const Scene = () => {
+          const { camera } = useThree();
+          const [audioIntensity, setAudioIntensity] = useState(0);
+          const timeRef = useRef(0);
+          
+          useEffect(() => {
+            const handleMouseMove = (e: MouseEvent) => {
+              const intensity = Math.min(1, Math.sqrt(e.movementX ** 2 + e.movementY ** 2) / 50);
+              setAudioIntensity(intensity);
+            };
+            window.addEventListener('mousemove', handleMouseMove);
+            return () => window.removeEventListener('mousemove', handleMouseMove);
+          }, []);
+          
+          useEffect(() => {
+            if (camera) {
+              if (mode === 'plane') {
+                camera.position.set(0, 8, 8);
+                camera.lookAt(0, 0, 0);
+              } else if (mode === 'grid') {
+                camera.position.set(0, 5, 8);
+                camera.lookAt(0, 0, 0);
+              } else if (mode === 'wave_form') {
+                camera.position.set(0, 3, 10);
+                camera.lookAt(0, 0, 0);
+              } else {
+                // Sphere - centered view
+                camera.position.set(0, 0, 8);
+                camera.lookAt(0, 0, 0);
+              }
+            }
+          }, [mode, camera]);
+          
+          r3f.useFrame((state, delta) => {
+            timeRef.current += delta * speed * 2;
+          });
+          
+          const renderVisualizer = () => {
+            const particleCount = Math.floor(2000 * (0.5 + density));
+            const pointsRef = useRef<any>(null);
+            const [initialized, setInitialized] = useState(false);
+            
+            const hexToRgb = (hex: string) => {
+              const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+              return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+              } : { r: 255, g: 255, b: 255 };
+            };
+            
+            useEffect(() => {
+              if (!pointsRef.current) return;
+              setInitialized(false);
+              const positions = new Float32Array(particleCount * 3);
+              const colors = new Float32Array(particleCount * 3);
+              
+              for (let i = 0; i < particleCount; i++) {
+                let x, y, z;
+                if (mode === 'sphere' || mode === 'wave_form') {
+                  const theta = Math.acos(1 - 2 * i / particleCount);
+                  const phi = Math.PI * (1 + Math.sqrt(5)) * i;
+                  const radius = mode === 'wave_form' ? 5 : 4;
+                  x = radius * Math.cos(phi) * Math.sin(theta);
+                  y = radius * Math.sin(phi) * Math.sin(theta);
+                  z = radius * Math.cos(theta);
+                } else if (mode === 'grid') {
+                  const gridSize = Math.ceil(Math.sqrt(particleCount));
+                  const gridX = i % gridSize;
+                  const gridZ = Math.floor(i / gridSize);
+                  const spacing = 0.3;
+                  x = (gridX - gridSize / 2) * spacing;
+                  y = 0;
+                  z = (gridZ - gridSize / 2) * spacing;
+                } else {
+                  const gridSize = Math.ceil(Math.sqrt(particleCount));
+                  const gridX = i % gridSize;
+                  const gridZ = Math.floor(i / gridSize);
+                  const spacing = 0.2;
+                  x = (gridX - gridSize / 2) * spacing;
+                  y = 0;
+                  z = (gridZ - gridSize / 2) * spacing;
+                }
+                positions[i * 3] = x;
+                positions[i * 3 + 1] = y;
+                positions[i * 3 + 2] = z;
+                colors[i * 3] = 1;
+                colors[i * 3 + 1] = 1;
+                colors[i * 3 + 2] = 1;
+              }
+              
+              const geometry = pointsRef.current.geometry;
+              geometry.setAttribute('position', new BufferAttribute(positions, 3));
+              geometry.setAttribute('color', new BufferAttribute(colors, 3));
+              setInitialized(true);
+            }, [particleCount, mode]);
+            
+            r3f.useFrame(() => {
+              if (!pointsRef.current || !initialized) return;
+              const geometry = pointsRef.current.geometry;
+              const positions = geometry.attributes.position;
+              const colors = geometry.attributes.color;
+              
+              for (let i = 0; i < particleCount; i++) {
+                const x = positions.getX(i);
+                const y = positions.getY(i);
+                const z = positions.getZ(i);
+                let newY = y;
+                let distance = 0;
+                
+                if (mode === 'sphere' || mode === 'wave_form') {
+                  distance = Math.sqrt(x * x + y * y + z * z);
+                  const wave1 = Math.sin(timeRef.current * speed * waveFreq + distance * 0.5);
+                  const wave2 = mode === 'wave_form' && waveFormDouble 
+                    ? Math.cos(timeRef.current * speed * waveFreq * 1.5 + distance * 0.3)
+                    : Math.cos(timeRef.current * speed * 1.5 + distance * 0.3);
+                  const wave = mode === 'wave_form' && waveFormDouble
+                    ? (wave1 * 0.5 + wave2 * 0.5) * 0.5 + 0.5
+                    : (wave1 * 0.6 + wave2 * 0.4) * 0.5 + 0.5;
+                  const amplitude = mode === 'wave_form' ? maxAmplitude : 0.8;
+                  newY = y + wave * amplitude * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
+                } else if (mode === 'grid') {
+                  distance = Math.sqrt(x * x + z * z);
+                  const wave1 = Math.sin(timeRef.current * speed * 2 + distance * 0.5);
+                  const wave2 = Math.sin(timeRef.current * speed * 1.3 + distance * 0.8);
+                  const wave = (wave1 * 0.7 + wave2 * 0.3) * 0.5 + 0.5;
+                  newY = wave * 2.5 * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
+                } else {
+                  distance = Math.sqrt(x * x + z * z);
+                  const wave1 = Math.sin(timeRef.current * speed * 2 + distance * 0.5);
+                  const wave2 = Math.sin(timeRef.current * speed * 1.5 + x * 2);
+                  const wave3 = Math.sin(timeRef.current * speed * 1.8 + z * 2);
+                  const wave = (wave1 * 0.5 + wave2 * 0.25 + wave3 * 0.25) * 0.5 + 0.5;
+                  newY = wave * 2 * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
+                }
+                
+                positions.setY(i, newY);
+                const waveIntensity = Math.sin(timeRef.current * speed * 2 + distance * 0.5) * 0.5 + 0.5;
+                const color1RGB = hexToRgb(color1);
+                const color2RGB = hexToRgb(color2);
+                const mix = waveIntensity;
+                const posVariation = (Math.sin(x * 0.5) + Math.cos(z * 0.5)) * 0.1;
+                const finalMix = Math.max(0, Math.min(1, mix + posVariation));
+                colors.setX(i, (color1RGB.r + (color2RGB.r - color1RGB.r) * finalMix) / 255);
+                colors.setY(i, (color1RGB.g + (color2RGB.g - color1RGB.g) * finalMix) / 255);
+                colors.setZ(i, (color1RGB.b + (color2RGB.b - color1RGB.b) * finalMix) / 255);
+              }
+              positions.needsUpdate = true;
+              colors.needsUpdate = true;
+            });
+            
+            return (
+              <points ref={pointsRef} rotation={mode === 'plane' ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
+                <bufferGeometry />
+                <pointsMaterial
+                  size={mode === 'wave_form' ? 0.2 : 0.15}
+                  vertexColors
+                  transparent
+                  opacity={0.95}
+                  sizeAttenuation={true}
+                  blending={AdditiveBlending}
+                />
+              </points>
+            );
+          };
+          
+          return (
+            <>
+              <color attach="background" args={['#010204']} />
+              <ambientLight intensity={0.8} />
+              <pointLight position={[10, 10, 10]} intensity={1} color={color1} />
+              <pointLight position={[-10, -10, -10]} intensity={1} color={color2} />
+              <pointLight position={[0, 10, 0]} intensity={0.5} />
+              <OrbitControls
+                enablePan={false}
+                enableZoom={true}
+                enableRotate={true}
+                minDistance={5}
+                maxDistance={20}
+                autoRotate={autoOrbit}
+                rotateSpeed={0.5}
+                zoomSpeed={0.8}
+              />
+              {renderVisualizer()}
+            </>
+          );
+        };
+        
+        const Visualizer = () => (
+          <Canvas
+            key={mode}
+            camera={{
+              fov: 50,
+              near: 0.1,
+              far: 1000,
+              position: mode === 'plane' ? [0, 8, 8] : mode === 'grid' ? [0, 5, 8] : mode === 'wave_form' ? [0, 3, 10] : [0, 0, 8],
+            }}
+            gl={{ antialias: true, alpha: true }}
+            className="w-full h-full"
+          >
+            <Scene />
+          </Canvas>
+        );
+        
+        setVisualizerCanvas(() => Visualizer);
+      }).catch((err) => {
+        console.error('Failed to load R3F:', err);
+      });
+    }
+  }, [mode, speed, color1, color2, density, invertX, invertY, scaleX, scaleY, maxAmplitude, waveFreq, waveFormDouble, autoOrbit]);
+  
+  if (!isMounted || !VisualizerCanvas) {
+    return (
+      <div className="fixed inset-0 z-40 pointer-events-none bg-[#010204] flex items-center justify-center">
+        <div className="text-[var(--accent)] text-sm">Loading visualizer...</div>
+      </div>
+    );
+  }
+  
+  const Canvas = VisualizerCanvas;
+  return (
+    <div className="fixed inset-0 z-40 pointer-events-auto">
+      <Canvas />
+    </div>
+  );
+}
+
 export default function Page() {
   const [query, setQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -878,6 +1471,31 @@ export default function Page() {
   const [vibeModeEnabled, setVibeModeEnabled] = useState(false);
   const [vibeModeType, setVibeModeType] = useState<'audio' | 'interaction'>('audio');
   const interactionIntensityRef = useRef(0);
+  // Visualizer state
+  const [visualizerEnabled, setVisualizerEnabled] = useState(false);
+  const [visualizerConfigOpen, setVisualizerConfigOpen] = useState(false);
+  const [visualizerMode, setVisualizerMode] = useState<'sphere' | 'grid' | 'plane' | 'wave_form'>('sphere');
+  const [visualizerSpeed, setVisualizerSpeed] = useState(0.3);
+  const [visualizerColor1, setVisualizerColor1] = useState('#ff6b35');
+  const [visualizerColor2, setVisualizerColor2] = useState('#00d4ff');
+  const [visualizerDensity, setVisualizerDensity] = useState(0.5);
+  const [visualizerInvertX, setVisualizerInvertX] = useState(false);
+  const [visualizerInvertY, setVisualizerInvertY] = useState(false);
+  const [visualizerScaleX, setVisualizerScaleX] = useState(true);
+  const [visualizerScaleY, setVisualizerScaleY] = useState(true);
+  // New wave form settings
+  const [waveFormPreset, setWaveFormPreset] = useState<'default' | 'custom'>('default');
+  const [waveFormDouble, setWaveFormDouble] = useState(false);
+  const [maxAmplitude, setMaxAmplitude] = useState(1.36);
+  const [waveFreq, setWaveFreq] = useState(2.0);
+  // New general settings
+  const [colorBackground, setColorBackground] = useState(false);
+  const [colorsFollowMusic, setColorsFollowMusic] = useState(false);
+  const [autoOrbit, setAutoOrbit] = useState(false);
+  // Grid presets
+  const [gridPreset, setGridPreset] = useState<'default' | 'bands' | 'custom'>('default');
+  // Palette selection
+  const [selectedPalette, setSelectedPalette] = useState(0);
   
   // Track typing and mouse movement for interaction mode
   useEffect(() => {
@@ -982,7 +1600,7 @@ export default function Page() {
 
   // Check consent and initialize Segment if already accepted
   useEffect(() => {
-    checkConsentAndInitialize();
+    // checkConsentAndInitialize(); // Removed - function doesn't exist
   }, []);
 
   // Apply Look & Layout
@@ -1508,17 +2126,88 @@ export default function Page() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
-      {/* Neural Noise Background - Only when not in chat mode and enabled */}
-      {!isChatMode && neuralNoiseEnabled && <NeuralNoise isChatMode={isChatMode} currentLook={look} />}
+      {/* Neural Noise and Audio Visualizer removed - using R3F visualizer instead */}
 
-      {/* Audio Visualizer for Vibe Mode - Behind chat content only, only in chat mode */}
-      {vibeModeEnabled && isChatMode && (
-        <AudioVisualizer 
-          isActive={true} 
-          mode={vibeModeType === 'audio' ? 'audio' : 'interaction'}
-          showSelector={true}
+      {/* R3F Visualizer */}
+      {visualizerEnabled && (
+        <R3FVisualizer 
+          mode={visualizerMode}
+          speed={visualizerSpeed}
+          color1={visualizerColor1}
+          color2={visualizerColor2}
+          density={visualizerDensity}
+          invertX={visualizerInvertX}
+          invertY={visualizerInvertY}
+          scaleX={visualizerScaleX}
+          scaleY={visualizerScaleY}
+          maxAmplitude={maxAmplitude}
+          waveFreq={waveFreq}
+          waveFormDouble={waveFormDouble}
+          autoOrbit={autoOrbit}
         />
       )}
+      
+      {/* Visualizer Configuration Panel */}
+      <VisualizerConfigPanel
+        isOpen={visualizerConfigOpen}
+        onClose={() => setVisualizerConfigOpen(false)}
+        mode={visualizerMode}
+        onModeChange={setVisualizerMode}
+        speed={visualizerSpeed}
+        onSpeedChange={setVisualizerSpeed}
+        color1={visualizerColor1}
+        onColor1Change={setVisualizerColor1}
+        color2={visualizerColor2}
+        onColor2Change={setVisualizerColor2}
+        density={visualizerDensity}
+        onDensityChange={setVisualizerDensity}
+        invertX={visualizerInvertX}
+        onInvertXChange={setVisualizerInvertX}
+        invertY={visualizerInvertY}
+        onInvertYChange={setVisualizerInvertY}
+        scaleX={visualizerScaleX}
+        onScaleXChange={setVisualizerScaleX}
+        scaleY={visualizerScaleY}
+        onScaleYChange={setVisualizerScaleY}
+        waveFormPreset={waveFormPreset}
+        onWaveFormPresetChange={setWaveFormPreset}
+        waveFormDouble={waveFormDouble}
+        onWaveFormDoubleChange={setWaveFormDouble}
+        maxAmplitude={maxAmplitude}
+        onMaxAmplitudeChange={setMaxAmplitude}
+        waveFreq={waveFreq}
+        onWaveFreqChange={setWaveFreq}
+        colorBackground={colorBackground}
+        onColorBackgroundChange={setColorBackground}
+        colorsFollowMusic={colorsFollowMusic}
+        onColorsFollowMusicChange={setColorsFollowMusic}
+        autoOrbit={autoOrbit}
+        onAutoOrbitChange={setAutoOrbit}
+        gridPreset={gridPreset}
+        onGridPresetChange={setGridPreset}
+        selectedPalette={selectedPalette}
+        onSelectedPaletteChange={setSelectedPalette}
+        onReset={() => {
+          setVisualizerMode('sphere');
+          setVisualizerSpeed(0.3);
+          setVisualizerColor1('#ff6b35');
+          setVisualizerColor2('#00d4ff');
+          setVisualizerDensity(0.5);
+          setVisualizerInvertX(false);
+          setVisualizerInvertY(false);
+          setVisualizerScaleX(true);
+          setVisualizerScaleY(true);
+          setWaveFormPreset('default');
+          setWaveFormDouble(false);
+          setMaxAmplitude(1.36);
+          setWaveFreq(2.0);
+          setColorBackground(false);
+          setColorsFollowMusic(false);
+          setAutoOrbit(false);
+          setGridPreset('default');
+          setSelectedPalette(0);
+        }}
+      />
 
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -1567,16 +2256,34 @@ export default function Page() {
                 <Paintbrush className="w-5 h-5 group-hover:rotate-12 transition-transform" />
               </button>
               <button
-                onClick={() => setVibeModeEnabled(!vibeModeEnabled)}
+                onClick={() => {
+                  setVisualizerEnabled(!visualizerEnabled);
+                  if (!visualizerEnabled) {
+                    setVisualizerConfigOpen(true);
+                  }
+                }}
                 className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${
-                  vibeModeEnabled
+                  visualizerEnabled
                     ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
                     : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
                 }`}
-                title="Toggle Vibe Mode"
+                title="Toggle Visualizer"
               >
-                <Radio className={`w-5 h-5 ${vibeModeEnabled ? 'animate-pulse' : ''}`} />
+                <Sparkles className={`w-5 h-5 ${visualizerEnabled ? 'animate-pulse' : ''}`} />
               </button>
+              {visualizerEnabled && (
+                <button
+                  onClick={() => setVisualizerConfigOpen(!visualizerConfigOpen)}
+                  className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${
+                    visualizerConfigOpen
+                      ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                      : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
+                  }`}
+                  title="Visualizer Settings"
+                >
+                  <Square className="w-5 h-5" />
+                </button>
+              )}
             </div>
 
             <div className="hidden md:flex items-center gap-8">

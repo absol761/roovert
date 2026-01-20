@@ -125,11 +125,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Credits
 
-### Audio Visualizer Components
-
-The audio visualizer components (Sphere, Grid, Horse, Treadmill, Particles, Waves) are inspired by and based on the excellent work from [r3f-audio-visualizer](https://github.com/dcyoung/r3f-audio-visualizer) by [dcyoung](https://github.com/dcyoung).
-
-**Original Repository:** [https://github.com/dcyoung/r3f-audio-visualizer](https://github.com/dcyoung/r3f-audio-visualizer)  
 **License:** MIT License  
 **Author:** dcyoung
 

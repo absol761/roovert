@@ -62,6 +62,27 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
     domains: [],
   },
+  
+  // Webpack config for R3F compatibility
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      const path = require('path');
+      const fs = require('fs');
+      const reactPath = require.resolve('react');
+      const reactDomPath = require.resolve('react-dom');
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'react': reactPath,
+        'react-dom': reactDomPath,
+      };
+      const reactDomDir = path.dirname(reactDomPath);
+      const reactDomClientPath = path.join(reactDomDir, 'client.js');
+      if (fs.existsSync(reactDomClientPath)) {
+        config.resolve.alias['react-dom/client'] = reactDomClientPath;
+      }
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

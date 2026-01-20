@@ -3104,7 +3104,7 @@ textarea:focus {
 }
 
 /* ============================================
-   VIBE MODE - EDM Party Theme with Audio Visualizer
+   VIBE MODE - EDM Party Theme
    ============================================ */
 
 [data-look='vibe-mode'],
@@ -3252,18 +3252,4 @@ textarea:focus {
 [data-theme='vibe-mode'] button:hover {
   transform: scale(1.05);
   box-shadow: 0 0 30px var(--accent-glow), 0 0 60px rgba(255, 0, 255, 0.6);
-}
-
-/* Audio Visualizer Container - Centered Fullscreen */
-.vibe-audio-visualizer {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  pointer-events: none;
-}
-
-.vibe-audio-visualizer canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
 }
