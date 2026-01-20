@@ -1331,8 +1331,23 @@ function R3FVisualizer({
                   const wave = mode === 'wave_form' && waveFormDouble
                     ? (wave1 * 0.5 + wave2 * 0.5) * 0.5 + 0.5
                     : (wave1 * 0.6 + wave2 * 0.4) * 0.5 + 0.5;
-                  const amplitude = mode === 'wave_form' ? maxAmplitude : 0.8;
-                  newY = y + wave * amplitude * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
+                  const amplitude = mode === 'wave_form' ? maxAmplitude : 1.0;
+                  // For wave_form, create radial expansion wave effect
+                  if (mode === 'wave_form') {
+                    const baseRadius = Math.sqrt(x * x + y * y + z * z);
+                    const radialOffset = (wave - 0.5) * amplitude * 0.5; // Oscillate around base radius
+                    const newRadius = Math.max(0.1, baseRadius + radialOffset);
+                    if (baseRadius > 0) {
+                      const scale = newRadius / baseRadius;
+                      positions.setX(i, x * scale);
+                      positions.setY(i, y * scale);
+                      positions.setZ(i, z * scale);
+                    }
+                    // Update distance for color calculation
+                    distance = newRadius;
+                  } else {
+                    newY = y + wave * amplitude * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
+                  }
                 } else if (mode === 'grid') {
                   distance = Math.sqrt(x * x + z * z);
                   const wave1 = Math.sin(timeRef.current * speed * 2 + distance * 0.5);
@@ -1348,7 +1363,9 @@ function R3FVisualizer({
                   newY = wave * 2 * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
                 }
                 
-                positions.setY(i, newY);
+                if (mode !== 'wave_form') {
+                  positions.setY(i, newY);
+                }
                 const waveIntensity = Math.sin(timeRef.current * speed * 2 + distance * 0.5) * 0.5 + 0.5;
                 const color1RGB = hexToRgb(color1);
                 const color2RGB = hexToRgb(color2);
