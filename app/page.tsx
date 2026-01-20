@@ -1392,11 +1392,16 @@ function R3FVisualizer({
                 if (mode !== 'wave_form') {
                   positions.setY(i, newY);
                 }
+                
+                // Get current position for color calculation
+                const currentX = positions.getX(i);
+                const currentZ = positions.getZ(i);
+                
                 const waveIntensity = Math.sin(timeRef.current * speed * 2 + distance * 0.5) * 0.5 + 0.5;
                 const color1RGB = hexToRgb(color1);
                 const color2RGB = hexToRgb(color2);
                 const mix = waveIntensity;
-                const posVariation = (Math.sin(x * 0.5) + Math.cos(z * 0.5)) * 0.1;
+                const posVariation = (Math.sin(currentX * 0.5) + Math.cos(currentZ * 0.5)) * 0.1;
                 const finalMix = Math.max(0, Math.min(1, mix + posVariation));
                 colors.setX(i, (color1RGB.r + (color2RGB.r - color1RGB.r) * finalMix) / 255);
                 colors.setY(i, (color1RGB.g + (color2RGB.g - color1RGB.g) * finalMix) / 255);
