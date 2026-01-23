@@ -70,6 +70,7 @@ const LOOKS = [
   { id: 'colorway-sunset', name: 'Sunset Colorway', description: 'Warm sunset gradient palette', category: 'colorway' },
   { id: 'colorway-ocean', name: 'Ocean Colorway', description: 'Cool ocean blues and teals', category: 'colorway' },
   { id: 'colorway-forest', name: 'Forest Colorway', description: 'Natural greens and earth tones', category: 'colorway' },
+  { id: 'toybox', name: 'Toybox', description: 'Playful vibrant colors with visualizer', category: 'themed' },
 ];
 
 // More Models Modal Component
@@ -486,8 +487,8 @@ function GlobalFeedExpanded({ onClose }: { onClose: () => void }) {
             <Globe className="w-5 h-5 text-[var(--accent)]" />
             Global Feed
           </h2>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
           >
             <X className="w-4 h-4" />
@@ -990,21 +991,19 @@ function VisualizerConfigPanel({
             <div className="flex gap-2">
               <button
                 onClick={() => onWaveFormPresetChange('default')}
-                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${
-                  waveFormPreset === 'default'
-                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                    : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
-                }`}
+                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${waveFormPreset === 'default'
+                  ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                  : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
+                  }`}
               >
                 default
               </button>
               <button
                 onClick={() => onWaveFormPresetChange('custom')}
-                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${
-                  waveFormPreset === 'custom'
-                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                    : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
-                }`}
+                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${waveFormPreset === 'custom'
+                  ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                  : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
+                  }`}
               >
                 custom
               </button>
@@ -1013,14 +1012,12 @@ function VisualizerConfigPanel({
               <label className="text-xs text-[var(--muted)]">Double</label>
               <button
                 onClick={() => onWaveFormDoubleChange(!waveFormDouble)}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  waveFormDouble ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-                }`}
+                className={`relative w-12 h-6 rounded-full transition-colors ${waveFormDouble ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+                  }`}
               >
                 <div
-                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    waveFormDouble ? 'translate-x-6' : 'translate-x-0'
-                  }`}
+                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${waveFormDouble ? 'translate-x-6' : 'translate-x-0'
+                    }`}
                 />
               </button>
             </div>
@@ -1071,11 +1068,10 @@ function VisualizerConfigPanel({
                   onColor1Change(palette[0]);
                   onColor2Change(palette[1]);
                 }}
-                className={`relative aspect-square rounded-full border-2 transition-all ${
-                  selectedPalette === idx
-                    ? 'border-[var(--accent)] scale-110'
-                    : 'border-[var(--border)] hover:border-[var(--accent)]'
-                }`}
+                className={`relative aspect-square rounded-full border-2 transition-all ${selectedPalette === idx
+                  ? 'border-[var(--accent)] scale-110'
+                  : 'border-[var(--border)] hover:border-[var(--accent)]'
+                  }`}
                 style={{
                   background: `linear-gradient(135deg, ${palette[0]}, ${palette[1]})`,
                 }}
@@ -1089,14 +1085,12 @@ function VisualizerConfigPanel({
             <label className="text-xs text-[var(--muted)]">Color Background</label>
             <button
               onClick={() => onColorBackgroundChange(!colorBackground)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                colorBackground ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-              }`}
+              className={`relative w-12 h-6 rounded-full transition-colors ${colorBackground ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+                }`}
             >
               <div
-                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  colorBackground ? 'translate-x-6' : 'translate-x-0'
-                }`}
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${colorBackground ? 'translate-x-6' : 'translate-x-0'
+                  }`}
               />
             </button>
           </div>
@@ -1104,14 +1098,12 @@ function VisualizerConfigPanel({
             <label className="text-xs text-[var(--muted)]">Colors Follow Music</label>
             <button
               onClick={() => onColorsFollowMusicChange(!colorsFollowMusic)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                colorsFollowMusic ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-              }`}
+              className={`relative w-12 h-6 rounded-full transition-colors ${colorsFollowMusic ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+                }`}
             >
               <div
-                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  colorsFollowMusic ? 'translate-x-6' : 'translate-x-0'
-                }`}
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${colorsFollowMusic ? 'translate-x-6' : 'translate-x-0'
+                  }`}
               />
             </button>
           </div>
@@ -1119,14 +1111,12 @@ function VisualizerConfigPanel({
             <label className="text-xs text-[var(--muted)]">Auto Orbit Camera</label>
             <button
               onClick={() => onAutoOrbitChange(!autoOrbit)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                autoOrbit ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-              }`}
+              className={`relative w-12 h-6 rounded-full transition-colors ${autoOrbit ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+                }`}
             >
               <div
-                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  autoOrbit ? 'translate-x-6' : 'translate-x-0'
-                }`}
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${autoOrbit ? 'translate-x-6' : 'translate-x-0'
+                  }`}
               />
             </button>
           </div>
@@ -1140,11 +1130,10 @@ function VisualizerConfigPanel({
                 <button
                   key={preset}
                   onClick={() => onGridPresetChange(preset)}
-                  className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all capitalize ${
-                    gridPreset === preset
-                      ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
-                  }`}
+                  className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all capitalize ${gridPreset === preset
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
+                    }`}
                 >
                   {preset}
                 </button>
@@ -1201,7 +1190,7 @@ function R3FVisualizer({
 
   useEffect(() => {
     setIsMounted(true);
-    
+
     if (typeof window !== 'undefined') {
       Promise.all([
         import('@react-three/fiber'),
@@ -1211,12 +1200,12 @@ function R3FVisualizer({
         const { Canvas, useThree } = r3f;
         const { BufferAttribute, AdditiveBlending } = THREE;
         const { OrbitControls, useGLTF } = drei;
-        
+
         const Scene = () => {
           const { camera } = useThree();
           const [audioIntensity, setAudioIntensity] = useState(0);
           const timeRef = useRef(0);
-          
+
           useEffect(() => {
             const handleMouseMove = (e: MouseEvent) => {
               const intensity = Math.min(1, Math.sqrt(e.movementX ** 2 + e.movementY ** 2) / 50);
@@ -1225,7 +1214,7 @@ function R3FVisualizer({
             window.addEventListener('mousemove', handleMouseMove);
             return () => window.removeEventListener('mousemove', handleMouseMove);
           }, []);
-          
+
           useEffect(() => {
             if (camera) {
               if (mode === 'plane') {
@@ -1246,17 +1235,17 @@ function R3FVisualizer({
               }
             }
           }, [mode, camera]);
-          
+
           r3f.useFrame((state, delta) => {
             timeRef.current += delta * speed * 2;
           });
-          
+
           const renderVisualizer = () => {
             const particleCount = Math.floor(2000 * (0.5 + density));
             const pointsRef = useRef<any>(null);
             const [initialized, setInitialized] = useState(false);
             const originalPositionsRef = useRef<Float32Array | null>(null);
-            
+
             const hexToRgb = (hex: string) => {
               const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
               return result ? {
@@ -1265,13 +1254,13 @@ function R3FVisualizer({
                 b: parseInt(result[3], 16)
               } : { r: 255, g: 255, b: 255 };
             };
-            
+
             useEffect(() => {
               if (!pointsRef.current) return;
               setInitialized(false);
               const positions = new Float32Array(particleCount * 3);
               const colors = new Float32Array(particleCount * 3);
-              
+
               for (let i = 0; i < particleCount; i++) {
                 let x, y, z;
                 if (mode === 'wave_form') {
@@ -1305,39 +1294,39 @@ function R3FVisualizer({
                 colors[i * 3 + 1] = 1;
                 colors[i * 3 + 2] = 1;
               }
-              
+
               // Store original positions for wave_form mode
               if (mode === 'wave_form') {
                 originalPositionsRef.current = new Float32Array(positions);
               } else {
                 originalPositionsRef.current = null;
               }
-              
+
               const geometry = pointsRef.current.geometry;
               geometry.setAttribute('position', new BufferAttribute(positions, 3));
               geometry.setAttribute('color', new BufferAttribute(colors, 3));
               setInitialized(true);
             }, [particleCount, mode]);
-            
+
             r3f.useFrame(() => {
               if (!pointsRef.current || !initialized) return;
               const geometry = pointsRef.current.geometry;
               const positions = geometry.attributes.position;
               const colors = geometry.attributes.color;
-              
+
               for (let i = 0; i < particleCount; i++) {
                 const x = positions.getX(i);
                 const y = positions.getY(i);
                 const z = positions.getZ(i);
                 let newY = y;
                 let distance = 0;
-                
+
                 if (mode === 'wave_form') {
                   // For wave_form, use original positions as base
                   let baseX: number;
                   let baseY: number;
                   let baseZ: number;
-                  
+
                   if (originalPositionsRef.current) {
                     baseX = originalPositionsRef.current[i * 3];
                     baseY = originalPositionsRef.current[i * 3 + 1];
@@ -1347,17 +1336,17 @@ function R3FVisualizer({
                     baseY = y;
                     baseZ = z;
                   }
-                  
+
                   distance = Math.sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ);
                   const wave1 = Math.sin(timeRef.current * speed * waveFreq + distance * 0.5);
-                  const wave2 = mode === 'wave_form' && waveFormDouble 
+                  const wave2 = mode === 'wave_form' && waveFormDouble
                     ? Math.cos(timeRef.current * speed * waveFreq * 1.5 + distance * 0.3)
                     : Math.cos(timeRef.current * speed * 1.5 + distance * 0.3);
                   const wave = mode === 'wave_form' && waveFormDouble
                     ? (wave1 * 0.5 + wave2 * 0.5) * 0.5 + 0.5
                     : (wave1 * 0.6 + wave2 * 0.4) * 0.5 + 0.5;
                   const amplitude = mode === 'wave_form' ? maxAmplitude : 1.0;
-                  
+
                   // For wave_form, create radial expansion wave effect using original positions
                   if (mode === 'wave_form' && originalPositionsRef.current) {
                     const baseRadius = distance; // Already calculated from original positions
@@ -1391,15 +1380,15 @@ function R3FVisualizer({
                   const wave = (wave1 * 0.5 + wave2 * 0.25 + wave3 * 0.25) * 0.5 + 0.5;
                   newY = wave * 2 * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
                 }
-                
+
                 if (mode !== 'wave_form') {
                   positions.setY(i, newY);
                 }
-                
+
                 // Get current position for color calculation
                 const currentX = positions.getX(i);
                 const currentZ = positions.getZ(i);
-                
+
                 const waveIntensity = Math.sin(timeRef.current * speed * 2 + distance * 0.5) * 0.5 + 0.5;
                 const color1RGB = hexToRgb(color1);
                 const color2RGB = hexToRgb(color2);
@@ -1413,11 +1402,11 @@ function R3FVisualizer({
               positions.needsUpdate = true;
               colors.needsUpdate = true;
             });
-            
+
             if (mode === 'manhattan') {
               return null; // Don't render particles for manhattan mode
             }
-            
+
             return (
               <points ref={pointsRef} rotation={mode === 'plane' ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
                 <bufferGeometry />
@@ -1432,13 +1421,13 @@ function R3FVisualizer({
               </points>
             );
           };
-          
+
           // Enhanced procedural Manhattan with more detail
           const renderManhattan = () => {
             const buildings: React.ReactElement[] = [];
             const gridSize = 40; // Larger grid for more detail
             const spacing = 0.3;
-            
+
             // Create a more detailed and realistic Manhattan
             for (let x = 0; x < gridSize; x++) {
               for (let z = 0; z < gridSize; z++) {
@@ -1446,26 +1435,26 @@ function R3FVisualizer({
                 const centerZ = gridSize / 2;
                 const distFromCenter = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2);
                 const maxDist = Math.sqrt(centerX ** 2 + centerZ ** 2);
-                
+
                 // More realistic height distribution - taller in center, with some randomness
                 const heightVariation = 1 - (distFromCenter / maxDist) * 0.5;
                 const randomFactor = 0.3 + Math.random() * 0.7;
                 const height = 0.4 + heightVariation * randomFactor * 5;
-                
+
                 // Skip very short buildings to create more realistic cityscape
                 if (height < 0.6) continue;
-                
+
                 const posX = (x - gridSize / 2) * spacing;
                 const posZ = (z - gridSize / 2) * spacing;
-                
+
                 // More realistic gray colors with variation
                 const grayBase = 0.3 + Math.random() * 0.3;
                 const color = `rgb(${Math.floor(grayBase * 255)}, ${Math.floor(grayBase * 255)}, ${Math.floor(grayBase * 255)})`;
-                
+
                 // Building width/depth variation for more realism
                 const width = spacing * (0.6 + Math.random() * 0.4);
                 const depth = spacing * (0.6 + Math.random() * 0.4);
-                
+
                 buildings.push(
                   <mesh key={`building-${x}-${z}`} position={[posX, height / 2, posZ]}>
                     <boxGeometry args={[width, height, depth]} />
@@ -1474,7 +1463,7 @@ function R3FVisualizer({
                 );
               }
             }
-            
+
             // Add ground plane
             buildings.push(
               <mesh key="ground" rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
@@ -1482,10 +1471,10 @@ function R3FVisualizer({
                 <meshStandardMaterial color="#0f0f0f" />
               </mesh>
             );
-            
+
             return <group>{buildings}</group>;
           };
-          
+
           return (
             <>
               <color attach="background" args={mode === 'manhattan' ? ['#0a0a0a'] : ['#010204']} />
@@ -1528,7 +1517,7 @@ function R3FVisualizer({
             </>
           );
         };
-        
+
         const Visualizer = () => (
           <Canvas
             key={mode}
@@ -1544,14 +1533,14 @@ function R3FVisualizer({
             <Scene />
           </Canvas>
         );
-        
+
         setVisualizerCanvas(() => Visualizer);
       }).catch((err) => {
         console.error('Failed to load R3F:', err);
       });
     }
   }, [mode, speed, color1, color2, density, invertX, invertY, scaleX, scaleY, maxAmplitude, waveFreq, waveFormDouble, autoOrbit]);
-  
+
   if (!isMounted || !VisualizerCanvas) {
     return (
       <div className="fixed inset-0 z-40 pointer-events-none bg-[#010204] flex items-center justify-center">
@@ -1559,7 +1548,7 @@ function R3FVisualizer({
       </div>
     );
   }
-  
+
   const Canvas = VisualizerCanvas;
   return (
     <div className="fixed inset-0 z-40 pointer-events-auto">
@@ -1625,7 +1614,7 @@ export default function Page() {
   const [gridPreset, setGridPreset] = useState<'default' | 'bands' | 'custom'>('default');
   // Palette selection
   const [selectedPalette, setSelectedPalette] = useState(0);
-  
+
   // Track typing and mouse movement for interaction mode
   useEffect(() => {
     if (!vibeModeEnabled || vibeModeType !== 'interaction') {
@@ -1640,7 +1629,7 @@ export default function Page() {
     const handleTyping = () => {
       interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + 0.3);
       (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
-      
+
       clearTimeout(typingTimeout);
       typingTimeout = setTimeout(() => {
         // Decay after typing stops
@@ -1653,7 +1642,7 @@ export default function Page() {
       const intensity = Math.min(1, speed / 50); // Normalize to 0-1
       interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + intensity * 0.2);
       (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
-      
+
       clearTimeout(mouseTimeout);
       mouseTimeout = setTimeout(() => {
         // Decay after mouse stops
@@ -2207,7 +2196,7 @@ export default function Page() {
     const handleTyping = () => {
       interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + 0.3);
       (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
-      
+
       clearTimeout(typingTimeout);
       typingTimeout = setTimeout(() => {
         // Decay after typing stops
@@ -2220,7 +2209,7 @@ export default function Page() {
       const intensity = Math.min(1, speed / 50); // Normalize to 0-1
       interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + intensity * 0.2);
       (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
-      
+
       clearTimeout(mouseTimeout);
       mouseTimeout = setTimeout(() => {
         // Decay after mouse stops
@@ -2259,7 +2248,7 @@ export default function Page() {
 
       {/* R3F Visualizer */}
       {visualizerEnabled && (
-        <R3FVisualizer 
+        <R3FVisualizer
           mode={visualizerMode}
           speed={visualizerSpeed}
           color1={visualizerColor1}
@@ -2275,7 +2264,7 @@ export default function Page() {
           autoOrbit={autoOrbit}
         />
       )}
-      
+
       {/* Visualizer Configuration Panel */}
       <VisualizerConfigPanel
         isOpen={visualizerConfigOpen}
@@ -2351,12 +2340,13 @@ export default function Page() {
             <div className="flex items-center gap-6">
               <button
                 onClick={() => setIsChatMode(false)}
-                className={`text-2xl font-bold hover:opacity-80 transition-opacity drop-shadow-[0_0_8px_rgba(var(--accent-rgb,0,128,128),0.5)] ${
-                  look === 'vibe-mode' 
-                    ? 'text-white font-black tracking-wider uppercase' 
+                className={`text-2xl font-bold hover:opacity-80 transition-opacity drop-shadow-[0_0_8px_rgba(var(--accent-rgb,0,128,128),0.5)] ${look === 'vibe-mode'
+                  ? 'text-white font-black tracking-wider uppercase'
+                  : look === 'toybox'
+                    ? 'text-black drop-shadow-none'
                     : 'bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent'
-                }`}
-                style={{ 
+                  }`}
+                style={{
                   textShadow: look === 'vibe-mode' ? '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 20, 147, 0.6), 0 0 60px rgba(204, 255, 0, 0.4)' : undefined,
                   fontFamily: look === 'vibe-mode' ? '"Arial Black", "Impact", sans-serif' : undefined
                 }}
@@ -2384,34 +2374,36 @@ export default function Page() {
               >
                 <Paintbrush className="w-5 h-5 group-hover:rotate-12 transition-transform" />
               </button>
-              <button
-                onClick={() => {
-                  setVisualizerEnabled(!visualizerEnabled);
-                  if (!visualizerEnabled) {
-                    setVisualizerConfigOpen(true);
-                  }
-                }}
-                className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${
-                  visualizerEnabled
-                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                    : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
-                }`}
-                title="Toggle Visualizer"
-              >
-                <Sparkles className={`w-5 h-5 ${visualizerEnabled ? 'animate-pulse' : ''}`} />
-              </button>
-              {visualizerEnabled && (
-                <button
-                  onClick={() => setVisualizerConfigOpen(!visualizerConfigOpen)}
-                  className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${
-                    visualizerConfigOpen
+              {look === 'toybox' && (
+                <>
+                  <button
+                    onClick={() => {
+                      setVisualizerEnabled(!visualizerEnabled);
+                      if (!visualizerEnabled) {
+                        setVisualizerConfigOpen(true);
+                      }
+                    }}
+                    className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${visualizerEnabled
                       ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
                       : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
-                  }`}
-                  title="Visualizer Settings"
-                >
-                  <Square className="w-5 h-5" />
-                </button>
+                      }`}
+                    title="Toggle Visualizer"
+                  >
+                    <Sparkles className={`w-5 h-5 ${visualizerEnabled ? 'animate-pulse' : ''}`} />
+                  </button>
+                  {visualizerEnabled && (
+                    <button
+                      onClick={() => setVisualizerConfigOpen(!visualizerConfigOpen)}
+                      className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${visualizerConfigOpen
+                        ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                        : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
+                        }`}
+                      title="Visualizer Settings"
+                    >
+                      <Square className="w-5 h-5" />
+                    </button>
+                  )}
+                </>
               )}
             </div>
 
@@ -2501,7 +2493,7 @@ export default function Page() {
 
       {/* Main Content Area */}
       <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-hidden">
-        
+
         {/* Global Feed - Expandable Section */}
         <AnimatePresence>
           {isGlobalFeedOpen && (
@@ -2549,7 +2541,7 @@ export default function Page() {
                   <button
                     key={idx}
                     onClick={() => injectPrompt(prompt)}
-                    className="p-4 text-xs text-left border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:bg-[var(--surface)] transition-all text-[var(--muted)] hover:text-[var(--foreground)]"
+                    className="p-4 text-xs text-left border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:bg-[var(--surface)] transition-all text-white hover:text-[var(--foreground)]"
                   >
                     {prompt}
                   </button>
