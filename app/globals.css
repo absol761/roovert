@@ -3421,67 +3421,71 @@ textarea:focus {
   inherits: false;
 }
 
-/* Google Gemini-style rotating conic gradient border - OUTSIDE the box */
+/* Traveling glow effect along the border - no visible border */
 .gemini-rainbow-border {
   position: relative;
   border-radius: 24px;
   background: var(--panel-bg);
-  border: none;
-  --gemini-angle: 0deg;
-  /* Use theme colors instead of Google's hardcoded colors */
-  --gemini-color-1: var(--foreground);
-  --gemini-color-2: var(--accent);
-  --gemini-color-3: var(--muted-strong);
-  --gemini-color-4: color-mix(in srgb, var(--accent) 70%, var(--foreground) 30%);
+  --glow-color: var(--accent);
+  --glow-opacity: 0.4;
 }
 
-/* Rotating conic gradient border - positioned OUTSIDE */
+/* Traveling glow - positioned behind the input */
 .gemini-rainbow-border::before {
   content: '';
   position: absolute;
-  inset: -3px;
-  border-radius: 26px;
-  background: conic-gradient(
-    from var(--gemini-angle),
-    var(--gemini-color-1) 0deg,
-    var(--gemini-color-2) 90deg,
-    var(--gemini-color-3) 180deg,
-    var(--gemini-color-4) 270deg,
-    var(--gemini-color-1) 360deg
+  inset: -4px;
+  border-radius: 28px;
+  background: radial-gradient(
+    circle 60px at var(--glow-x, 0%) var(--glow-y, 0%),
+    var(--glow-color) 0%,
+    transparent 70%
   );
-  -webkit-mask: 
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  -webkit-mask-composite: exclude;
-  mask: 
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  padding: 3px;
-  animation: gemini-rotate 3s linear infinite;
-  opacity: 0.7;
-  z-index: -1;
+  opacity: var(--glow-opacity);
+  z-index: 0;
   pointer-events: none;
+  filter: blur(8px);
+  animation: gemini-glow-travel 4s linear infinite;
 }
 
 .gemini-rainbow-border:focus-within::before {
-  opacity: 1;
-  animation-duration: 2s;
+  --glow-opacity: 0.7;
+  filter: blur(6px);
+  animation-duration: 3s;
 }
 
-@property --gemini-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
+@property --glow-x {
+  syntax: '<percentage>';
+  initial-value: 0%;
   inherits: false;
 }
 
-@keyframes gemini-rotate {
+@property --glow-y {
+  syntax: '<percentage>';
+  initial-value: 0%;
+  inherits: false;
+}
+
+@keyframes gemini-glow-travel {
   0% {
-    --gemini-angle: 0deg;
+    --glow-x: 0%;
+    --glow-y: 0%;
+  }
+  25% {
+    --glow-x: 100%;
+    --glow-y: 0%;
+  }
+  50% {
+    --glow-x: 100%;
+    --glow-y: 100%;
+  }
+  75% {
+    --glow-x: 0%;
+    --glow-y: 100%;
   }
   100% {
-    --gemini-angle: 360deg;
+    --glow-x: 0%;
+    --glow-y: 0%;
   }
 }
 
