@@ -1,7 +1,7 @@
 // Admin endpoint to view unique visitor statistics
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/app/lib/db';
-import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
+import { applyRateLimit, incrementRateLimit } from '../../../lib/security/rateLimit';
 
 /**
  * GET /api/admin/visitors

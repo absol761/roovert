@@ -21,7 +21,7 @@ interface Model {
 }
 
 const MODELS: Model[] = [
-  { id: 'ooverta', name: 'Ooverta (Llama 4 Scout)', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Standard', description: 'The flagship Llama 4 model. Multimodal & ultra-precise.' },
+  { id: 'ooverta', name: 'Ooverta', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Standard', description: 'The flagship Llama 4 model. Multimodal & ultra-precise.' },
   { id: 'llama-4-scout', name: 'Llama 4 Scout', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Standard', description: 'Meta\'s latest mixture-of-experts model.' },
   { id: 'llama-3.3-70b', name: 'Llama 3.3 70B', apiId: 'llama-3.3-70b-versatile', category: 'Advanced', description: 'The peak of Llama 3 performance.' },
   { id: 'llama-3.1-8b', name: 'Llama 3.1 8B', apiId: 'llama-3.1-8b-instant', category: 'Standard', description: 'Extremely fast and lightweight.' },

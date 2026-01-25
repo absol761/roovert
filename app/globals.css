@@ -3421,146 +3421,73 @@ textarea:focus {
   inherits: false;
 }
 
-/* Google Lens-style shimmering gradient effect */
+/* Google Gemini-style rotating conic gradient border */
 .gemini-rainbow-border {
   position: relative;
   border-radius: 24px;
   background: var(--panel-bg);
-  overflow: hidden;
-  --lens-blue: rgba(66, 133, 244, 0.15);
-  --lens-red: rgba(234, 67, 53, 0.15);
-  --lens-yellow: rgba(251, 188, 5, 0.15);
-  --lens-green: rgba(52, 168, 83, 0.15);
+  border: 2px solid transparent;
+  --gemini-angle: 0deg;
+  /* Use theme colors instead of Google's hardcoded colors */
+  --gemini-color-1: var(--foreground);
+  --gemini-color-2: var(--accent);
+  --gemini-color-3: var(--muted-strong);
+  --gemini-color-4: color-mix(in srgb, var(--accent) 70%, var(--foreground) 30%);
 }
 
-/* Shimmering gradient wash - flows across like a wave */
+/* Rotating conic gradient border */
 .gemini-rainbow-border::before {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: -2px;
   border-radius: 24px;
-  background: 
-    linear-gradient(
-      90deg,
-      transparent 0%,
-      var(--lens-blue) 20%,
-      var(--lens-red) 40%,
-      var(--lens-yellow) 60%,
-      var(--lens-green) 80%,
-      transparent 100%
-    );
-  background-size: 200% 100%;
-  animation: lens-shimmer 3s ease-in-out infinite;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--gemini-angle),
+    var(--gemini-color-1) 0deg,
+    var(--gemini-color-2) 90deg,
+    var(--gemini-color-3) 180deg,
+    var(--gemini-color-4) 270deg,
+    var(--gemini-color-1) 360deg
+  );
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  -webkit-mask-composite: exclude;
+  mask: 
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: gemini-rotate 3s linear infinite;
   opacity: 0.6;
-  z-index: 1;
+  z-index: 0;
   pointer-events: none;
-  filter: blur(1px);
 }
 
 .gemini-rainbow-border:focus-within::before {
-  opacity: 0.9;
-  animation-duration: 2s;
-  filter: blur(0.5px);
-}
-
-/* Neural glitter particles overlay */
-.gemini-rainbow-border::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 24px;
-  background-image: 
-    radial-gradient(circle 2px at 20% 30%, rgba(255, 255, 255, 0.8) 0%, transparent 50%),
-    radial-gradient(circle 1.5px at 60% 20%, rgba(255, 255, 255, 0.6) 0%, transparent 50%),
-    radial-gradient(circle 2px at 80% 60%, rgba(255, 255, 255, 0.7) 0%, transparent 50%),
-    radial-gradient(circle 1px at 40% 80%, rgba(255, 255, 255, 0.5) 0%, transparent 50%),
-    radial-gradient(circle 1.5px at 10% 70%, rgba(255, 255, 255, 0.6) 0%, transparent 50%),
-    radial-gradient(circle 2px at 90% 40%, rgba(255, 255, 255, 0.7) 0%, transparent 50%),
-    radial-gradient(circle 1px at 70% 10%, rgba(255, 255, 255, 0.5) 0%, transparent 50%),
-    radial-gradient(circle 1.5px at 30% 90%, rgba(255, 255, 255, 0.6) 0%, transparent 50%);
-  background-size: 100% 100%;
-  animation: lens-glitter 4s ease-in-out infinite;
-  opacity: 0;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.gemini-rainbow-border:focus-within::after {
   opacity: 1;
-  animation-duration: 3s;
+  animation-duration: 2s;
 }
 
-/* Pulsating glow outline */
-.gemini-rainbow-border {
-  box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.4);
-  animation: lens-pulse 2s ease-in-out infinite;
+@property --gemini-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
 
-.gemini-rainbow-border:focus-within {
-  animation: lens-pulse-focus 1.5s ease-in-out infinite;
-  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.3), 0 0 20px rgba(66, 133, 244, 0.2);
-}
-
-/* Background dimming overlay */
-.gemini-rainbow-border:focus-within {
-  position: relative;
-}
-
-.gemini-rainbow-border:focus-within::before {
-  background: 
-    linear-gradient(
-      90deg,
-      transparent 0%,
-      var(--lens-blue) 20%,
-      var(--lens-red) 40%,
-      var(--lens-yellow) 60%,
-      var(--lens-green) 80%,
-      transparent 100%
-    ),
-    rgba(0, 0, 0, 0.1);
-  background-size: 200% 100%, 100% 100%;
-}
-
-@keyframes lens-shimmer {
+@keyframes gemini-rotate {
   0% {
-    background-position: -200% 0;
+    --gemini-angle: 0deg;
   }
   100% {
-    background-position: 200% 0;
-  }
-}
-
-@keyframes lens-glitter {
-  0%, 100% {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-}
-
-@keyframes lens-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 0 1px rgba(66, 133, 244, 0.4);
-  }
-}
-
-@keyframes lens-pulse-focus {
-  0%, 100% {
-    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.3), 0 0 20px rgba(66, 133, 244, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.5), 0 0 30px rgba(66, 133, 244, 0.4);
+    --gemini-angle: 360deg;
   }
 }
 
 .gemini-rainbow-border > * {
   position: relative;
-  z-index: 3;
+  z-index: 1;
   background: var(--panel-bg);
+  border-radius: 22px;
 }
