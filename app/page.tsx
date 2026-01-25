@@ -7,6 +7,8 @@ import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTrian
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import { useMobile } from './hooks/useMobile';
+import { shouldHideOpenRouterModels } from './lib/rateLimit';
 // Removed ConsentBanner import - component doesn't exist
 // Removed NeuralNoise and AudioVisualizer imports - not needed for R3F visualizer
 
@@ -23,6 +25,23 @@ const MODELS: Model[] = [
   { id: 'llama-4-scout', name: 'Llama 4 Scout', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Standard', description: 'Meta\'s latest mixture-of-experts model.' },
   { id: 'llama-3.3-70b', name: 'Llama 3.3 70B', apiId: 'llama-3.3-70b-versatile', category: 'Advanced', description: 'The peak of Llama 3 performance.' },
   { id: 'llama-3.1-8b', name: 'Llama 3.1 8B', apiId: 'llama-3.1-8b-instant', category: 'Standard', description: 'Extremely fast and lightweight.' },
+];
+
+// OpenRouter Models - Best models available
+const OPENROUTER_MODELS: Model[] = [
+  { id: 'gpt-4o', name: 'GPT-4o', apiId: 'openai/gpt-4o', category: 'Premium', description: 'OpenAI\'s most advanced model with multimodal capabilities.' },
+  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', apiId: 'openai/gpt-4-turbo', category: 'Premium', description: 'Faster and more capable GPT-4 variant.' },
+  { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', apiId: 'anthropic/claude-3.5-sonnet', category: 'Premium', description: 'Anthropic\'s most capable model for complex reasoning.' },
+  { id: 'claude-3-opus', name: 'Claude 3 Opus', apiId: 'anthropic/claude-3-opus', category: 'Premium', description: 'Anthropic\'s flagship model for advanced tasks.' },
+  { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', apiId: 'anthropic/claude-3-sonnet', category: 'Advanced', description: 'Balanced performance and speed from Anthropic.' },
+  { id: 'claude-3-haiku', name: 'Claude 3 Haiku', apiId: 'anthropic/claude-3-haiku', category: 'Standard', description: 'Fast and efficient Claude model.' },
+  { id: 'gemini-pro', name: 'Gemini Pro', apiId: 'google/gemini-pro', category: 'Advanced', description: 'Google\'s advanced multimodal AI model.' },
+  { id: 'llama-3.1-405b', name: 'Llama 3.1 405B', apiId: 'meta-llama/llama-3.1-405b-instruct', category: 'Premium', description: 'Meta\'s largest and most capable open model.' },
+  { id: 'llama-3.1-70b', name: 'Llama 3.1 70B', apiId: 'meta-llama/llama-3.1-70b-instruct', category: 'Advanced', description: 'High-performance open-source model from Meta.' },
+  { id: 'mistral-large', name: 'Mistral Large', apiId: 'mistralai/mistral-large', category: 'Premium', description: 'Mistral\'s flagship model for complex reasoning.' },
+  { id: 'mixtral-8x7b', name: 'Mixtral 8x7B', apiId: 'mistralai/mixtral-8x7b-instruct', category: 'Advanced', description: 'High-quality mixture-of-experts model.' },
+  { id: 'qwen-2.5-72b', name: 'Qwen 2.5 72B', apiId: 'qwen/qwen-2.5-72b-instruct', category: 'Advanced', description: 'Alibaba\'s powerful multilingual model.' },
+  { id: 'deepseek-chat', name: 'DeepSeek Chat', apiId: 'deepseek/deepseek-chat', category: 'Standard', description: 'Fast and efficient reasoning model.' },
 ];
 
 const MORE_MODELS: Model[] = [];
@@ -48,9 +67,8 @@ const LAYOUTS = [
 
 // Looks - Modern 2025-2026 design trends
 const LOOKS = [
-  { id: 'vibe-mode', name: 'Vibe Mode', description: 'EDM party vibes with audio visualizer', category: 'themed' },
   { id: 'neominimal', name: 'Neo-Minimal', description: 'Minimalism with depth and soft shadows', category: 'essential' },
-  { id: 'monochrome', name: 'Monochrome', description: 'High contrast single-color design', category: 'essential' },
+  { id: 'monochrome', name: 'Monochrome', description: 'Soft monochrome design', category: 'essential' },
   { id: 'depth', name: 'Depth Field', description: '3D layers with realistic shadows', category: 'modern' },
   { id: 'bold', name: 'Bold Typography', description: 'Experimental fonts with maximum impact', category: 'modern' },
   { id: 'sustainable', name: 'Sustainable', description: 'Eco-friendly green design palette', category: 'modern' },
@@ -70,6 +88,7 @@ const LOOKS = [
   { id: 'colorway-sunset', name: 'Sunset Colorway', description: 'Warm sunset gradient palette', category: 'colorway' },
   { id: 'colorway-ocean', name: 'Ocean Colorway', description: 'Cool ocean blues and teals', category: 'colorway' },
   { id: 'colorway-forest', name: 'Forest Colorway', description: 'Natural greens and earth tones', category: 'colorway' },
+  { id: 'toybox', name: 'Toybox', description: 'Playful vibrant colors with visualizer', category: 'themed' },
 ];
 
 // More Models Modal Component
@@ -486,8 +505,8 @@ function GlobalFeedExpanded({ onClose }: { onClose: () => void }) {
             <Globe className="w-5 h-5 text-[var(--accent)]" />
             Global Feed
           </h2>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
           >
             <X className="w-4 h-4" />
@@ -576,77 +595,43 @@ function Widgets() {
   );
 }
 
-// Real-time Stats Component
+// Real-time Stats Component - Shows only number of users (Initialize Chat clicks)
 function LiveStats() {
-  const [stats, setStats] = useState({
-    queriesProcessed: 0,
-    uniqueMinds: 0,
-    totalVisitors: 0,
-    accuracy: '0.00',
-    uptime: '99.9%',
-  });
+  const [userCount, setUserCount] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
-    // The tracker.js script handles visitor tracking automatically
-    // This component just fetches and displays stats
-
     const fetchStats = async () => {
       try {
         const response = await fetch('/api/stats');
         if (!response.ok) throw new Error('Stats API not available');
         const data = await response.json();
-        // Ensure minimum values
-        setStats({
-          queriesProcessed: Math.max(data.queriesProcessed || 0, 250),
-          uniqueMinds: Math.max(data.uniqueMinds || 0, 50),
-          totalVisitors: Math.max(data.totalVisitors || data.uniqueMinds || 0, 50),
-          accuracy: data.accuracy || '99.4',
-          uptime: data.uptime || '99.9%',
-        });
+        setUserCount(data.users || data.totalUsers || 0);
       } catch (error) {
-        // Silently handle stats errors - don't spam console
-        // Set minimum values on error
-        setStats(prev => ({
-          ...prev,
-          uniqueMinds: Math.max(prev.uniqueMinds, 50),
-          totalVisitors: Math.max(prev.totalVisitors, 50),
-        }));
+        // Silently handle stats errors
       }
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 5000);
+    const interval = setInterval(fetchStats, 10000); // Check every 10 seconds
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="fixed bottom-6 left-6 z-50">
+    <div className="fixed top-6 right-6 z-50">
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="mb-4 bg-[var(--hud-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-4 shadow-2xl min-w-[240px]"
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="mb-4 bg-[var(--hud-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-4 shadow-2xl min-w-[200px]"
           >
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-[var(--muted)]">People who've used Roovert</span>
-                <span className="text-[var(--accent)] font-mono font-bold">
-                  {(stats.totalVisitors || stats.uniqueMinds).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-[var(--muted)]">Queries</span>
-                <span className="text-[var(--accent)] font-mono font-bold">
-                  {stats.queriesProcessed.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="text-[var(--muted)]">Accuracy</span>
-                <span className="text-[var(--accent)] font-mono font-bold">{stats.accuracy}%</span>
-              </div>
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <span className="text-[var(--muted)]">Users</span>
+              <span className="text-[var(--accent)] font-mono font-bold">
+                {userCount.toLocaleString()}
+              </span>
             </div>
           </motion.div>
         )}
@@ -656,11 +641,11 @@ function LiveStats() {
         onClick={() => setIsExpanded(!isExpanded)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="flex items-center gap-2 bg-[var(--chip-bg)] backdrop-blur-xl border border-[var(--border)] rounded-full px-4 py-2 shadow-lg hover:bg-[var(--surface-strong)] transition-colors"
+        className="flex items-center gap-2 bg-[var(--chip-bg)] backdrop-blur-xl border border-[var(--border)] rounded-full px-3 py-1.5 shadow-lg hover:bg-[var(--surface-strong)] transition-colors"
       >
-        <div className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse"></div>
-        <span className="text-xs text-[var(--muted-strong)] uppercase tracking-wider font-mono">
-          System Status {isExpanded ? '[-]' : '[+]'}
+        <Users className="w-3 h-3 text-[var(--accent)]" />
+        <span className="text-xs text-[var(--muted-strong)] font-mono">
+          {userCount.toLocaleString()}
         </span>
       </motion.button>
     </div>
@@ -990,21 +975,19 @@ function VisualizerConfigPanel({
             <div className="flex gap-2">
               <button
                 onClick={() => onWaveFormPresetChange('default')}
-                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${
-                  waveFormPreset === 'default'
-                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                    : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
-                }`}
+                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${waveFormPreset === 'default'
+                  ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                  : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
+                  }`}
               >
                 default
               </button>
               <button
                 onClick={() => onWaveFormPresetChange('custom')}
-                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${
-                  waveFormPreset === 'custom'
-                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                    : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
-                }`}
+                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${waveFormPreset === 'custom'
+                  ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                  : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
+                  }`}
               >
                 custom
               </button>
@@ -1013,14 +996,12 @@ function VisualizerConfigPanel({
               <label className="text-xs text-[var(--muted)]">Double</label>
               <button
                 onClick={() => onWaveFormDoubleChange(!waveFormDouble)}
-                className={`relative w-12 h-6 rounded-full transition-colors ${
-                  waveFormDouble ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-                }`}
+                className={`relative w-12 h-6 rounded-full transition-colors ${waveFormDouble ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+                  }`}
               >
                 <div
-                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    waveFormDouble ? 'translate-x-6' : 'translate-x-0'
-                  }`}
+                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${waveFormDouble ? 'translate-x-6' : 'translate-x-0'
+                    }`}
                 />
               </button>
             </div>
@@ -1071,11 +1052,10 @@ function VisualizerConfigPanel({
                   onColor1Change(palette[0]);
                   onColor2Change(palette[1]);
                 }}
-                className={`relative aspect-square rounded-full border-2 transition-all ${
-                  selectedPalette === idx
-                    ? 'border-[var(--accent)] scale-110'
-                    : 'border-[var(--border)] hover:border-[var(--accent)]'
-                }`}
+                className={`relative aspect-square rounded-full border-2 transition-all ${selectedPalette === idx
+                  ? 'border-[var(--accent)] scale-110'
+                  : 'border-[var(--border)] hover:border-[var(--accent)]'
+                  }`}
                 style={{
                   background: `linear-gradient(135deg, ${palette[0]}, ${palette[1]})`,
                 }}
@@ -1089,14 +1069,12 @@ function VisualizerConfigPanel({
             <label className="text-xs text-[var(--muted)]">Color Background</label>
             <button
               onClick={() => onColorBackgroundChange(!colorBackground)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                colorBackground ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-              }`}
+              className={`relative w-12 h-6 rounded-full transition-colors ${colorBackground ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+                }`}
             >
               <div
-                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  colorBackground ? 'translate-x-6' : 'translate-x-0'
-                }`}
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${colorBackground ? 'translate-x-6' : 'translate-x-0'
+                  }`}
               />
             </button>
           </div>
@@ -1104,14 +1082,12 @@ function VisualizerConfigPanel({
             <label className="text-xs text-[var(--muted)]">Colors Follow Music</label>
             <button
               onClick={() => onColorsFollowMusicChange(!colorsFollowMusic)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                colorsFollowMusic ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-              }`}
+              className={`relative w-12 h-6 rounded-full transition-colors ${colorsFollowMusic ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+                }`}
             >
               <div
-                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  colorsFollowMusic ? 'translate-x-6' : 'translate-x-0'
-                }`}
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${colorsFollowMusic ? 'translate-x-6' : 'translate-x-0'
+                  }`}
               />
             </button>
           </div>
@@ -1119,14 +1095,12 @@ function VisualizerConfigPanel({
             <label className="text-xs text-[var(--muted)]">Auto Orbit Camera</label>
             <button
               onClick={() => onAutoOrbitChange(!autoOrbit)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${
-                autoOrbit ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-              }`}
+              className={`relative w-12 h-6 rounded-full transition-colors ${autoOrbit ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
+                }`}
             >
               <div
-                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                  autoOrbit ? 'translate-x-6' : 'translate-x-0'
-                }`}
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${autoOrbit ? 'translate-x-6' : 'translate-x-0'
+                  }`}
               />
             </button>
           </div>
@@ -1140,11 +1114,10 @@ function VisualizerConfigPanel({
                 <button
                   key={preset}
                   onClick={() => onGridPresetChange(preset)}
-                  className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all capitalize ${
-                    gridPreset === preset
-                      ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
-                  }`}
+                  className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all capitalize ${gridPreset === preset
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
+                    }`}
                 >
                   {preset}
                 </button>
@@ -1201,7 +1174,7 @@ function R3FVisualizer({
 
   useEffect(() => {
     setIsMounted(true);
-    
+
     if (typeof window !== 'undefined') {
       Promise.all([
         import('@react-three/fiber'),
@@ -1211,12 +1184,12 @@ function R3FVisualizer({
         const { Canvas, useThree } = r3f;
         const { BufferAttribute, AdditiveBlending } = THREE;
         const { OrbitControls, useGLTF } = drei;
-        
+
         const Scene = () => {
           const { camera } = useThree();
           const [audioIntensity, setAudioIntensity] = useState(0);
           const timeRef = useRef(0);
-          
+
           useEffect(() => {
             const handleMouseMove = (e: MouseEvent) => {
               const intensity = Math.min(1, Math.sqrt(e.movementX ** 2 + e.movementY ** 2) / 50);
@@ -1225,7 +1198,7 @@ function R3FVisualizer({
             window.addEventListener('mousemove', handleMouseMove);
             return () => window.removeEventListener('mousemove', handleMouseMove);
           }, []);
-          
+
           useEffect(() => {
             if (camera) {
               if (mode === 'plane') {
@@ -1246,17 +1219,17 @@ function R3FVisualizer({
               }
             }
           }, [mode, camera]);
-          
+
           r3f.useFrame((state, delta) => {
             timeRef.current += delta * speed * 2;
           });
-          
+
           const renderVisualizer = () => {
             const particleCount = Math.floor(2000 * (0.5 + density));
             const pointsRef = useRef<any>(null);
             const [initialized, setInitialized] = useState(false);
             const originalPositionsRef = useRef<Float32Array | null>(null);
-            
+
             const hexToRgb = (hex: string) => {
               const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
               return result ? {
@@ -1265,13 +1238,13 @@ function R3FVisualizer({
                 b: parseInt(result[3], 16)
               } : { r: 255, g: 255, b: 255 };
             };
-            
+
             useEffect(() => {
               if (!pointsRef.current) return;
               setInitialized(false);
               const positions = new Float32Array(particleCount * 3);
               const colors = new Float32Array(particleCount * 3);
-              
+
               for (let i = 0; i < particleCount; i++) {
                 let x, y, z;
                 if (mode === 'wave_form') {
@@ -1305,39 +1278,39 @@ function R3FVisualizer({
                 colors[i * 3 + 1] = 1;
                 colors[i * 3 + 2] = 1;
               }
-              
+
               // Store original positions for wave_form mode
               if (mode === 'wave_form') {
                 originalPositionsRef.current = new Float32Array(positions);
               } else {
                 originalPositionsRef.current = null;
               }
-              
+
               const geometry = pointsRef.current.geometry;
               geometry.setAttribute('position', new BufferAttribute(positions, 3));
               geometry.setAttribute('color', new BufferAttribute(colors, 3));
               setInitialized(true);
             }, [particleCount, mode]);
-            
+
             r3f.useFrame(() => {
               if (!pointsRef.current || !initialized) return;
               const geometry = pointsRef.current.geometry;
               const positions = geometry.attributes.position;
               const colors = geometry.attributes.color;
-              
+
               for (let i = 0; i < particleCount; i++) {
                 const x = positions.getX(i);
                 const y = positions.getY(i);
                 const z = positions.getZ(i);
                 let newY = y;
                 let distance = 0;
-                
+
                 if (mode === 'wave_form') {
                   // For wave_form, use original positions as base
                   let baseX: number;
                   let baseY: number;
                   let baseZ: number;
-                  
+
                   if (originalPositionsRef.current) {
                     baseX = originalPositionsRef.current[i * 3];
                     baseY = originalPositionsRef.current[i * 3 + 1];
@@ -1347,17 +1320,17 @@ function R3FVisualizer({
                     baseY = y;
                     baseZ = z;
                   }
-                  
+
                   distance = Math.sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ);
                   const wave1 = Math.sin(timeRef.current * speed * waveFreq + distance * 0.5);
-                  const wave2 = mode === 'wave_form' && waveFormDouble 
+                  const wave2 = mode === 'wave_form' && waveFormDouble
                     ? Math.cos(timeRef.current * speed * waveFreq * 1.5 + distance * 0.3)
                     : Math.cos(timeRef.current * speed * 1.5 + distance * 0.3);
                   const wave = mode === 'wave_form' && waveFormDouble
                     ? (wave1 * 0.5 + wave2 * 0.5) * 0.5 + 0.5
                     : (wave1 * 0.6 + wave2 * 0.4) * 0.5 + 0.5;
                   const amplitude = mode === 'wave_form' ? maxAmplitude : 1.0;
-                  
+
                   // For wave_form, create radial expansion wave effect using original positions
                   if (mode === 'wave_form' && originalPositionsRef.current) {
                     const baseRadius = distance; // Already calculated from original positions
@@ -1391,15 +1364,15 @@ function R3FVisualizer({
                   const wave = (wave1 * 0.5 + wave2 * 0.25 + wave3 * 0.25) * 0.5 + 0.5;
                   newY = wave * 2 * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
                 }
-                
+
                 if (mode !== 'wave_form') {
                   positions.setY(i, newY);
                 }
-                
+
                 // Get current position for color calculation
                 const currentX = positions.getX(i);
                 const currentZ = positions.getZ(i);
-                
+
                 const waveIntensity = Math.sin(timeRef.current * speed * 2 + distance * 0.5) * 0.5 + 0.5;
                 const color1RGB = hexToRgb(color1);
                 const color2RGB = hexToRgb(color2);
@@ -1413,11 +1386,11 @@ function R3FVisualizer({
               positions.needsUpdate = true;
               colors.needsUpdate = true;
             });
-            
+
             if (mode === 'manhattan') {
               return null; // Don't render particles for manhattan mode
             }
-            
+
             return (
               <points ref={pointsRef} rotation={mode === 'plane' ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
                 <bufferGeometry />
@@ -1432,13 +1405,13 @@ function R3FVisualizer({
               </points>
             );
           };
-          
+
           // Enhanced procedural Manhattan with more detail
           const renderManhattan = () => {
             const buildings: React.ReactElement[] = [];
             const gridSize = 40; // Larger grid for more detail
             const spacing = 0.3;
-            
+
             // Create a more detailed and realistic Manhattan
             for (let x = 0; x < gridSize; x++) {
               for (let z = 0; z < gridSize; z++) {
@@ -1446,26 +1419,26 @@ function R3FVisualizer({
                 const centerZ = gridSize / 2;
                 const distFromCenter = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2);
                 const maxDist = Math.sqrt(centerX ** 2 + centerZ ** 2);
-                
+
                 // More realistic height distribution - taller in center, with some randomness
                 const heightVariation = 1 - (distFromCenter / maxDist) * 0.5;
                 const randomFactor = 0.3 + Math.random() * 0.7;
                 const height = 0.4 + heightVariation * randomFactor * 5;
-                
+
                 // Skip very short buildings to create more realistic cityscape
                 if (height < 0.6) continue;
-                
+
                 const posX = (x - gridSize / 2) * spacing;
                 const posZ = (z - gridSize / 2) * spacing;
-                
+
                 // More realistic gray colors with variation
                 const grayBase = 0.3 + Math.random() * 0.3;
                 const color = `rgb(${Math.floor(grayBase * 255)}, ${Math.floor(grayBase * 255)}, ${Math.floor(grayBase * 255)})`;
-                
+
                 // Building width/depth variation for more realism
                 const width = spacing * (0.6 + Math.random() * 0.4);
                 const depth = spacing * (0.6 + Math.random() * 0.4);
-                
+
                 buildings.push(
                   <mesh key={`building-${x}-${z}`} position={[posX, height / 2, posZ]}>
                     <boxGeometry args={[width, height, depth]} />
@@ -1474,7 +1447,7 @@ function R3FVisualizer({
                 );
               }
             }
-            
+
             // Add ground plane
             buildings.push(
               <mesh key="ground" rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
@@ -1482,10 +1455,10 @@ function R3FVisualizer({
                 <meshStandardMaterial color="#0f0f0f" />
               </mesh>
             );
-            
+
             return <group>{buildings}</group>;
           };
-          
+
           return (
             <>
               <color attach="background" args={mode === 'manhattan' ? ['#0a0a0a'] : ['#010204']} />
@@ -1528,7 +1501,7 @@ function R3FVisualizer({
             </>
           );
         };
-        
+
         const Visualizer = () => (
           <Canvas
             key={mode}
@@ -1544,14 +1517,14 @@ function R3FVisualizer({
             <Scene />
           </Canvas>
         );
-        
+
         setVisualizerCanvas(() => Visualizer);
       }).catch((err) => {
         console.error('Failed to load R3F:', err);
       });
     }
   }, [mode, speed, color1, color2, density, invertX, invertY, scaleX, scaleY, maxAmplitude, waveFreq, waveFormDouble, autoOrbit]);
-  
+
   if (!isMounted || !VisualizerCanvas) {
     return (
       <div className="fixed inset-0 z-40 pointer-events-none bg-[#010204] flex items-center justify-center">
@@ -1559,7 +1532,7 @@ function R3FVisualizer({
       </div>
     );
   }
-  
+
   const Canvas = VisualizerCanvas;
   return (
     <div className="fixed inset-0 z-40 pointer-events-auto">
@@ -1569,6 +1542,7 @@ function R3FVisualizer({
 }
 
 export default function Page() {
+  const { isMobile, isTablet, isMobileOrTablet } = useMobile();
   const [query, setQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
@@ -1582,8 +1556,32 @@ export default function Page() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [hideOpenRouterModels, setHideOpenRouterModels] = useState(false);
 
-  const [selectedModelId, setSelectedModelId] = useState(MODELS[0].id);
+  // Check OpenRouter rate limit on mount and periodically
+  useEffect(() => {
+    const checkRateLimit = async () => {
+      try {
+        const res = await fetch('/api/openrouter/status');
+        const data = await res.json();
+        setHideOpenRouterModels(data.shouldHide || false);
+      } catch (error) {
+        console.error('Failed to check OpenRouter rate limit:', error);
+      }
+    };
+    
+    checkRateLimit();
+    const interval = setInterval(checkRateLimit, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  // Get available models (combine MODELS and OPENROUTER_MODELS, filter by rate limit)
+  const availableModels = [
+    ...MODELS,
+    ...(hideOpenRouterModels ? [] : OPENROUTER_MODELS),
+  ];
+
+  const [selectedModelId, setSelectedModelId] = useState(availableModels[0]?.id || MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
   const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
@@ -1597,9 +1595,6 @@ export default function Page() {
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [closedWidgets, setClosedWidgets] = useState<Set<string>>(new Set());
-  const [vibeModeEnabled, setVibeModeEnabled] = useState(false);
-  const [vibeModeType, setVibeModeType] = useState<'audio' | 'interaction'>('audio');
-  const interactionIntensityRef = useRef(0);
   // Visualizer state
   const [visualizerEnabled, setVisualizerEnabled] = useState(false);
   const [visualizerConfigOpen, setVisualizerConfigOpen] = useState(false);
@@ -1625,66 +1620,7 @@ export default function Page() {
   const [gridPreset, setGridPreset] = useState<'default' | 'bands' | 'custom'>('default');
   // Palette selection
   const [selectedPalette, setSelectedPalette] = useState(0);
-  
-  // Track typing and mouse movement for interaction mode
-  useEffect(() => {
-    if (!vibeModeEnabled || vibeModeType !== 'interaction') {
-      (window as any).__vibeInteractionIntensity = 0;
-      return;
-    }
 
-    let typingTimeout: NodeJS.Timeout;
-    let mouseTimeout: NodeJS.Timeout;
-    let decayInterval: NodeJS.Timeout;
-
-    const handleTyping = () => {
-      interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + 0.3);
-      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
-      
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        // Decay after typing stops
-      }, 100);
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      // Calculate movement speed
-      const speed = Math.sqrt(e.movementX ** 2 + e.movementY ** 2);
-      const intensity = Math.min(1, speed / 50); // Normalize to 0-1
-      interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + intensity * 0.2);
-      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
-      
-      clearTimeout(mouseTimeout);
-      mouseTimeout = setTimeout(() => {
-        // Decay after mouse stops
-      }, 200);
-    };
-
-    // Decay intensity over time
-    decayInterval = setInterval(() => {
-      interactionIntensityRef.current = Math.max(0, interactionIntensityRef.current * 0.95);
-      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
-    }, 50);
-
-    const inputElements = document.querySelectorAll('input, textarea');
-    inputElements.forEach(el => {
-      el.addEventListener('input', handleTyping);
-      el.addEventListener('keydown', handleTyping);
-    });
-    window.addEventListener('mousemove', handleMouseMove);
-
-    return () => {
-      inputElements.forEach(el => {
-        el.removeEventListener('input', handleTyping);
-        el.removeEventListener('keydown', handleTyping);
-      });
-      window.removeEventListener('mousemove', handleMouseMove);
-      clearTimeout(typingTimeout);
-      clearTimeout(mouseTimeout);
-      clearInterval(decayInterval);
-      (window as any).__vibeInteractionIntensity = 0;
-    };
-  }, [vibeModeEnabled, vibeModeType]);
   const [neuralNoiseEnabled, setNeuralNoiseEnabled] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('roovert_neural_noise_enabled');
@@ -1745,22 +1681,27 @@ export default function Page() {
     } else {
       document.documentElement.classList.remove('data-saver');
     }
-  }, [look, layout, fontSize, dataSaver]);
+    
+    // Disable visualizer when switching out of toybox theme
+    if (look !== 'toybox' && visualizerEnabled) {
+      setVisualizerEnabled(false);
+    }
+  }, [look, layout, fontSize, dataSaver, visualizerEnabled]);
 
 
-  // Filter out unavailable models
-  const availableModels = MODELS.filter(m => !unavailableModels.has(m.id));
-  const selectedModel = availableModels.find(m => m.id === selectedModelId) || availableModels[0];
+  // Filter out unavailable models (use the combined list from above)
+  const filteredAvailableModels = availableModels.filter(m => !unavailableModels.has(m.id));
+  const selectedModel = filteredAvailableModels.find(m => m.id === selectedModelId) || filteredAvailableModels[0];
 
   // If selected model becomes unavailable, switch to first available
   useEffect(() => {
     if (selectedModelId && unavailableModels.has(selectedModelId)) {
-      if (availableModels.length > 0) {
-        setSelectedModelId(availableModels[0].id);
+      if (filteredAvailableModels.length > 0) {
+        setSelectedModelId(filteredAvailableModels[0].id);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unavailableModels, selectedModelId]);
+  }, [unavailableModels, selectedModelId, filteredAvailableModels]);
 
   // Check if image upload should be disabled
   // Disable if:
@@ -1782,7 +1723,14 @@ export default function Page() {
     });
   };
 
-  const handleInitialize = () => {
+  const handleInitialize = async () => {
+    // Track "Initialize Chat" click
+    try {
+      await fetch('/api/track-initialize', { method: 'POST' });
+    } catch (error) {
+      // Silently fail - tracking is not critical
+    }
+    
     setIsChatMode(true);
     requestAnimationFrame(() => {
       inputRef.current?.focus();
@@ -1987,7 +1935,11 @@ export default function Page() {
         currentMessageContent = trimmedQuery;
       }
 
-      const res = await fetch('/api/query-gateway', {
+      // Determine if this is an OpenRouter model
+      const isOpenRouterModel = OPENROUTER_MODELS.some(m => m.id === selectedModel.id);
+      const apiEndpoint = isOpenRouterModel ? '/api/openrouter' : '/api/query-gateway';
+      
+      const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2193,73 +2145,13 @@ export default function Page() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [query, isProcessing]);
 
-  // Track typing and mouse movement for interaction mode
-  useEffect(() => {
-    if (!vibeModeEnabled || vibeModeType !== 'interaction') {
-      (window as any).__vibeInteractionIntensity = 0;
-      return;
-    }
-
-    let typingTimeout: NodeJS.Timeout;
-    let mouseTimeout: NodeJS.Timeout;
-    let decayInterval: NodeJS.Timeout;
-
-    const handleTyping = () => {
-      interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + 0.3);
-      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
-      
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        // Decay after typing stops
-      }, 100);
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      // Calculate movement speed
-      const speed = Math.sqrt(e.movementX ** 2 + e.movementY ** 2);
-      const intensity = Math.min(1, speed / 50); // Normalize to 0-1
-      interactionIntensityRef.current = Math.min(1, interactionIntensityRef.current + intensity * 0.2);
-      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
-      
-      clearTimeout(mouseTimeout);
-      mouseTimeout = setTimeout(() => {
-        // Decay after mouse stops
-      }, 200);
-    };
-
-    // Decay intensity over time
-    decayInterval = setInterval(() => {
-      interactionIntensityRef.current = Math.max(0, interactionIntensityRef.current * 0.95);
-      (window as any).__vibeInteractionIntensity = interactionIntensityRef.current;
-    }, 50);
-
-    const inputElements = document.querySelectorAll('input, textarea');
-    inputElements.forEach(el => {
-      el.addEventListener('input', handleTyping);
-      el.addEventListener('keydown', handleTyping);
-    });
-    window.addEventListener('mousemove', handleMouseMove);
-
-    return () => {
-      inputElements.forEach(el => {
-        el.removeEventListener('input', handleTyping);
-        el.removeEventListener('keydown', handleTyping);
-      });
-      window.removeEventListener('mousemove', handleMouseMove);
-      clearTimeout(typingTimeout);
-      clearTimeout(mouseTimeout);
-      clearInterval(decayInterval);
-      (window as any).__vibeInteractionIntensity = 0;
-    };
-  }, [vibeModeEnabled, vibeModeType]);
-
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
       {/* Neural Noise and Audio Visualizer removed - using R3F visualizer instead */}
 
       {/* R3F Visualizer */}
-      {visualizerEnabled && (
-        <R3FVisualizer 
+      {visualizerEnabled && look === 'toybox' && (
+        <R3FVisualizer
           mode={visualizerMode}
           speed={visualizerSpeed}
           color1={visualizerColor1}
@@ -2275,7 +2167,7 @@ export default function Page() {
           autoOrbit={autoOrbit}
         />
       )}
-      
+
       {/* Visualizer Configuration Panel */}
       <VisualizerConfigPanel
         isOpen={visualizerConfigOpen}
@@ -2351,15 +2243,10 @@ export default function Page() {
             <div className="flex items-center gap-6">
               <button
                 onClick={() => setIsChatMode(false)}
-                className={`text-2xl font-bold hover:opacity-80 transition-opacity drop-shadow-[0_0_8px_rgba(var(--accent-rgb,0,128,128),0.5)] ${
-                  look === 'vibe-mode' 
-                    ? 'text-white font-black tracking-wider uppercase' 
-                    : 'bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent'
-                }`}
-                style={{ 
-                  textShadow: look === 'vibe-mode' ? '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 20, 147, 0.6), 0 0 60px rgba(204, 255, 0, 0.4)' : undefined,
-                  fontFamily: look === 'vibe-mode' ? '"Arial Black", "Impact", sans-serif' : undefined
-                }}
+                className={`text-2xl font-bold hover:opacity-80 transition-opacity drop-shadow-[0_0_8px_rgba(var(--accent-rgb,0,128,128),0.5)] ${look === 'toybox'
+                  ? 'text-black drop-shadow-none'
+                  : 'bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent'
+                  }`}
               >
                 ROOVERT
               </button>
@@ -2384,34 +2271,36 @@ export default function Page() {
               >
                 <Paintbrush className="w-5 h-5 group-hover:rotate-12 transition-transform" />
               </button>
-              <button
-                onClick={() => {
-                  setVisualizerEnabled(!visualizerEnabled);
-                  if (!visualizerEnabled) {
-                    setVisualizerConfigOpen(true);
-                  }
-                }}
-                className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${
-                  visualizerEnabled
-                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                    : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
-                }`}
-                title="Toggle Visualizer"
-              >
-                <Sparkles className={`w-5 h-5 ${visualizerEnabled ? 'animate-pulse' : ''}`} />
-              </button>
-              {visualizerEnabled && (
-                <button
-                  onClick={() => setVisualizerConfigOpen(!visualizerConfigOpen)}
-                  className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${
-                    visualizerConfigOpen
+              {look === 'toybox' && (
+                <>
+                  <button
+                    onClick={() => {
+                      setVisualizerEnabled(!visualizerEnabled);
+                      if (!visualizerEnabled) {
+                        setVisualizerConfigOpen(true);
+                      }
+                    }}
+                    className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${visualizerEnabled
                       ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
                       : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
-                  }`}
-                  title="Visualizer Settings"
-                >
-                  <Square className="w-5 h-5" />
-                </button>
+                      }`}
+                    title="Toggle Visualizer"
+                  >
+                    <Sparkles className={`w-5 h-5 ${visualizerEnabled ? 'animate-pulse' : ''}`} />
+                  </button>
+                  {visualizerEnabled && (
+                    <button
+                      onClick={() => setVisualizerConfigOpen(!visualizerConfigOpen)}
+                      className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${visualizerConfigOpen
+                        ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                        : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
+                        }`}
+                      title="Visualizer Settings"
+                    >
+                      <Square className="w-5 h-5" />
+                    </button>
+                  )}
+                </>
               )}
             </div>
 
@@ -2494,14 +2383,14 @@ export default function Page() {
         )}
       </AnimatePresence>
 
-      {!focusMode && <LiveStats />}
+      {!focusMode && !isChatMode && <LiveStats />}
 
       {/* Interactive Particle Background for Deep Space Look */}
       {look === 'space' && <ParticleBackground />}
 
       {/* Main Content Area */}
       <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-hidden">
-        
+
         {/* Global Feed - Expandable Section */}
         <AnimatePresence>
           {isGlobalFeedOpen && (
@@ -2544,12 +2433,12 @@ export default function Page() {
                 </span>
               </button>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-2xl">
+              <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} md:grid-cols-4 gap-4 w-full max-w-2xl`}>
                 {QUICK_PROMPTS.map((prompt, idx) => (
                   <button
                     key={idx}
                     onClick={() => injectPrompt(prompt)}
-                    className="p-4 text-xs text-left border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:bg-[var(--surface)] transition-all text-[var(--muted)] hover:text-[var(--foreground)]"
+                    className="p-4 text-xs text-left border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:bg-[var(--surface)] transition-all text-white hover:text-[var(--foreground)]"
                   >
                     {prompt}
                   </button>
@@ -2578,7 +2467,7 @@ export default function Page() {
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {MODELS.slice(0, 8).map((model, idx) => (
+                {filteredAvailableModels.slice(0, 8).map((model, idx) => (
                   <motion.div
                     key={model.id}
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -2665,12 +2554,12 @@ while (true) {
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className={`theme-content w-full mx-auto h-full flex flex-col transition-all duration-500 ${isFullscreen ? 'max-w-full px-4' : ''}`}
+              className={`theme-content w-full mx-auto h-full flex flex-col transition-all duration-500 ${isFullscreen ? 'max-w-full px-4' : ''} ${isMobile ? 'px-4' : ''}`}
               data-chat-area="true"
             >
-              <div className="interface-grid h-full">
-                {/* Intel Panel (Left) - Hidden in Fullscreen */}
-                {!isFullscreen && (
+              <div className={`interface-grid h-full ${isMobile ? 'grid-cols-1' : ''}`}>
+                {/* Intel Panel (Left) - Hidden in Fullscreen and Mobile */}
+                {!isFullscreen && !isMobile && (
                   <section className={`intel-panel hidden lg:grid content-start gap-4 transition-all duration-300 ${closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot') ? 'hidden' : ''}`}>
                     {!closedWidgets.has('active-intel') && (
                       <div className="intel-card relative">
@@ -2717,7 +2606,7 @@ while (true) {
                 )}
 
                 {/* Main Chat Stack (Right/Center) */}
-                <section className={`chat-stack flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen || (closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot')) ? 'col-span-full' : ''}`}>
+                <section className={`chat-stack flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen || (closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot')) || isMobile ? 'col-span-full' : ''} ${isMobile ? 'px-0' : ''}`}>
                   {/* Search Bar */}
                   {showSearch && (
                     <div className="mb-4 glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-3">
@@ -2750,7 +2639,7 @@ while (true) {
                     </div>
                   )}
 
-                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 min-h-[40vh]">
+                  <div className={`flex-1 overflow-y-auto custom-scrollbar ${isMobile ? 'pr-2' : 'pr-4'} min-h-[40vh]`}>
                     {/* Conversation History */}
                     <div className="space-y-6 mb-6">
                       {history
@@ -2806,7 +2695,7 @@ while (true) {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-2">
                                       <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
-                                        {MODELS.find(m => m.id === entry.model)?.name || 'AI'}
+                                        {filteredAvailableModels.find(m => m.id === entry.model)?.name || availableModels.find(m => m.id === entry.model)?.name || 'AI'}
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <button
@@ -3094,8 +2983,8 @@ while (true) {
 
       {/* Input Deck - Fixed at bottom for chat mode */}
       {isChatMode && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] p-4">
-          <div className="max-w-7xl mx-auto">
+        <div className={`fixed bottom-0 left-0 right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] ${isMobile ? 'p-3' : 'p-4'}`}>
+          <div className={`max-w-7xl mx-auto ${isMobile ? 'px-2' : ''}`}>
             <AnimatePresence>
               {selectedImage && (
                 <motion.div
@@ -3123,8 +3012,8 @@ while (true) {
             </AnimatePresence>
 
             <form onSubmit={handleSubmit} className="relative">
-              <div className="glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] rounded-3xl p-4 shadow-2xl hover:border-[var(--accent)]/30 transition-all duration-300">
-                <div className="flex items-center gap-4">
+              <div className={`gemini-rainbow-border glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl ${isMobile ? 'p-3' : 'p-4'} shadow-2xl transition-all duration-300`}>
+                <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-4'}`}>
                   {isProcessing && (
                     <button
                       type="button"
@@ -3155,7 +3044,7 @@ while (true) {
                           exit={{ opacity: 0, y: 10, scale: 0.95 }}
                           className="absolute bottom-full left-0 mb-2 w-56 bg-[var(--hud-bg)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden z-20 max-h-64 overflow-y-auto custom-scrollbar"
                         >
-                          {availableModels.map(model => (
+                          {filteredAvailableModels.map(model => (
                             <button
                               key={model.id}
                               type="button"
@@ -3224,7 +3113,7 @@ while (true) {
                   <button
                     type="submit"
                     disabled={!query.trim() || isProcessing}
-                    className="p-3 bg-[var(--accent)] hover:opacity-90 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[var(--accent)]/20"
+                    className="flex items-center justify-center w-12 h-12 p-0 bg-[var(--accent)] hover:opacity-90 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[var(--accent)]/20"
                   >
                     {isProcessing ? (
                       <Zap className="w-5 h-5 text-white animate-spin" />

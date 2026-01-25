@@ -1,11 +1,28 @@
 // Privacy-focused visitor tracking endpoint
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/app/lib/db';
 import { createVisitorHash, getClientIP, getUserAgent } from '@/app/lib/tracking';
 import { kv } from '@vercel/kv';
+import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
+import { validateBodySize, createValidationErrorResponse } from '../../lib/security/validation';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // Security: Rate limiting for tracking endpoints
+    const rateLimitResponse = applyRateLimit(request, 'tracking');
+    if (rateLimitResponse) {
+      return NextResponse.json(
+        JSON.parse(await rateLimitResponse.text()),
+        { status: 429, headers: Object.fromEntries(rateLimitResponse.headers.entries()) }
+      );
+    }
+
+    // Security: Validate request body size
+    const contentLength = request.headers.get('content-length');
+    const bodySizeErrors = validateBodySize(contentLength, 1024 * 1024); // 1MB max
+    if (bodySizeErrors.length > 0) {
+      return createValidationErrorResponse(bodySizeErrors);
+    }
     // Extract IP and User-Agent from request
     const ipAddress = getClientIP(request);
     const userAgent = getUserAgent(request);
@@ -91,6 +108,9 @@ export async function POST(request: Request) {
         visitorCount = MIN_VISITORS;
       }
       
+      // Security: Increment rate limit after successful processing
+      incrementRateLimit(request, 'tracking');
+      
       return NextResponse.json({
         success: true,
         isNew: isNew,
@@ -98,6 +118,9 @@ export async function POST(request: Request) {
       });
     } catch (dbError) {
       console.error('Database error in tracking:', dbError);
+      
+      // Security: Increment rate limit even on error (to prevent retry abuse)
+      incrementRateLimit(request, 'tracking');
       
       // If all else fails, still return success to not break the page
       const MIN_VISITORS = 50;
@@ -109,6 +132,7 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error('Tracking error:', error);
+    // Security: Don't expose internal error details
     // Return success even on error to avoid breaking the page load
     const MIN_VISITORS = 50;
     return NextResponse.json({ 
@@ -120,7 +144,18 @@ export async function POST(request: Request) {
 }
 
 // Allow GET for simple health check
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Security: Rate limiting for stats endpoints
+  const rateLimitResponse = applyRateLimit(request, 'stats');
+  if (rateLimitResponse) {
+    return NextResponse.json(
+      JSON.parse(await rateLimitResponse.text()),
+      { status: 429, headers: Object.fromEntries(rateLimitResponse.headers.entries()) }
+    );
+  }
+
+  // Security: Increment rate limit after validation
+  incrementRateLimit(request, 'stats');
   try {
     // Try KV first
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
@@ -140,12 +175,16 @@ export async function GET() {
       const db = getDatabase();
       const totalCount = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
       
+      // Security: Increment rate limit after successful processing
+      incrementRateLimit(request, 'stats');
+      
       return NextResponse.json({
         success: true,
         totalUniqueVisitors: totalCount.count,
       });
     } catch (dbError) {
       console.error('SQLite GET error:', dbError);
+      incrementRateLimit(request, 'stats');
       return NextResponse.json({
         success: true,
         totalUniqueVisitors: 0,
@@ -153,6 +192,7 @@ export async function GET() {
     }
   } catch (error) {
     console.error('Stats fetch error:', error);
+    incrementRateLimit(request, 'stats');
     return NextResponse.json({ success: true, totalUniqueVisitors: 0 });
   }
 }
