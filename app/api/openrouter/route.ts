@@ -1,18 +1,40 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { streamText } from 'ai';
-import { createGroq } from '@ai-sdk/groq';
+import { createOpenAI } from '@ai-sdk/openai';
 import { getSystemPrompt, filterResponse, containsOffensiveContent } from '../../lib/prompts';
-import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
+import { applyRateLimit, incrementRateLimit, getRateLimitStatus, shouldHideOpenRouterModels } from '../../lib/security/rateLimit';
 import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse, MAX_LENGTHS } from '../../lib/security/validation';
 
 // Route segment config
 export const maxDuration = 60;
 export const runtime = 'nodejs';
 
-// Groq API configuration
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
+// OpenRouter API configuration
+const openai = createOpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+  defaultHeaders: {
+    'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://roovert.com',
+    'X-Title': 'Roovert AI Platform',
+  },
 });
+
+// OpenRouter model mapping
+const OPENROUTER_MODEL_MAP: Record<string, string> = {
+  'gpt-4o': 'openai/gpt-4o',
+  'gpt-4-turbo': 'openai/gpt-4-turbo',
+  'claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet',
+  'claude-3-opus': 'anthropic/claude-3-opus',
+  'claude-3-sonnet': 'anthropic/claude-3-sonnet',
+  'claude-3-haiku': 'anthropic/claude-3-haiku',
+  'gemini-pro': 'google/gemini-pro',
+  'llama-3.1-405b': 'meta-llama/llama-3.1-405b-instruct',
+  'llama-3.1-70b': 'meta-llama/llama-3.1-70b-instruct',
+  'mistral-large': 'mistralai/mistral-large',
+  'mixtral-8x7b': 'mistralai/mixtral-8x7b-instruct',
+  'qwen-2.5-72b': 'qwen/qwen-2.5-72b-instruct',
+  'deepseek-chat': 'deepseek/deepseek-chat',
+};
 
 function buildSimulationResponse(query: string, reason: string) {
   return [
@@ -22,7 +44,7 @@ function buildSimulationResponse(query: string, reason: string) {
     `Focus: "${query?.trim() || 'awaiting a concrete prompt'}".`,
     '',
     'Immediate protocol:',
-    '1. Add/verify GROQ_API_KEY in .env.local',
+    '1. Add/verify OPENROUTER_API_KEY in .env.local',
     '2. Restart the server if running locally.',
     '3. Re-run this query to resume intelligent responses.',
   ].join('\n');
@@ -34,6 +56,26 @@ export async function POST(request: NextRequest) {
     const rateLimitResponse = applyRateLimit(request, 'ai-query');
     if (rateLimitResponse) {
       return rateLimitResponse;
+    }
+
+    // Security: Check OpenRouter-specific rate limit (45/24hrs)
+    if (shouldHideOpenRouterModels(request)) {
+      const status = getRateLimitStatus(request, 'openrouter');
+      return new Response(
+        `data: ${JSON.stringify({ 
+          content: `OpenRouter rate limit exceeded. You've used ${status.count} of ${status.limit} requests. The limit resets in ${Math.ceil((status.resetAt - Date.now()) / (1000 * 60 * 60))} hours.`, 
+          done: true 
+        })}\n\n`,
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Retry-After': String(Math.ceil((status.resetAt - Date.now()) / 1000)),
+          },
+        }
+      );
     }
 
     // Security: Validate request body size before parsing
@@ -57,14 +99,8 @@ export async function POST(request: NextRequest) {
       throw jsonError;
     }
 
-    // Security: Model allowlist - prevent model injection attacks
-    const MODEL_MAP: Record<string, string> = {
-      'ooverta': 'meta-llama/llama-4-scout-17b-16e-instruct',
-      'llama-4-scout': 'meta-llama/llama-4-scout-17b-16e-instruct',
-      'llama-3.3-70b': 'llama-3.3-70b-versatile',
-      'llama-3.1-8b': 'llama-3.1-8b-instant',
-    };
-    const ALLOWED_MODEL_IDS = new Set(Object.keys(MODEL_MAP));
+    // Security: Model allowlist - prevent model injection attacks (using top-level OPENROUTER_MODEL_MAP)
+    const ALLOWED_MODEL_IDS = new Set(Object.keys(OPENROUTER_MODEL_MAP));
 
     // Security: Strict input validation with schema
     const validation = validateAIQueryRequest(payload, ALLOWED_MODEL_IDS);
@@ -90,13 +126,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Security: Increment rate limit after successful validation
-    incrementRateLimit(request, 'ai-query');
-
     // Security: API key validation - ensure key exists in environment (never exposed to client)
-    if (!process.env.GROQ_API_KEY) {
-      console.error('GROQ_API_KEY is missing from environment variables');
-      const simulation = buildSimulationResponse(query, 'Groq API key missing');
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.error('OPENROUTER_API_KEY is missing from environment variables');
+      const simulation = buildSimulationResponse(query, 'OpenRouter API key missing');
       return new Response(
         `data: ${JSON.stringify({ content: simulation, done: true })}\n\n`,
         {
@@ -110,15 +143,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Security: Model selection - use validated model from allowlist only
-    let targetModelId = 'llama-3.3-70b-versatile';
-    if (model && MODEL_MAP[model]) {
-      targetModelId = MODEL_MAP[model];
+    let targetModelId = 'openai/gpt-4o'; // Default
+    if (model && OPENROUTER_MODEL_MAP[model]) {
+      targetModelId = OPENROUTER_MODEL_MAP[model];
     }
+
+    // Security: Increment rate limit after successful validation
+    incrementRateLimit(request, 'ai-query');
 
     // Build messages
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }> = [];
 
-    // Add system prompt with Roovert context and content moderation
+    // Add system prompt with Roovert context
     const systemPrompt = getSystemPrompt(customSystemPrompt);
     messages.push({ role: 'system', content: systemPrompt });
 
@@ -152,11 +188,15 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // Use Vercel AI SDK to stream the response via Groq Provider
+      // Use Vercel AI SDK to stream the response via OpenRouter
       const result = await streamText({
-        model: groq(targetModelId),
+        model: openai(targetModelId),
         messages: messages as any,
       });
+
+      // Security: Increment rate limit after successful request
+      incrementRateLimit(request, 'openrouter');
+      incrementRateLimit(request, 'ai-query');
 
       // Convert to Server-Sent Events format with content filtering
       const stream = new ReadableStream({
@@ -167,7 +207,6 @@ export async function POST(request: NextRequest) {
           try {
             for await (const chunk of result.textStream) {
               fullResponse += chunk;
-              // Stream chunks normally, but we'll check at the end
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ content: chunk, done: false })}\n\n`)
               );
@@ -176,7 +215,6 @@ export async function POST(request: NextRequest) {
             // Final content moderation check
             const { filtered, wasFiltered } = filterResponse(fullResponse);
             if (wasFiltered) {
-              // If content was filtered, send replacement message
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ content: '\n\n' + filtered, done: false })}\n\n`)
               );
@@ -188,7 +226,6 @@ export async function POST(request: NextRequest) {
             controller.close();
           } catch (error: any) {
             console.error('Streaming error:', error);
-            // Only try to send error if controller is still writable
             try {
               const errorMsg = buildSimulationResponse(query, error?.message || 'Streaming failed');
               controller.enqueue(
@@ -209,8 +246,11 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (error: any) {
-      console.error('Groq API error:', error);
-      const simulation = buildSimulationResponse(query, error?.message || 'Groq API request failed');
+      console.error('OpenRouter API error:', error);
+      // Security: Still increment rate limit on error (to prevent retry abuse)
+      incrementRateLimit(request, 'openrouter');
+      incrementRateLimit(request, 'ai-query');
+      const simulation = buildSimulationResponse(query, error?.message || 'OpenRouter API request failed');
       return new Response(
         `data: ${JSON.stringify({ content: simulation, done: true })}\n\n`,
         {
@@ -236,4 +276,27 @@ export async function POST(request: NextRequest) {
       }
     );
   }
+}
+
+// GET endpoint to check rate limit status
+export async function GET(request: NextRequest) {
+  // Security: Apply rate limiting to status check endpoint
+  const rateLimitResponse = applyRateLimit(request, 'stats');
+  if (rateLimitResponse) {
+    return NextResponse.json(
+      JSON.parse(await rateLimitResponse.text()),
+      { status: 429, headers: Object.fromEntries(rateLimitResponse.headers.entries()) }
+    );
+  }
+
+  const status = getRateLimitStatus(request, 'openrouter');
+  incrementRateLimit(request, 'stats');
+  
+  return NextResponse.json({
+    shouldHide: status.isBlocked,
+    count: status.count,
+    limit: status.limit,
+    remaining: status.remaining,
+    resetAt: status.resetAt,
+  });
 }

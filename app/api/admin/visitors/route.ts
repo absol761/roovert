@@ -1,19 +1,32 @@
 // Admin endpoint to view unique visitor statistics
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/app/lib/db';
+import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
 
 /**
  * GET /api/admin/visitors
  * 
  * Returns statistics about unique visitors.
  * 
- * Security: Protected by admin API key authentication.
+ * Security: Protected by admin API key authentication and rate limiting.
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Authentication check
+    // Security: Rate limiting for admin endpoints (stricter)
+    const rateLimitResponse = applyRateLimit(request, 'general', {
+      maxRequests: 10, // More restrictive for admin
+      windowMs: 60 * 1000,
+    });
+    if (rateLimitResponse) {
+      return NextResponse.json(
+        JSON.parse(await rateLimitResponse.text()),
+        { status: 429, headers: Object.fromEntries(rateLimitResponse.headers.entries()) }
+      );
+    }
+
+    // Security: Authentication check - API key must be in environment variable (never hardcoded)
     const adminKey = request.headers.get('x-admin-key');
-    const expectedKey = process.env.AI_GATEWAY_API_KEY;
+    const expectedKey = process.env.ADMIN_API_KEY || process.env.AI_GATEWAY_API_KEY; // Support both for backward compatibility
     
     if (!expectedKey) {
       console.error('AI_GATEWAY_API_KEY not configured');
@@ -23,12 +36,24 @@ export async function GET(request: Request) {
       );
     }
     
+    if (!expectedKey) {
+      console.error('ADMIN_API_KEY or AI_GATEWAY_API_KEY not configured in environment variables');
+      return NextResponse.json(
+        { error: 'Admin access not configured' },
+        { status: 503 }
+      );
+    }
+    
     if (!adminKey || adminKey !== expectedKey) {
+      // Security: Don't reveal whether key exists or not (prevent enumeration)
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
+    
+    // Security: Increment rate limit after successful authentication
+    incrementRateLimit(request, 'general');
     
     const db = getDatabase();
     
