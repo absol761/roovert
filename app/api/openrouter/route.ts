@@ -283,10 +283,15 @@ export async function GET(request: NextRequest) {
   // Security: Apply rate limiting to status check endpoint
   const rateLimitResponse = applyRateLimit(request, 'stats');
   if (rateLimitResponse) {
-    return NextResponse.json(
-      JSON.parse(await rateLimitResponse.text()),
-      { status: 429, headers: Object.fromEntries(rateLimitResponse.headers.entries()) }
-    );
+    try {
+      const errorData = await rateLimitResponse.json();
+      return NextResponse.json(errorData, { 
+        status: 429, 
+        headers: Object.fromEntries(rateLimitResponse.headers.entries()) 
+      });
+    } catch {
+      return rateLimitResponse;
+    }
   }
 
   const status = getRateLimitStatus(request, 'openrouter');

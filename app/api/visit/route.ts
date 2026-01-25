@@ -9,10 +9,15 @@ export async function POST(request: NextRequest) {
     // Security: Rate limiting for tracking endpoints
     const rateLimitResponse = applyRateLimit(request, 'tracking');
     if (rateLimitResponse) {
-      return NextResponse.json(
-        JSON.parse(await rateLimitResponse.text()),
-        { status: 429, headers: Object.fromEntries(rateLimitResponse.headers.entries()) }
-      );
+      try {
+        const errorData = await rateLimitResponse.json();
+        return NextResponse.json(errorData, { 
+          status: 429, 
+          headers: Object.fromEntries(rateLimitResponse.headers.entries()) 
+        });
+      } catch {
+        return rateLimitResponse;
+      }
     }
 
     // Security: Validate request body size
