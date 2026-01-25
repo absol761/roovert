@@ -477,7 +477,9 @@ function GlobalFeedExpanded({ onClose }: { onClose: () => void }) {
     setLoading(true);
     fetch('/api/news')
       .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch news');
+        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+          throw new Error('Failed to fetch news');
+        }
         return res.json();
       })
       .then(data => {
@@ -554,7 +556,15 @@ function Widgets() {
   const [news, setNews] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('/api/news').then(res => res.json()).then(setNews).catch(() => { });
+    fetch('/api/news')
+      .then(res => {
+        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+          return [];
+        }
+        return res.json();
+      })
+      .then(data => setNews(Array.isArray(data) ? data : []))
+      .catch(() => { });
   }, []);
 
   return (
@@ -605,6 +615,9 @@ function LiveStats() {
       try {
         const response = await fetch('/api/stats');
         if (!response.ok) throw new Error('Stats API not available');
+        if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) {
+          return;
+        }
         const data = await response.json();
         setUserCount(data.users || data.totalUsers || 0);
       } catch (error) {
@@ -1562,11 +1575,14 @@ export default function Page() {
   useEffect(() => {
     const checkRateLimit = async () => {
       try {
-        const res = await fetch('/api/openrouter/status');
+        const res = await fetch('/api/openrouter');
+        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+          return; // Skip if not JSON response
+        }
         const data = await res.json();
         setHideOpenRouterModels(data.shouldHide || false);
       } catch (error) {
-        console.error('Failed to check OpenRouter rate limit:', error);
+        // Silently handle errors - non-critical
       }
     };
     
