@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streamText } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
 import { getSystemPrompt, filterResponse, containsOffensiveContent } from '../../lib/prompts';
 import { applyRateLimit, incrementRateLimit, getRateLimitStatus, shouldHideOpenRouterModels } from '../../lib/security/rateLimit';
 import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse, MAX_LENGTHS } from '../../lib/security/validation';
@@ -8,22 +6,6 @@ import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse
 // Route segment config
 export const maxDuration = 60;
 export const runtime = 'nodejs';
-
-// OpenRouter API configuration with custom headers
-const openai = createOpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: 'https://openrouter.ai/api/v1',
-  fetch: async (url, options = {}) => {
-    return fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://roovert.com',
-        'X-Title': 'Roovert AI Platform',
-      },
-    });
-  },
-});
 
 // OpenRouter model mapping
 const OPENROUTER_MODEL_MAP: Record<string, string> = {
@@ -194,28 +176,70 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // Use Vercel AI SDK to stream the response via OpenRouter
-      const result = await streamText({
-        model: openai(targetModelId) as any,
-        messages: messages as any,
+      // Direct fetch to OpenRouter API with streaming
+      const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://roovert.com',
+          'X-Title': 'Roovert AI Platform',
+        },
+        body: JSON.stringify({
+          model: targetModelId,
+          messages: messages,
+          stream: true,
+        }),
       });
+
+      if (!openRouterResponse.ok) {
+        const errorText = await openRouterResponse.text();
+        throw new Error(`OpenRouter API error: ${openRouterResponse.status} - ${errorText}`);
+      }
 
       // Security: Increment rate limit after successful request
       incrementRateLimit(request, 'openrouter');
       incrementRateLimit(request, 'ai-query');
 
-      // Convert to Server-Sent Events format with content filtering
+      // Stream the response
       const stream = new ReadableStream({
         async start(controller) {
           const encoder = new TextEncoder();
+          const decoder = new TextDecoder();
           let fullResponse = '';
 
           try {
-            for await (const chunk of result.textStream) {
-              fullResponse += chunk;
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ content: chunk, done: false })}\n\n`)
-              );
+            const reader = openRouterResponse.body?.getReader();
+            if (!reader) throw new Error('No response body');
+
+            let buffer = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed === 'data: [DONE]') continue;
+                if (!trimmed.startsWith('data: ')) continue;
+
+                try {
+                  const json = JSON.parse(trimmed.slice(6));
+                  const content = json.choices?.[0]?.delta?.content;
+                  if (content) {
+                    fullResponse += content;
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ content, done: false })}\n\n`)
+                    );
+                  }
+                } catch (parseError) {
+                  // Skip malformed JSON
+                }
+              }
             }
 
             // Final content moderation check

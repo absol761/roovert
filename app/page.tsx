@@ -2269,7 +2269,7 @@ export default function Page() {
       {/* Interactive Particle Background for Deep Space Look */}
 
       {/* Main Content Area */}
-      <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-hidden">
+      <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-y-auto overflow-x-hidden">
 
         {/* Global Feed - Expandable Section */}
         <AnimatePresence>
