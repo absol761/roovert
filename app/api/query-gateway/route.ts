@@ -14,18 +14,9 @@ const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-function buildSimulationResponse(query: string, reason: string) {
-  return [
-    `Systems Notice: ${reason || 'AI Service Unavailable'}.`,
-    'Roovert is running in local inference mode until the API is reachable.',
-    '',
-    `Focus: "${query?.trim() || 'awaiting a concrete prompt'}".`,
-    '',
-    'Immediate protocol:',
-    '1. Add/verify GROQ_API_KEY in .env.local',
-    '2. Restart the server if running locally.',
-    '3. Re-run this query to resume intelligent responses.',
-  ].join('\n');
+// User-friendly error messages - NEVER expose internal API details
+function getUserFriendlyErrorMessage(): string {
+  return "I'm temporarily unable to process your request. Please try again in a moment, or select a different model.";
 }
 
 export async function POST(request: NextRequest) {
@@ -96,9 +87,8 @@ export async function POST(request: NextRequest) {
     // Security: API key validation - ensure key exists in environment (never exposed to client)
     if (!process.env.GROQ_API_KEY) {
       console.error('GROQ_API_KEY is missing from environment variables');
-      const simulation = buildSimulationResponse(query, 'Groq API key missing');
       return new Response(
-        `data: ${JSON.stringify({ content: simulation, done: true })}\n\n`,
+        `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(), done: true })}\n\n`,
         {
           headers: {
             'Content-Type': 'text/event-stream',
@@ -190,9 +180,8 @@ export async function POST(request: NextRequest) {
             console.error('Streaming error:', error);
             // Only try to send error if controller is still writable
             try {
-              const errorMsg = buildSimulationResponse(query, error?.message || 'Streaming failed');
               controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ content: errorMsg, done: true })}\n\n`)
+                encoder.encode(`data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(), done: true })}\n\n`)
               );
             } catch (ignore) { }
             try { controller.close(); } catch (ignore) { }
@@ -210,9 +199,8 @@ export async function POST(request: NextRequest) {
       });
     } catch (error: any) {
       console.error('Groq API error:', error);
-      const simulation = buildSimulationResponse(query, error?.message || 'Groq API request failed');
       return new Response(
-        `data: ${JSON.stringify({ content: simulation, done: true })}\n\n`,
+        `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(), done: true })}\n\n`,
         {
           headers: {
             'Content-Type': 'text/event-stream',
@@ -224,9 +212,8 @@ export async function POST(request: NextRequest) {
     }
   } catch (error: any) {
     console.error('Query processing error:', error);
-    const simulation = buildSimulationResponse('', error?.message || 'Failed to process query');
     return new Response(
-      `data: ${JSON.stringify({ content: simulation, done: true })}\n\n`,
+      `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(), done: true })}\n\n`,
       {
         headers: {
           'Content-Type': 'text/event-stream',

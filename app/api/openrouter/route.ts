@@ -24,18 +24,37 @@ const OPENROUTER_MODEL_MAP: Record<string, string> = {
   'deepseek-chat': 'deepseek/deepseek-chat',
 };
 
-function buildSimulationResponse(query: string, reason: string) {
-  return [
-    `Systems Notice: ${reason || 'AI Service Unavailable'}.`,
-    'Roovert is running in local inference mode until the API is reachable.',
-    '',
-    `Focus: "${query?.trim() || 'awaiting a concrete prompt'}".`,
-    '',
-    'Immediate protocol:',
-    '1. Add/verify OPENROUTER_API_KEY in .env.local',
-    '2. Restart the server if running locally.',
-    '3. Re-run this query to resume intelligent responses.',
-  ].join('\n');
+// User-friendly error messages - NEVER expose internal API details
+function getUserFriendlyErrorMessage(errorType: 'unavailable' | 'rate_limit' | 'credits' | 'timeout' | 'generic'): string {
+  const messages: Record<string, string> = {
+    unavailable: "I'm temporarily unable to process your request. This model may be experiencing high demand. Please try a different model or try again in a moment.",
+    rate_limit: "You've reached the request limit for this session. Please wait a few minutes before trying again.",
+    credits: "This model is temporarily unavailable. Please try one of the free models like Llama or DeepSeek, or try again later.",
+    timeout: "The request took too long to process. Please try again with a shorter message or a faster model.",
+    generic: "Something went wrong while processing your request. Please try again or select a different model."
+  };
+  return messages[errorType] || messages.generic;
+}
+
+// Parse API errors and return appropriate user-friendly type
+function getErrorType(statusCode: number, errorBody: string): 'unavailable' | 'rate_limit' | 'credits' | 'timeout' | 'generic' {
+  // Payment/credits issues
+  if (statusCode === 402 || errorBody.includes('credits') || errorBody.includes('afford')) {
+    return 'credits';
+  }
+  // Rate limiting
+  if (statusCode === 429 || errorBody.includes('rate limit')) {
+    return 'rate_limit';
+  }
+  // Service unavailable
+  if (statusCode === 503 || statusCode === 502 || statusCode === 500) {
+    return 'unavailable';
+  }
+  // Timeout
+  if (errorBody.includes('timeout') || errorBody.includes('timed out')) {
+    return 'timeout';
+  }
+  return 'generic';
 }
 
 export async function POST(request: NextRequest) {
@@ -48,10 +67,9 @@ export async function POST(request: NextRequest) {
 
     // Security: Check OpenRouter-specific rate limit (45/24hrs)
     if (shouldHideOpenRouterModels(request)) {
-      const status = getRateLimitStatus(request, 'openrouter');
       return new Response(
         `data: ${JSON.stringify({ 
-          content: `OpenRouter rate limit exceeded. You've used ${status.count} of ${status.limit} requests. The limit resets in ${Math.ceil((status.resetAt - Date.now()) / (1000 * 60 * 60))} hours.`, 
+          content: getUserFriendlyErrorMessage('rate_limit'), 
           done: true 
         })}\n\n`,
         {
@@ -60,7 +78,6 @@ export async function POST(request: NextRequest) {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
-            'Retry-After': String(Math.ceil((status.resetAt - Date.now()) / 1000)),
           },
         }
       );
@@ -117,9 +134,8 @@ export async function POST(request: NextRequest) {
     // Security: API key validation - ensure key exists in environment (never exposed to client)
     if (!process.env.OPENROUTER_API_KEY) {
       console.error('OPENROUTER_API_KEY is missing from environment variables');
-      const simulation = buildSimulationResponse(query, 'OpenRouter API key missing');
       return new Response(
-        `data: ${JSON.stringify({ content: simulation, done: true })}\n\n`,
+        `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage('unavailable'), done: true })}\n\n`,
         {
           headers: {
             'Content-Type': 'text/event-stream',
@@ -194,7 +210,18 @@ export async function POST(request: NextRequest) {
 
       if (!openRouterResponse.ok) {
         const errorText = await openRouterResponse.text();
-        throw new Error(`OpenRouter API error: ${openRouterResponse.status} - ${errorText}`);
+        console.error('OpenRouter API error:', openRouterResponse.status, errorText);
+        const errorType = getErrorType(openRouterResponse.status, errorText);
+        return new Response(
+          `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(errorType), done: true })}\n\n`,
+          {
+            headers: {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+            },
+          }
+        );
       }
 
       // Security: Increment rate limit after successful request
@@ -257,9 +284,8 @@ export async function POST(request: NextRequest) {
           } catch (error: any) {
             console.error('Streaming error:', error);
             try {
-              const errorMsg = buildSimulationResponse(query, error?.message || 'Streaming failed');
               controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ content: errorMsg, done: true })}\n\n`)
+                encoder.encode(`data: ${JSON.stringify({ content: getUserFriendlyErrorMessage('generic'), done: true })}\n\n`)
               );
             } catch (ignore) { }
             try { controller.close(); } catch (ignore) { }
@@ -280,9 +306,8 @@ export async function POST(request: NextRequest) {
       // Security: Still increment rate limit on error (to prevent retry abuse)
       incrementRateLimit(request, 'openrouter');
       incrementRateLimit(request, 'ai-query');
-      const simulation = buildSimulationResponse(query, error?.message || 'OpenRouter API request failed');
       return new Response(
-        `data: ${JSON.stringify({ content: simulation, done: true })}\n\n`,
+        `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage('generic'), done: true })}\n\n`,
         {
           headers: {
             'Content-Type': 'text/event-stream',
@@ -294,9 +319,8 @@ export async function POST(request: NextRequest) {
     }
   } catch (error: any) {
     console.error('Query processing error:', error);
-    const simulation = buildSimulationResponse('', error?.message || 'Failed to process query');
     return new Response(
-      `data: ${JSON.stringify({ content: simulation, done: true })}\n\n`,
+      `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage('generic'), done: true })}\n\n`,
       {
         headers: {
           'Content-Type': 'text/event-stream',
