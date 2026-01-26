@@ -132,14 +132,14 @@ export function validateConversationHistory(
       const validatedContent: Array<any> = [];
       for (const item of content) {
         if (item.type === 'text' && typeof item.text === 'string') {
-          const textValidation = validateString(item.text, MAX_LENGTHS.MESSAGE_CONTENT, true);
+          const textValidation = validateString(item.text, 'text content', MAX_LENGTHS.MESSAGE_CONTENT, true);
           if (!textValidation.valid) {
             return { valid: false, error: `Message ${i} text content: ${textValidation.error}` };
           }
           validatedContent.push({ type: 'text', text: textValidation.sanitized! });
         } else if (item.type === 'image_url' && typeof item.image_url === 'object' && typeof item.image_url.url === 'string') {
           // Validate image URL (base64 or http/https)
-          const urlValidation = validateString(item.image_url.url, MAX_LENGTHS.IMAGE_BASE64, true);
+          const urlValidation = validateString(item.image_url.url, 'image URL', MAX_LENGTHS.IMAGE_BASE64, true);
           if (!urlValidation.valid) {
             return { valid: false, error: `Message ${i} image URL: ${urlValidation.error}` };
           }
