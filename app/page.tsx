@@ -2401,7 +2401,6 @@ export default function Page() {
       {!focusMode && !isChatMode && <LiveStats />}
 
       {/* Interactive Particle Background for Deep Space Look */}
-      {look === 'space' && <ParticleBackground />}
 
       {/* Main Content Area */}
       <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-hidden">
