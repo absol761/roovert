@@ -122,7 +122,7 @@ export function validateConversationHistory(
     
     const content = msg.content;
     if (typeof content === 'string') {
-      const contentValidation = validateString(content, MAX_LENGTHS.MESSAGE_CONTENT, true);
+      const contentValidation = validateString(content, 'message content', MAX_LENGTHS.MESSAGE_CONTENT, true);
       if (!contentValidation.valid) {
         return { valid: false, error: `Message ${i} content: ${contentValidation.error}` };
       }
