@@ -9,10 +9,20 @@ import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse
 export const maxDuration = 60;
 export const runtime = 'nodejs';
 
-// OpenRouter API configuration
+// OpenRouter API configuration with custom headers
 const openai = createOpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
   baseURL: 'https://openrouter.ai/api/v1',
+  fetch: async (url, options = {}) => {
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://roovert.com',
+        'X-Title': 'Roovert AI Platform',
+      },
+    });
+  },
 });
 
 // OpenRouter model mapping
@@ -186,12 +196,7 @@ export async function POST(request: NextRequest) {
     try {
       // Use Vercel AI SDK to stream the response via OpenRouter
       const result = await streamText({
-        model: openai(targetModelId, {
-          headers: {
-            'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://roovert.com',
-            'X-Title': 'Roovert AI Platform',
-          },
-        }),
+        model: openai(targetModelId),
         messages: messages as any,
       });
 
