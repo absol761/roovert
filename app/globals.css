@@ -2,7 +2,7 @@
 @import 'highlight.js/styles/github-dark.css';
 
 /* Google Fonts for themed experiences */
-@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Quicksand:wght@300..700&family=Pacifico&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Quicksand:wght@300..700&family=Pacifico&family=Raleway:ital,wght@0,100..900;1,100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Space+Grotesk:wght@300..700&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap');
 
 :root {
   /* Default Theme (Deep Space) */
@@ -154,30 +154,30 @@
   --hud-bg: rgba(2, 6, 18, 0.95);
 }
 
-/* Atlas Grid (Brutalist blueprint) - Unique industrial design */
+/* Atlas Grid (Blueprint/Construction Paper) - Technical drawing aesthetic */
 [data-theme='atlas'] {
-  --background: #1a1a1a;
-  /* Dark industrial base */
-  --foreground: #e8e6e3;
-  /* Warm off-white */
-  --accent: #ff6b35;
-  /* Vibrant orange-red accent */
-  --accent-glow: rgba(255, 107, 53, 0.4);
-  --panel-bg: #2a2a2a;
-  /* Darker panel background */
-  --border: #ff6b35;
-  /* Bold orange borders */
+  --background: #e8f4f8;
+  /* Light blueprint paper */
+  --foreground: #0a4a6b;
+  /* Deep blueprint blue */
+  --accent: #0066cc;
+  /* Technical blue accent */
+  --accent-glow: rgba(0, 102, 204, 0.25);
+  --panel-bg: rgba(232, 244, 248, 0.95);
+  /* Blueprint paper panel */
+  --border: rgba(0, 102, 204, 0.5);
+  /* Blueprint line blue */
   --panel-radius: 0px;
-  /* Sharp corners for brutalist look */
+  /* Sharp corners for technical look */
   --panel-border-style: solid;
   --panel-border-width: 2px;
-  /* Thicker borders */
-  --surface: rgba(42, 42, 42, 0.95);
-  --surface-strong: rgba(58, 58, 58, 0.98);
-  --chip-bg: rgba(255, 107, 53, 0.15);
-  --muted: rgba(232, 230, 227, 0.6);
-  --muted-strong: rgba(232, 230, 227, 0.85);
-  --hud-bg: rgba(26, 26, 26, 0.98);
+  /* Technical drawing borders */
+  --surface: rgba(0, 102, 204, 0.08);
+  --surface-strong: rgba(0, 102, 204, 0.15);
+  --chip-bg: rgba(232, 244, 248, 0.9);
+  --muted: rgba(10, 74, 107, 0.6);
+  --muted-strong: rgba(10, 74, 107, 0.85);
+  --hud-bg: rgba(232, 244, 248, 0.98);
 }
 
 @theme inline {
@@ -563,12 +563,21 @@ body::before {
   box-shadow: 0 25px 60px rgba(2, 6, 23, 0.8);
 }
 
+[data-theme='atlas'] body {
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(0, 102, 204, 0.04) 20px, rgba(0, 102, 204, 0.04) 22px),
+    repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(0, 102, 204, 0.04) 20px, rgba(0, 102, 204, 0.04) 22px),
+    linear-gradient(135deg, #e8f4f8 0%, #d0e8f0 100%);
+  background-attachment: fixed;
+  font-family: 'Courier New', 'Monaco', monospace;
+}
+
 [data-theme='atlas'] body::before {
   background-image:
-    repeating-linear-gradient(0deg, rgba(255, 107, 53, 0.03) 0px, transparent 1px, transparent 40px, rgba(255, 107, 53, 0.03) 41px),
-    repeating-linear-gradient(90deg, rgba(255, 107, 53, 0.03) 0px, transparent 1px, transparent 40px, rgba(255, 107, 53, 0.03) 41px);
-  background-size: 40px 40px;
-  opacity: 1;
+    repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0, 102, 204, 0.02) 5px, rgba(0, 102, 204, 0.02) 6px),
+    radial-gradient(circle at 50% 50%, rgba(0, 102, 204, 0.05), transparent 70%);
+  background-size: 100% 100%;
+  opacity: 0.5;
 }
 
 [data-theme='atlas'] .theme-shell {
@@ -579,13 +588,25 @@ body::before {
   text-transform: uppercase;
   letter-spacing: 0.15em;
   font-weight: 600;
+  font-family: 'Courier New', monospace;
 }
 
 [data-theme='atlas'] .glass-panel {
   border-radius: 0 !important;
-  border: 2px solid var(--accent) !important;
-  box-shadow: 8px 8px 0 rgba(255, 107, 53, 0.3), 0 0 0 1px rgba(255, 107, 53, 0.1);
-  background: var(--panel-bg) !important;
+  border: 2px solid var(--border) !important;
+  box-shadow: 0 2px 4px rgba(0, 102, 204, 0.2), inset 0 0 0 1px rgba(0, 102, 204, 0.1);
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(0, 102, 204, 0.02) 10px, rgba(0, 102, 204, 0.02) 11px),
+    repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(0, 102, 204, 0.02) 10px, rgba(0, 102, 204, 0.02) 11px),
+    rgba(232, 244, 248, 0.98) !important;
+}
+
+[data-theme='atlas'] .glass-panel::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 1px dashed rgba(0, 102, 204, 0.3);
+  pointer-events: none;
 }
 
 [data-theme='atlas'] .widgets-stack {
@@ -598,8 +619,41 @@ body::before {
 }
 
 [data-theme='atlas'] nav {
-  border-bottom: 2px solid var(--accent);
-  background: var(--hud-bg);
+  border-bottom: 3px double var(--border);
+  background: rgba(232, 244, 248, 0.98);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.15);
+}
+
+[data-theme='atlas'] button {
+  border: 2px solid var(--border);
+  border-radius: 0;
+  background: rgba(232, 244, 248, 0.9);
+  font-family: 'Courier New', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+[data-theme='atlas'] button:hover {
+  background: rgba(0, 102, 204, 0.1);
+  box-shadow: 0 4px 8px rgba(0, 102, 204, 0.3);
+}
+
+[data-theme='atlas'] h1,
+[data-theme='atlas'] h2,
+[data-theme='atlas'] h3 {
+  font-family: 'Courier New', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  text-shadow: 2px 2px 0 rgba(0, 102, 204, 0.15);
+}
+
+[data-theme='atlas'] input,
+[data-theme='atlas'] textarea {
+  border: 2px solid var(--border);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.9);
+  font-family: 'Courier New', monospace;
 }
 
 /* Smooth scrolling */
@@ -2515,6 +2569,21 @@ textarea:focus {
 
 [data-look='monochrome'] body {
   background: #f8f8f8;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+}
+
+[data-look='monochrome'] h1,
+[data-look='monochrome'] h2,
+[data-look='monochrome'] h3,
+[data-look='monochrome'] h4 {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+[data-look='monochrome'] code,
+[data-look='monochrome'] pre {
+  font-family: 'DM Mono', 'Courier New', monospace;
 }
 
 [data-look='monochrome'] body::before {
@@ -2963,6 +3032,16 @@ textarea:focus {
     radial-gradient(circle at 80% 70%, rgba(41, 171, 202, 0.15), transparent 50%);
   background-attachment: fixed;
   animation: gemini-gradient-shift 20s ease-in-out infinite;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+[data-look='gemini'] h1,
+[data-look='gemini'] h2,
+[data-look='gemini'] h3,
+[data-look='gemini'] h4 {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.02em;
 }
 
 @keyframes gemini-gradient-shift {
