@@ -3421,71 +3421,69 @@ textarea:focus {
   inherits: false;
 }
 
-/* Traveling glow effect along the border - no visible border */
+/* Animated traveling gradient border - single border on container */
 .gemini-rainbow-border {
   position: relative;
   border-radius: 24px;
   background: var(--panel-bg);
-  --glow-color: var(--accent);
-  --glow-opacity: 0.4;
+  border: 2px solid transparent;
+  /* Theme-aware gradient colors */
+  --border-color-1: var(--foreground);
+  --border-color-2: var(--accent);
+  --border-color-3: var(--muted-strong);
+  --border-color-4: color-mix(in srgb, var(--accent) 60%, var(--foreground) 40%);
+  --border-angle: 0deg;
 }
 
-/* Traveling glow - positioned behind the input */
+/* Animated gradient border using border-image technique */
 .gemini-rainbow-border::before {
   content: '';
   position: absolute;
-  inset: -4px;
-  border-radius: 28px;
-  background: radial-gradient(
-    circle 60px at var(--glow-x, 0%) var(--glow-y, 0%),
-    var(--glow-color) 0%,
-    transparent 70%
+  inset: -2px;
+  border-radius: 24px;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--border-angle),
+    var(--border-color-1) 0deg,
+    var(--border-color-2) 25%,
+    var(--border-color-3) 50%,
+    var(--border-color-4) 75%,
+    var(--border-color-1) 100%
   );
-  opacity: var(--glow-opacity);
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  -webkit-mask-composite: exclude;
+  mask: 
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: gemini-border-travel 5s linear infinite;
+  opacity: 0.8;
   z-index: 0;
   pointer-events: none;
-  filter: blur(8px);
-  animation: gemini-glow-travel 4s linear infinite;
+  filter: blur(0.5px);
 }
 
 .gemini-rainbow-border:focus-within::before {
-  --glow-opacity: 0.7;
-  filter: blur(6px);
-  animation-duration: 3s;
+  opacity: 1;
+  filter: blur(0px);
+  animation-duration: 4s;
 }
 
-@property --glow-x {
-  syntax: '<percentage>';
-  initial-value: 0%;
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
   inherits: false;
 }
 
-@property --glow-y {
-  syntax: '<percentage>';
-  initial-value: 0%;
-  inherits: false;
-}
-
-@keyframes gemini-glow-travel {
+@keyframes gemini-border-travel {
   0% {
-    --glow-x: 0%;
-    --glow-y: 0%;
-  }
-  25% {
-    --glow-x: 100%;
-    --glow-y: 0%;
-  }
-  50% {
-    --glow-x: 100%;
-    --glow-y: 100%;
-  }
-  75% {
-    --glow-x: 0%;
-    --glow-y: 100%;
+    --border-angle: 0deg;
   }
   100% {
-    --glow-x: 0%;
-    --glow-y: 0%;
+    --border-angle: 360deg;
   }
 }
 
@@ -3493,5 +3491,5 @@ textarea:focus {
   position: relative;
   z-index: 1;
   background: var(--panel-bg);
-  border-radius: 24px;
+  border-radius: 22px;
 }
