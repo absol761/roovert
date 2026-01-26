@@ -13,18 +13,46 @@ if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
   });
 }
 
+// Cooldown period in seconds (5 minutes)
+const COOLDOWN_SECONDS = 300;
+
+/**
+ * Get user identifier from request (IP-based)
+ */
+function getUserIdentifier(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown';
+  // Hash the IP for privacy
+  return `user_cooldown:${ip}`;
+}
+
 /**
  * Track "Initialize Chat" click
+ * Rate limited: only counts once per 5 minutes per user
  */
 export async function POST(request: NextRequest) {
   try {
     const now = Date.now();
+    const userKey = getUserIdentifier(request);
     
     // Try Upstash Redis first (production)
     if (redis) {
       try {
+        // Check if user is on cooldown
+        const lastClick = await redis.get<number>(userKey);
+        
+        if (lastClick) {
+          // User clicked recently, don't increment
+          return NextResponse.json({ success: true, counted: false, message: 'Already counted recently' });
+        }
+        
+        // Set cooldown for this user (expires after 5 minutes)
+        await redis.set(userKey, now, { ex: COOLDOWN_SECONDS });
+        
+        // Increment the counter
         await redis.incr('initialize_chat_clicks');
-        return NextResponse.json({ success: true });
+        
+        return NextResponse.json({ success: true, counted: true });
       } catch (redisError) {
         console.error('Redis error:', redisError);
         // Fall through to SQLite
@@ -48,10 +76,10 @@ export async function POST(request: NextRequest) {
       // Security: Increment rate limit after successful processing
       incrementRateLimit(request, 'tracking');
       
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, counted: true });
     } catch (dbError: any) {
       if (dbError.message?.includes('serverless') || dbError.message?.includes('SQLite not available')) {
-        return NextResponse.json({ success: true }); // Silent success in serverless
+        return NextResponse.json({ success: true, counted: false }); // Silent success in serverless
       }
       console.error('Database error:', dbError);
       return NextResponse.json({ success: false, error: 'Failed to track' }, { status: 500 });
