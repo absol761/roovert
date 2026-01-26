@@ -2519,7 +2519,7 @@ while (true) {
                     </div>
                   )}
 
-                  <div className={`flex-1 overflow-y-auto custom-scrollbar ${isMobile ? 'pr-2' : 'pr-4'} min-h-[40vh]`}>
+                  <div className={`overflow-y-auto custom-scrollbar ${isMobile ? 'pr-2' : 'pr-4'}`} style={{ maxHeight: 'calc(100vh - 300px)', minHeight: '200px' }}>
                     {/* Conversation History */}
                     <div className="space-y-6 mb-6">
                       {history
