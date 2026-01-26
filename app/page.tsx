@@ -44,7 +44,6 @@ const OPENROUTER_MODELS: Model[] = [
   { id: 'deepseek-chat', name: 'DeepSeek Chat', apiId: 'deepseek/deepseek-chat', category: 'Standard', description: 'Fast and efficient reasoning model.' },
 ];
 
-const MORE_MODELS: Model[] = [];
 
 const QUICK_PROMPTS = [
   'Stress test this assumption about AGI timelines.',
@@ -90,79 +89,6 @@ const LOOKS = [
   { id: 'toybox', name: 'Toybox', description: 'Playful vibrant colors with visualizer', category: 'themed' },
 ];
 
-// More Models Modal Component
-function MoreModelsModal({ isOpen, onClose, currentModelId, setModelId, unavailableModels = new Set() }: any) {
-  if (!isOpen) return null;
-
-  const categories = ['Standard', 'Advanced'];
-  const modelsByCategory = categories.map(cat => ({
-    category: cat,
-    models: MORE_MODELS.filter(m => m.category === cat && !unavailableModels.has(m.id))
-  }));
-
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 text-[var(--foreground)]">
-      <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-4xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <h2 className="text-2xl font-light tracking-wide flex items-center gap-2">
-            <Zap className="w-6 h-6 text-[var(--accent)]" />
-            More Models
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
-          {modelsByCategory.map(({ category, models }) => (
-            <motion.section
-              key={category}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-            >
-              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">
-                {category}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {models.map((model, idx) => (
-                  <motion.button
-                    key={model.id}
-                    onClick={() => { setModelId(model.id); onClose(); }}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.2, delay: idx * 0.03, ease: 'easeOut' }}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`p-4 rounded-xl border transition-all duration-300 text-left ${currentModelId === model.id
-                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20'
-                      : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
-                      }`}
-                  >
-                    <div className="font-medium text-[var(--foreground)] mb-1 flex items-center gap-2">
-                      {model.name}
-                      {model.category === 'Advanced' && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]">PRO</span>
-                      )}
-                    </div>
-                    <div className="text-xs text-[var(--muted)]">{model.description}</div>
-                  </motion.button>
-                ))}
-              </div>
-            </motion.section>
-          ))}
-        </div>
-      </motion.div>
-    </div>
-  );
-}
 
 // Looks Modal Component
 function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
@@ -247,7 +173,6 @@ function SettingsModal({
   systemPrompt, setSystemPrompt,
   onExportChat,
   currentLook, setLook,
-  onOpenMoreModels,
   neuralNoiseEnabled,
   setNeuralNoiseEnabled,
   availableModels = [] as typeof MODELS
@@ -612,15 +537,26 @@ function LiveStats() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('/api/stats');
-        if (!response.ok) throw new Error('Stats API not available');
-        if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) {
+        const response = await fetch('/api/stats', { 
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          console.warn('Stats API not available:', response.status);
+          return;
+        }
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.warn('Stats API returned non-JSON response');
           return;
         }
         const data = await response.json();
-        setUserCount(data.users || data.totalUsers || 0);
+        const count = data.users || data.totalUsers || 0;
+        if (count > 0) {
+          setUserCount(count);
+        }
       } catch (error) {
-        // Silently handle stats errors
+        console.warn('Stats fetch error:', error);
       }
     };
 
@@ -1444,7 +1380,6 @@ export default function Page() {
   const [selectedModelId, setSelectedModelId] = useState(availableModels[0]?.id || MODELS[0].id);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
-  const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
   const [isGlobalFeedOpen, setIsGlobalFeedOpen] = useState(false);
   const [look, setLook] = useState('midnight');
   const [layout, setLayout] = useState('standard');
@@ -2210,7 +2145,6 @@ export default function Page() {
             onExportChat={handleExportChat}
             currentLook={look}
             setLook={setLook}
-            onOpenMoreModels={() => setIsMoreModelsOpen(true)}
             neuralNoiseEnabled={neuralNoiseEnabled}
             setNeuralNoiseEnabled={setNeuralNoiseEnabled}
             availableModels={availableModels}
@@ -2218,18 +2152,6 @@ export default function Page() {
         )}
       </AnimatePresence>
 
-      {/* More Models Modal */}
-      <AnimatePresence>
-        {isMoreModelsOpen && (
-          <MoreModelsModal
-            isOpen={isMoreModelsOpen}
-            onClose={() => setIsMoreModelsOpen(false)}
-            currentModelId={selectedModelId}
-            setModelId={setSelectedModelId}
-            unavailableModels={unavailableModels}
-          />
-        )}
-      </AnimatePresence>
 
       {/* Looks Modal */}
       <AnimatePresence>
@@ -2967,6 +2889,10 @@ while (true) {
                     placeholder={`Ask ${selectedModel.name} anything... `}
                     className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
                     disabled={isProcessing}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
                     aria-label="Query input"
                   />
                   <button
