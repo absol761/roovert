@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
     try {
       // Use Vercel AI SDK to stream the response via OpenRouter
       const result = await streamText({
-        model: openai(targetModelId),
+        model: openai(targetModelId) as any,
         messages: messages as any,
       });
 
