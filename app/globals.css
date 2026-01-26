@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import 'highlight.js/styles/github-dark.css';
 
+/* Google Fonts for themed experiences */
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Quicksand:wght@300..700&family=Pacifico&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+
 :root {
   /* Default Theme (Deep Space) */
   --background: #050505;
@@ -70,9 +73,10 @@
   --leading-normal: 1.5;
   --leading-relaxed: 1.75;
 
-  /* Focus Ring */
-  --focus-ring: 0 0 0 3px rgba(0, 128, 128, 0.5);
+  /* Focus Ring - White for default theme */
+  --focus-ring: 0 0 0 3px rgba(255, 255, 255, 0.4);
   --focus-ring-offset: 2px;
+  --focus-color: rgba(255, 255, 255, 0.8);
 }
 
 /* Revised Clean Slate (High Contrast Light Mode) */
@@ -201,7 +205,7 @@ body {
 
 /* Enhanced Focus States for Accessibility */
 *:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-color, var(--accent));
   outline-offset: var(--focus-ring-offset);
   border-radius: 4px;
 }
@@ -211,7 +215,7 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-color, var(--accent));
   outline-offset: 2px;
   box-shadow: var(--focus-ring);
 }
@@ -639,8 +643,8 @@ textarea {
 
 input:focus,
 textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(0, 128, 128, 0.1);
+  border-color: var(--focus-color, var(--accent));
+  box-shadow: var(--focus-ring);
 }
 
 /* Loading States */
@@ -2624,6 +2628,15 @@ textarea:focus {
 
 [data-look='sustainable'] body {
   background: linear-gradient(135deg, #f0f7f4 0%, #e8f5f0 100%);
+  font-family: 'Nunito Sans', 'Quicksand', system-ui, sans-serif;
+}
+
+[data-look='sustainable'] h1,
+[data-look='sustainable'] h2,
+[data-look='sustainable'] h3,
+[data-look='sustainable'] h4 {
+  font-family: 'Quicksand', 'Nunito Sans', sans-serif;
+  font-weight: 600;
 }
 
 [data-look='sustainable'] body::before {
@@ -3243,6 +3256,18 @@ textarea:focus {
     linear-gradient(180deg, #001f3f 0%, #004d7a 50%, #0077be 100%),
     radial-gradient(circle at 50% 80%, rgba(0, 188, 212, 0.3), transparent 60%);
   background-attachment: fixed;
+  font-family: 'Raleway', system-ui, sans-serif;
+}
+
+[data-look='colorway-ocean'] h1,
+[data-look='colorway-ocean'] h2,
+[data-look='colorway-ocean'] h3,
+[data-theme='colorway-ocean'] h1,
+[data-theme='colorway-ocean'] h2,
+[data-theme='colorway-ocean'] h3 {
+  font-family: 'Pacifico', cursive;
+  font-weight: 400;
+  letter-spacing: 0.02em;
 }
 
 [data-look='colorway-ocean'] body::before,
