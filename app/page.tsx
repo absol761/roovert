@@ -353,12 +353,6 @@ function SettingsModal({
           <section>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] font-mono">Default Intelligence</h3>
-              <button
-                onClick={onOpenMoreModels}
-                className="text-xs text-[var(--accent)] hover:text-[var(--accent)]/80 transition-colors px-3 py-1.5 rounded-lg border border-[var(--border)] hover:border-[var(--accent)]/40 hover:bg-[var(--surface)]"
-              >
-                More Models
-              </button>
             </div>
             <div className="grid gap-2">
               {availableModels.map((model: typeof MODELS[0]) => (
