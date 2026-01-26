@@ -161,6 +161,96 @@ function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
   );
 }
 
+// More Models Modal Component
+function MoreModelsModal({ 
+  isOpen, 
+  onClose, 
+  models, 
+  selectedModelId, 
+  onSelectModel,
+  onInitialize 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  models: Model[]; 
+  selectedModelId: string;
+  onSelectModel: (id: string) => void;
+  onInitialize: () => void;
+}) {
+  if (!isOpen) return null;
+
+  const categories = ['Standard', 'Advanced', 'Premium'];
+  const modelsByCategory = categories.map(cat => ({
+    category: cat,
+    models: models.filter(m => m.category === cat)
+  })).filter(cat => cat.models.length > 0);
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 text-[var(--foreground)]">
+      <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative w-full max-w-5xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
+          <h2 className="text-2xl font-light tracking-wide flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-[var(--accent)]" />
+            All AI Models
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8" style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
+          {modelsByCategory.map(({ category, models: catModels }) => (
+            <motion.section
+              key={category}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            >
+              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">
+                {category}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {catModels.map((model, idx) => (
+                  <motion.button
+                    key={model.id}
+                    onClick={() => { 
+                      onSelectModel(model.id); 
+                      onInitialize();
+                      onClose(); 
+                    }}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2, delay: idx * 0.03, ease: 'easeOut' }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden ${selectedModelId === model.id
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20'
+                      : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="w-4 h-4 text-[var(--accent)]" />
+                      <span className="font-medium text-[var(--foreground)]">{model.name}</span>
+                    </div>
+                    <div className="text-xs text-[var(--muted)]">{model.description}</div>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.section>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // Settings Modal Component
 function SettingsModal({
   isOpen,
@@ -1382,6 +1472,7 @@ export default function Page() {
   const [focusMode, setFocusMode] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [closedWidgets, setClosedWidgets] = useState<Set<string>>(new Set());
   // Visualizer state
@@ -2155,6 +2246,20 @@ export default function Page() {
             onClose={() => setIsLooksOpen(false)}
             currentLook={look}
             setLook={setLook}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* More Models Modal */}
+      <AnimatePresence>
+        {isMoreModelsOpen && (
+          <MoreModelsModal
+            isOpen={isMoreModelsOpen}
+            onClose={() => setIsMoreModelsOpen(false)}
+            models={filteredAvailableModels}
+            selectedModelId={selectedModelId}
+            onSelectModel={setSelectedModelId}
+            onInitialize={handleInitialize}
           />
         )}
       </AnimatePresence>
