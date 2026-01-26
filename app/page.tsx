@@ -85,7 +85,6 @@ const LOOKS = [
   { id: 'textured-marble', name: 'Textured Marble', description: 'Elegant marble patterns and gradients', category: 'textured' },
   { id: 'textured-wood', name: 'Textured Wood', description: 'Warm wood grain textures', category: 'textured' },
   { id: 'textured-glass', name: 'Textured Glass', description: 'Frosted glass with light refraction', category: 'textured' },
-  { id: 'colorway-sunset', name: 'Sunset Colorway', description: 'Warm sunset gradient palette', category: 'colorway' },
   { id: 'colorway-ocean', name: 'Ocean Colorway', description: 'Cool ocean blues and teals', category: 'colorway' },
   { id: 'colorway-forest', name: 'Forest Colorway', description: 'Natural greens and earth tones', category: 'colorway' },
   { id: 'toybox', name: 'Toybox', description: 'Playful vibrant colors with visualizer', category: 'themed' },
