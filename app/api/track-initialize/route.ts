@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/app/lib/db';
 import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
 import { validateBodySize, createValidationErrorResponse } from '../../lib/security/validation';
+import { Redis } from '@upstash/redis';
 
-// Conditionally import KV (only if available)
-let kv: any = null;
-try {
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    kv = require('@vercel/kv').kv;
-  }
-} catch {
-  // KV not available - will use SQLite fallback
+// Initialize Redis client if environment variables are available
+let redis: Redis | null = null;
+if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+  redis = new Redis({
+    url: process.env.KV_REST_API_URL,
+    token: process.env.KV_REST_API_TOKEN,
+  });
 }
 
 /**
@@ -20,13 +20,13 @@ export async function POST(request: NextRequest) {
   try {
     const now = Date.now();
     
-    // Try Vercel KV first (production)
-    if (kv && process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    // Try Upstash Redis first (production)
+    if (redis) {
       try {
-        await kv.incr('initialize_chat_clicks');
+        await redis.incr('initialize_chat_clicks');
         return NextResponse.json({ success: true });
-      } catch (kvError) {
-        console.error('KV error:', kvError);
+      } catch (redisError) {
+        console.error('Redis error:', redisError);
         // Fall through to SQLite
       }
     }
@@ -66,13 +66,13 @@ export async function POST(request: NextRequest) {
  * Get "Initialize Chat" click count
  */
 async function getInitializeCount(): Promise<number> {
-  // Try Vercel KV first (production)
-  if (kv && process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+  // Try Upstash Redis first (production)
+  if (redis) {
     try {
-      const count = (await kv.get('initialize_chat_clicks') as number) || 0;
-      return Math.max(count, 0);
-    } catch (kvError) {
-      console.error('KV error:', kvError);
+      const count = await redis.get<number>('initialize_chat_clicks');
+      return Math.max(count || 0, 0);
+    } catch (redisError) {
+      console.error('Redis error:', redisError);
       // Fall through to SQLite
     }
   }
