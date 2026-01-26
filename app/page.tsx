@@ -1514,6 +1514,15 @@ export default function Page() {
   const inputRef = useRef<HTMLInputElement>(null);
   const responseEndRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom when history or response changes
+  useEffect(() => {
+    if (isChatMode && (history.length > 0 || response)) {
+      setTimeout(() => {
+        responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [history.length, response, isChatMode]);
+
   // Model availability checking removed - endpoint deleted
   useEffect(() => {
     const checkModelAvailability = async () => {
@@ -2836,7 +2845,6 @@ while (true) {
                                     >
                                       {response}
                                     </ReactMarkdown>
-                                    <div ref={responseEndRef} />
                                   </div>
                                 ) : null}
                               </div>
@@ -2853,6 +2861,9 @@ while (true) {
                         <p>Ready to query.</p>
                       </div>
                     )}
+                    
+                    {/* Auto-scroll anchor - always at the bottom */}
+                    <div ref={responseEndRef} />
                   </div>
                 </section>
               </div>
