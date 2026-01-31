@@ -1,8 +1,9 @@
 @import "tailwindcss";
 @import 'highlight.js/styles/github-dark.css';
 
-/* Google Fonts for themed experiences */
-@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Quicksand:wght@300..700&family=Pacifico&family=Raleway:ital,wght@0,100..900;1,100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Space+Grotesk:wght@300..700&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap');
+/* Google Fonts removed - now loaded via layout.tsx head */
+
+
 
 :root {
   /* Default Theme (Deep Space) */
@@ -3423,100 +3424,6 @@ textarea:focus {
    VIBE MODE - EDM Party Theme
    ============================================ */
 
-/* Toybox Look (Lego Inspired) */
-[data-look='toybox'] {
-  --background: #f0f0f0;
-  --foreground: #111111;
-  --accent: #ff3f34;
-  /* Plastic Red - Kept as primary accent */
-  --accent-glow: rgba(255, 63, 52, 0.4);
-  --panel-bg: #ffffff;
-  --border: #bfbfbf;
-  /* Neutral Gray */
-  --panel-radius: 12px;
-  --surface: #e5e5e5;
-  /* Light Gray */
-  --surface-strong: #cccccc;
-  /* Medium Gray */
-  --chip-bg: #e0e0e0;
-  /* Neutral Gray - WAS yellow/blue */
-  --muted: #808e9b;
-  --muted-strong: #1e272e;
-  --hud-bg: rgba(255, 255, 255, 0.98);
-}
-
-[data-look='toybox'] body {
-  /* Studded floor pattern */
-  background-color: #f0f0f0;
-  background-image: radial-gradient(#d2dae2 15%, transparent 16%);
-  background-size: 20px 20px;
-  background-position: 0 0;
-}
-
-[data-look='toybox'] button {
-  background-color: #ffffff;
-  border: 2px solid #bdc3c7;
-  border-bottom-width: 6px;
-  /* Thick bottom for 3D effect */
-  border-radius: 8px;
-  box-shadow: none;
-  font-weight: 700;
-  transform: translateY(0);
-  transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Primary action buttons override */
-[data-look='toybox'] button[class*="accent"],
-[data-look='toybox'] button[class*="bg-\[var(--accent)\]"] {
-  background-color: var(--accent);
-  color: white;
-  border-color: #d12c23;
-  /* Darker red border */
-}
-
-[data-look='toybox'] button:active {
-  border-bottom-width: 2px;
-  transform: translateY(4px);
-  margin-top: 4px;
-  /* Maintain layout flow */
-}
-
-[data-look='toybox'] .glass-panel,
-[data-look='toybox'] .intel-card,
-[data-look='toybox'] .widget-card {
-  border: 2px solid #bdc3c7 !important;
-  border-bottom-width: 6px !important;
-  box-shadow: none !important;
-  background: white !important;
-  border-radius: 12px !important;
-}
-
-[data-look='toybox'] nav {
-  background: rgba(255, 255, 255, 0.9);
-  border-bottom: 4px solid #d2dae2;
-}
-
-/* Make headers pop */
-[data-look='toybox'] h1,
-[data-look='toybox'] h2,
-[data-look='toybox'] h3 {
-  font-weight: 900;
-  letter-spacing: -0.02em;
-}
-
-[data-look='toybox'] .text-\[var\(--muted\)\] {
-  color: #636e72 !important;
-}
-
-[data-look='toybox'] .text-\[var\(--accent\)\] {
-  color: #ff3f34 !important;
-  /* Ensure red accent, not blue */
-}
-
-/* Force gray for clock/nav items in toybox */
-[data-look='toybox'] nav .text-\[var\(--muted\)\] {
-  color: #2d3436 !important;
-}
 
 /* Gemini Rainbow Border Animation - Theme-based colors traveling along border */
 @property --gemini-angle {
@@ -3546,20 +3453,18 @@ textarea:focus {
   inset: -2px;
   border-radius: 24px;
   padding: 2px;
-  background: conic-gradient(
-    from var(--border-angle),
-    var(--border-color-1) 0deg,
-    var(--border-color-2) 25%,
-    var(--border-color-3) 50%,
-    var(--border-color-4) 75%,
-    var(--border-color-1) 100%
-  );
-  -webkit-mask: 
+  background: conic-gradient(from var(--border-angle),
+      var(--border-color-1) 0deg,
+      var(--border-color-2) 25%,
+      var(--border-color-3) 50%,
+      var(--border-color-4) 75%,
+      var(--border-color-1) 100%);
+  -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   -webkit-mask-composite: exclude;
-  mask: 
+  mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
   mask-composite: exclude;
@@ -3586,12 +3491,13 @@ textarea:focus {
   0% {
     --border-angle: 0deg;
   }
+
   100% {
     --border-angle: 360deg;
   }
 }
 
-.gemini-rainbow-border > * {
+.gemini-rainbow-border>* {
   position: relative;
   z-index: 1;
   background: var(--panel-bg);

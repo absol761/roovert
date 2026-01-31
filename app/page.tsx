@@ -86,7 +86,6 @@ const LOOKS = [
   { id: 'textured-glass', name: 'Textured Glass', description: 'Frosted glass with light refraction', category: 'textured' },
   { id: 'colorway-ocean', name: 'Ocean Colorway', description: 'Cool ocean blues and teals', category: 'colorway' },
   { id: 'colorway-forest', name: 'Forest Colorway', description: 'Natural greens and earth tones', category: 'colorway' },
-  { id: 'toybox', name: 'Toybox', description: 'Playful vibrant colors with visualizer', category: 'themed' },
 ];
 
 
@@ -162,17 +161,17 @@ function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
 }
 
 // More Models Modal Component
-function MoreModelsModal({ 
-  isOpen, 
-  onClose, 
-  models, 
-  selectedModelId, 
+function MoreModelsModal({
+  isOpen,
+  onClose,
+  models,
+  selectedModelId,
   onSelectModel,
-  onInitialize 
-}: { 
-  isOpen: boolean; 
-  onClose: () => void; 
-  models: Model[]; 
+  onInitialize
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  models: Model[];
   selectedModelId: string;
   onSelectModel: (id: string) => void;
   onInitialize: () => void;
@@ -220,10 +219,10 @@ function MoreModelsModal({
                 {catModels.map((model, idx) => (
                   <motion.button
                     key={model.id}
-                    onClick={() => { 
-                      onSelectModel(model.id); 
+                    onClick={() => {
+                      onSelectModel(model.id);
                       onInitialize();
-                      onClose(); 
+                      onClose();
                     }}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -621,7 +620,7 @@ function LiveStats() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('/api/stats', { 
+        const response = await fetch('/api/stats', {
           cache: 'no-store',
           headers: { 'Content-Type': 'application/json' }
         });
@@ -1449,7 +1448,7 @@ export default function Page() {
         // Silently handle errors - non-critical
       }
     };
-    
+
     checkRateLimit();
     const interval = setInterval(checkRateLimit, 60000); // Check every minute
     return () => clearInterval(interval);
@@ -1570,12 +1569,7 @@ export default function Page() {
     } else {
       document.documentElement.classList.remove('data-saver');
     }
-    
-    // Disable visualizer when switching out of toybox theme
-    if (look !== 'toybox' && visualizerEnabled) {
-      setVisualizerEnabled(false);
-    }
-  }, [look, layout, fontSize, dataSaver, visualizerEnabled]);
+  }, [look, layout, fontSize, dataSaver]);
 
 
   // Filter out unavailable models (use the combined list from above)
@@ -1619,7 +1613,7 @@ export default function Page() {
     } catch (error) {
       // Silently fail - tracking is not critical
     }
-    
+
     setIsChatMode(true);
     requestAnimationFrame(() => {
       inputRef.current?.focus();
@@ -1827,7 +1821,7 @@ export default function Page() {
       // Determine if this is an OpenRouter model
       const isOpenRouterModel = OPENROUTER_MODELS.some(m => m.id === selectedModel.id);
       const apiEndpoint = isOpenRouterModel ? '/api/openrouter' : '/api/query-gateway';
-      
+
       const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
@@ -2039,7 +2033,7 @@ export default function Page() {
       {/* Neural Noise and Audio Visualizer removed - using R3F visualizer instead */}
 
       {/* R3F Visualizer */}
-      {visualizerEnabled && look === 'toybox' && (
+      {visualizerEnabled && (
         <R3FVisualizer
           mode={visualizerMode}
           speed={visualizerSpeed}
@@ -2132,10 +2126,7 @@ export default function Page() {
             <div className="flex items-center gap-6">
               <button
                 onClick={() => setIsChatMode(false)}
-                className={`text-2xl font-bold hover:opacity-80 transition-opacity drop-shadow-[0_0_8px_rgba(var(--accent-rgb,0,128,128),0.5)] ${look === 'toybox'
-                  ? 'text-black drop-shadow-none'
-                  : 'bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent'
-                  }`}
+                className="text-2xl font-bold hover:opacity-80 transition-opacity drop-shadow-[0_0_8px_rgba(var(--accent-rgb,0,128,128),0.5)] bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent"
               >
                 ROOVERT
               </button>
@@ -2160,37 +2151,6 @@ export default function Page() {
               >
                 <Paintbrush className="w-5 h-5 group-hover:rotate-12 transition-transform" />
               </button>
-              {look === 'toybox' && (
-                <>
-                  <button
-                    onClick={() => {
-                      setVisualizerEnabled(!visualizerEnabled);
-                      if (!visualizerEnabled) {
-                        setVisualizerConfigOpen(true);
-                      }
-                    }}
-                    className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${visualizerEnabled
-                      ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                      : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
-                      }`}
-                    title="Toggle Visualizer"
-                  >
-                    <Sparkles className={`w-5 h-5 ${visualizerEnabled ? 'animate-pulse' : ''}`} />
-                  </button>
-                  {visualizerEnabled && (
-                    <button
-                      onClick={() => setVisualizerConfigOpen(!visualizerConfigOpen)}
-                      className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${visualizerConfigOpen
-                        ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                        : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
-                        }`}
-                      title="Visualizer Settings"
-                    >
-                      <Square className="w-5 h-5" />
-                    </button>
-                  )}
-                </>
-              )}
             </div>
 
             <div className="hidden md:flex items-center gap-8">
@@ -2861,7 +2821,7 @@ while (true) {
                         <p>Ready to query.</p>
                       </div>
                     )}
-                    
+
                     {/* Auto-scroll anchor - always at the bottom */}
                     <div ref={responseEndRef} />
                   </div>
