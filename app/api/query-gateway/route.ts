@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Security: Model allowlist - prevent model injection attacks
     const MODEL_MAP: Record<string, string> = {
+      'multi-perspective': 'multi-perspective', // Special parallel mode
       'ooverta': 'meta-llama/llama-4-scout-17b-16e-instruct',
       'llama-4-scout': 'meta-llama/llama-4-scout-17b-16e-instruct',
       'llama-3.3-70b': 'llama-3.3-70b-versatile',
@@ -64,7 +65,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Use sanitized payload
-    const { query, model, systemPrompt: customSystemPrompt, conversationHistory, image } = validation.sanitized!;
+    const { query, model, systemPrompt: customSystemPrompt, conversationHistory, image, runParallel, outputLength, parallelModel1, parallelModel2 } = validation.sanitized!;
+
+    // Determine max_tokens based on outputLength
+    const maxTokensMap = {
+      small: 800,
+      medium: 2000,
+      large: 4000
+    };
+    const maxTokens = maxTokensMap[outputLength as 'small' | 'medium' | 'large'] || maxTokensMap.medium;
 
     // Security: Content moderation - check for offensive content
     const queryCheck = containsOffensiveContent(query);
@@ -117,9 +126,9 @@ export async function POST(request: NextRequest) {
       const limitedHistory = conversationHistory.slice(-MAX_LENGTHS.CONVERSATION_HISTORY_MESSAGES);
       for (const msg of limitedHistory) {
         // Additional validation - ensure message structure is correct
-        if (msg && typeof msg === 'object' && msg.role && msg.content && 
-            (msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system') &&
-            typeof msg.content === 'string' && msg.content.length <= MAX_LENGTHS.MESSAGE_CONTENT) {
+        if (msg && typeof msg === 'object' && msg.role && msg.content &&
+          (msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system') &&
+          typeof msg.content === 'string' && msg.content.length <= MAX_LENGTHS.MESSAGE_CONTENT) {
           messages.push({
             role: msg.role,
             content: msg.content as any
@@ -142,20 +151,102 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+      // If parallel mode is enabled and no image, use user-selected models
+      if (runParallel && !image && parallelModel1 && parallelModel2) {
+        // Use the two models selected by the user
+        const selectedModels = [parallelModel1, parallelModel2];
+
+        // If we have multiple models, run them in parallel
+        if (selectedModels.length > 1) {
+          // Import orchestration utilities
+          const { synthesizeResponses } = await import('../../lib/orchestration');
+
+          const modelPromises = selectedModels.map(async (selectedModel) => {
+            const modelId = MODEL_MAP[selectedModel] || targetModelId;
+            const result = await streamText({
+              model: groq(modelId),
+              messages: messages as any,
+            });
+
+            let fullText = '';
+            for await (const chunk of result.textStream) {
+              fullText += chunk;
+            }
+            return { model: selectedModel, content: fullText };
+          });
+
+          const responses = await Promise.all(modelPromises);
+
+          // Synthesize responses
+          const synthesized = synthesizeResponses(responses, query);
+
+          // Stream the synthesized response
+          const stream = new ReadableStream({
+            start(controller) {
+              const encoder = new TextEncoder();
+              const words = synthesized.split(' ');
+              let index = 0;
+
+              const sendChunk = () => {
+                if (index < words.length) {
+                  const chunk = (index > 0 ? ' ' : '') + words[index];
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ content: chunk, done: false })}\n\n`)
+                  );
+                  index++;
+                  setTimeout(sendChunk, 10); // Small delay for streaming effect
+                } else {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`)
+                  );
+                  controller.close();
+                }
+              };
+
+              sendChunk();
+            },
+          });
+
+          return new Response(stream, {
+            headers: {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+              'X-Accel-Buffering': 'no',
+            },
+          });
+        }
+      }
+
+      // Single model mode (default or when image is present)
       // Use Vercel AI SDK to stream the response via Groq Provider
       const result = await streamText({
         model: groq(targetModelId),
         messages: messages as any,
       });
 
-      // Convert to Server-Sent Events format with content filtering
+      // Convert to Server-Sent Events format with content filtering and token limiting
       const stream = new ReadableStream({
         async start(controller) {
           const encoder = new TextEncoder();
           let fullResponse = '';
+          let tokenCount = 0;
 
           try {
             for await (const chunk of result.textStream) {
+              // Approximate token count (rough estimate: ~4 chars per token)
+              tokenCount += Math.ceil(chunk.length / 4);
+
+              // Stop if we exceed maxTokens
+              if (tokenCount > maxTokens) {
+                // Send final chunk and stop
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`)
+                );
+                controller.close();
+                return;
+              }
+
               fullResponse += chunk;
               // Stream chunks normally, but we'll check at the end
               controller.enqueue(

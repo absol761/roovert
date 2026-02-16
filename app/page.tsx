@@ -20,29 +20,17 @@ interface Model {
   description: string;
 }
 
+// Groq Models - Free tier available
 const MODELS: Model[] = [
-  { id: 'ooverta', name: 'Ooverta', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Standard', description: 'The flagship Llama 4 model. Multimodal & ultra-precise.' },
-  { id: 'llama-4-scout', name: 'Llama 4 Scout', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Standard', description: 'Meta\'s latest mixture-of-experts model.' },
-  { id: 'llama-3.3-70b', name: 'Llama 3.3 70B', apiId: 'llama-3.3-70b-versatile', category: 'Advanced', description: 'The peak of Llama 3 performance.' },
+  { id: 'multi-perspective', name: 'Multi-Perspective', apiId: 'multi-perspective', category: 'Premium', description: 'Uses multiple AI models simultaneously for comprehensive answers.' },
+  { id: 'ooverta', name: 'Ooverta', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Premium', description: 'Llama 4 Scout - Advanced reasoning and analysis.' },
+  { id: 'llama-4-scout', name: 'Llama 4 Scout', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Premium', description: 'Meta\'s latest Llama 4 model with enhanced capabilities.' },
+  { id: 'llama-3.3-70b', name: 'Llama 3.3 70B', apiId: 'llama-3.3-70b-versatile', category: 'Advanced', description: 'Powerful 70B parameter model for complex tasks.' },
   { id: 'llama-3.1-8b', name: 'Llama 3.1 8B', apiId: 'llama-3.1-8b-instant', category: 'Standard', description: 'Extremely fast and lightweight.' },
 ];
 
-// OpenRouter Models - Best models available
-const OPENROUTER_MODELS: Model[] = [
-  { id: 'gpt-4o', name: 'GPT-4o', apiId: 'openai/gpt-4o', category: 'Premium', description: 'OpenAI\'s most advanced model with multimodal capabilities.' },
-  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', apiId: 'openai/gpt-4-turbo', category: 'Premium', description: 'Faster and more capable GPT-4 variant.' },
-  { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', apiId: 'anthropic/claude-3.5-sonnet', category: 'Premium', description: 'Anthropic\'s most capable model for complex reasoning.' },
-  { id: 'claude-3-opus', name: 'Claude 3 Opus', apiId: 'anthropic/claude-3-opus', category: 'Premium', description: 'Anthropic\'s flagship model for advanced tasks.' },
-  { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', apiId: 'anthropic/claude-3-sonnet', category: 'Advanced', description: 'Balanced performance and speed from Anthropic.' },
-  { id: 'claude-3-haiku', name: 'Claude 3 Haiku', apiId: 'anthropic/claude-3-haiku', category: 'Standard', description: 'Fast and efficient Claude model.' },
-  { id: 'gemini-pro', name: 'Gemini Pro', apiId: 'google/gemini-pro', category: 'Advanced', description: 'Google\'s advanced multimodal AI model.' },
-  { id: 'llama-3.1-405b', name: 'Llama 3.1 405B', apiId: 'meta-llama/llama-3.1-405b-instruct', category: 'Premium', description: 'Meta\'s largest and most capable open model.' },
-  { id: 'llama-3.1-70b', name: 'Llama 3.1 70B', apiId: 'meta-llama/llama-3.1-70b-instruct', category: 'Advanced', description: 'High-performance open-source model from Meta.' },
-  { id: 'mistral-large', name: 'Mistral Large', apiId: 'mistralai/mistral-large', category: 'Premium', description: 'Mistral\'s flagship model for complex reasoning.' },
-  { id: 'mixtral-8x7b', name: 'Mixtral 8x7B', apiId: 'mistralai/mixtral-8x7b-instruct', category: 'Advanced', description: 'High-quality mixture-of-experts model.' },
-  { id: 'qwen-2.5-72b', name: 'Qwen 2.5 72B', apiId: 'qwen/qwen-2.5-72b-instruct', category: 'Advanced', description: 'Alibaba\'s powerful multilingual model.' },
-  { id: 'deepseek-chat', name: 'DeepSeek Chat', apiId: 'deepseek/deepseek-chat', category: 'Standard', description: 'Fast and efficient reasoning model.' },
-];
+// OpenRouter Models - Removed per user request
+const OPENROUTER_MODELS: Model[] = [];
 
 
 const QUICK_PROMPTS = [
@@ -1500,6 +1488,12 @@ export default function Page() {
   // Palette selection
   const [selectedPalette, setSelectedPalette] = useState(0);
 
+  // Parallel orchestration and output length
+  const [runParallel, setRunParallel] = useState(false);
+  const [outputLength, setOutputLength] = useState<'small' | 'medium' | 'large'>('medium');
+  const [parallelModel1, setParallelModel1] = useState(availableModels[0]?.id || 'ooverta');
+  const [parallelModel2, setParallelModel2] = useState(availableModels[1]?.id || 'llama-3.3-70b');
+
   const [neuralNoiseEnabled, setNeuralNoiseEnabled] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('roovert_neural_noise_enabled');
@@ -1619,6 +1613,32 @@ export default function Page() {
       inputRef.current?.focus();
     });
   };
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        // Enter fullscreen
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        // Exit fullscreen
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      console.error('Fullscreen toggle error:', error);
+    }
+  };
+
+  // Listen for fullscreen changes (e.g., user pressing ESC)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   const handleExportChat = () => {
     const text = history.map(h => `User: ${h.query}\nAI (${h.model}): ${h.response}\n\n`).join('---\n');
@@ -1822,6 +1842,10 @@ export default function Page() {
       const isOpenRouterModel = OPENROUTER_MODELS.some(m => m.id === selectedModel.id);
       const apiEndpoint = isOpenRouterModel ? '/api/openrouter' : '/api/query-gateway';
 
+      // Automatically enable parallel mode if Multi-Perspective is selected
+      const isMultiPerspective = selectedModel.id === 'multi-perspective';
+      const actualRunParallel = isMultiPerspective || runParallel;
+
       const res = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
@@ -1832,7 +1856,11 @@ export default function Page() {
           image: selectedImage || undefined,
           model: selectedModel.id, // Send model ID, not API ID (backend maps it)
           systemPrompt: systemPrompt || undefined,
-          conversationHistory: conversationHistory
+          conversationHistory: conversationHistory,
+          runParallel: actualRunParallel,
+          outputLength: outputLength,
+          parallelModel1: actualRunParallel ? (parallelModel1 || 'llama-3.3-70b') : undefined,
+          parallelModel2: actualRunParallel ? (parallelModel2 || 'ooverta') : undefined,
         }),
         signal: controller.signal,
       });
@@ -2161,18 +2189,22 @@ export default function Page() {
               >
                 <Globe className="w-5 h-5" />
               </button>
-              <a
-                href="#mission"
-                className="text-sm text-[var(--foreground)]/70 hover:text-[var(--accent)] transition-colors uppercase tracking-wider"
-              >
-                Mission
-              </a>
-              <Link
-                href="/careers"
-                className="text-sm text-[var(--foreground)]/70 hover:text-[var(--accent)] transition-colors uppercase tracking-wider"
-              >
-                Careers
-              </Link>
+              {!isChatMode && (
+                <>
+                  <a
+                    href="#mission"
+                    className="text-sm text-[var(--foreground)]/70 hover:text-[var(--accent)] transition-colors uppercase tracking-wider"
+                  >
+                    Mission
+                  </a>
+                  <Link
+                    href="/careers"
+                    className="text-sm text-[var(--foreground)]/70 hover:text-[var(--accent)] transition-colors uppercase tracking-wider"
+                  >
+                    Careers
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -2264,8 +2296,8 @@ export default function Page() {
                   Roovert · Engine of Truth
                 </div>
                 <h1 className="text-6xl md:text-8xl font-light leading-tight">
-                  <span className="block">Query the</span>
-                  <span className="block text-[var(--accent)] opacity-90">Unfiltered Reality</span>
+                  <span className="block">Multi-Perspective</span>
+                  <span className="block text-[var(--accent)] opacity-90">AI Models</span>
                 </h1>
                 <p className="text-xl text-[var(--foreground)]/60 font-light max-w-2xl mx-auto">
                   Advanced intelligence designed to challenge consensus. Powered by <span className="text-[var(--accent)]">{selectedModel.name}</span>.
@@ -2915,33 +2947,38 @@ while (true) {
                     </AnimatePresence>
                   </div>
 
-                  {/* Image Upload Button */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                    id="image-upload"
-                    disabled={isProcessing || isImageUploadDisabled}
-                  />
-                  <label
-                    htmlFor="image-upload"
-                    className={`p-2 rounded-lg transition-colors ${isImageUploadDisabled
-                      ? 'opacity-40 cursor-not-allowed'
-                      : 'hover:bg-[var(--surface-strong)] cursor-pointer text-[var(--muted)] hover:text-[var(--foreground)]'
-                      }`}
-                    title={isImageUploadDisabled ? `Image upload disabled: ${imageUploadDisabledReason}` : 'Upload image'}
-                  >
-                    <Paperclip className="w-5 h-5" />
-                  </label>
+                  {/* Multi-Perspective Model Selectors - Only shown when Multi-Perspective is selected */}
+                  {selectedModelId === 'multi-perspective' && (
+                    <div className="flex items-center gap-2 border-r border-[var(--border)] pr-3">
+                      <span className="text-xs text-[var(--muted)] whitespace-nowrap">Combine:</span>
+                      <select
+                        value={parallelModel1}
+                        onChange={(e) => setParallelModel1(e.target.value)}
+                        className="px-2 py-1 text-xs bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--accent)] transition-colors"
+                      >
+                        {availableModels.filter(m => m.id !== 'multi-perspective').map(m => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
+                      <span className="text-xs text-[var(--accent)]">+</span>
+                      <select
+                        value={parallelModel2}
+                        onChange={(e) => setParallelModel2(e.target.value)}
+                        className="px-2 py-1 text-xs bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--accent)] transition-colors"
+                      >
+                        {availableModels.filter(m => m.id !== 'multi-perspective').map(m => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Fullscreen Toggle */}
                   <button
                     type="button"
-                    onClick={() => setIsFullscreen(!isFullscreen)}
+                    onClick={toggleFullscreen}
                     className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                    title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                    title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
                   >
                     {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
                   </button>

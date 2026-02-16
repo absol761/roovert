@@ -23,18 +23,18 @@ export function sanitizeString(input: string, maxLength: number): string {
   if (typeof input !== 'string') {
     return '';
   }
-  
+
   // Trim whitespace
   let sanitized = input.trim();
-  
+
   // Remove null bytes and control characters (except newlines and tabs)
   sanitized = sanitized.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '');
-  
+
   // Enforce length limit
   if (sanitized.length > maxLength) {
     sanitized = sanitized.substring(0, maxLength);
   }
-  
+
   return sanitized;
 }
 
@@ -50,25 +50,25 @@ export function validateString(
   if (required && (input === undefined || input === null)) {
     return { valid: false, error: `${fieldName} is required` };
   }
-  
+
   if (input === undefined || input === null) {
     return { valid: true, sanitized: '' };
   }
-  
+
   if (typeof input !== 'string') {
     return { valid: false, error: `${fieldName} must be a string` };
   }
-  
+
   const sanitized = sanitizeString(input, maxLength);
-  
+
   if (required && sanitized.length === 0) {
     return { valid: false, error: `${fieldName} cannot be empty` };
   }
-  
+
   if (sanitized.length > maxLength) {
     return { valid: false, error: `${fieldName} exceeds maximum length of ${maxLength} characters` };
   }
-  
+
   return { valid: true, sanitized };
 }
 
@@ -82,13 +82,13 @@ export function validateModelId(
   if (typeof modelId !== 'string') {
     return { valid: false, error: 'Model ID must be a string' };
   }
-  
+
   const sanitized = sanitizeString(modelId, MAX_LENGTHS.MODEL_ID);
-  
+
   if (!allowedModels.has(sanitized)) {
     return { valid: false, error: `Invalid model ID: ${sanitized}` };
   }
-  
+
   return { valid: true, sanitized };
 }
 
@@ -101,25 +101,25 @@ export function validateConversationHistory(
   if (!Array.isArray(history)) {
     return { valid: false, error: 'Conversation history must be an array' };
   }
-  
+
   if (history.length > MAX_LENGTHS.CONVERSATION_HISTORY_MESSAGES) {
     return { valid: false, error: `Conversation history cannot exceed ${MAX_LENGTHS.CONVERSATION_HISTORY_MESSAGES} messages` };
   }
-  
+
   const sanitized: Array<{ role: string; content: string | Array<any> }> = [];
-  
+
   for (let i = 0; i < history.length; i++) {
     const msg = history[i];
-    
+
     if (!msg || typeof msg !== 'object') {
       return { valid: false, error: `Message ${i} is invalid` };
     }
-    
+
     const role = msg.role;
     if (role !== 'user' && role !== 'assistant' && role !== 'system') {
       return { valid: false, error: `Message ${i} has invalid role: ${role}` };
     }
-    
+
     const content = msg.content;
     if (typeof content === 'string') {
       const contentValidation = validateString(content, 'message content', MAX_LENGTHS.MESSAGE_CONTENT, true);
@@ -153,7 +153,7 @@ export function validateConversationHistory(
       return { valid: false, error: `Message ${i} has invalid content type` };
     }
   }
-  
+
   return { valid: true, sanitized };
 }
 
@@ -164,24 +164,24 @@ export function validateImage(image: unknown): { valid: boolean; error?: string;
   if (image === undefined || image === null) {
     return { valid: true }; // Optional field
   }
-  
+
   if (typeof image !== 'string') {
     return { valid: false, error: 'Image must be a string (base64 encoded)' };
   }
-  
+
   // Check if it's a valid base64 data URL or base64 string
   const base64Pattern = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/i;
   const isDataUrl = base64Pattern.test(image);
   const isBase64 = /^[A-Za-z0-9+/=]+$/.test(image.replace(/\s/g, ''));
-  
+
   if (!isDataUrl && !isBase64) {
     return { valid: false, error: 'Image must be a valid base64 encoded image' };
   }
-  
+
   if (image.length > MAX_LENGTHS.IMAGE_BASE64) {
     return { valid: false, error: `Image exceeds maximum size of ${MAX_LENGTHS.IMAGE_BASE64 / 1024 / 1024}MB` };
   }
-  
+
   return { valid: true, sanitized: image };
 }
 
@@ -193,13 +193,13 @@ export function validateAIQueryRequest(
   allowedModels: Set<string>
 ): { valid: boolean; errors: string[]; sanitized?: any } {
   const errors: string[] = [];
-  
+
   // Validate query (required)
   const queryValidation = validateString(payload.query, 'query', MAX_LENGTHS.QUERY, true);
   if (!queryValidation.valid) {
     errors.push(queryValidation.error!);
   }
-  
+
   // Validate model (optional, but if provided must be in allowlist)
   let model: string | undefined;
   if (payload.model !== undefined) {
@@ -210,7 +210,7 @@ export function validateAIQueryRequest(
       model = modelValidation.sanitized;
     }
   }
-  
+
   // Validate system prompt (optional)
   let systemPrompt: string | undefined;
   if (payload.systemPrompt !== undefined) {
@@ -221,7 +221,7 @@ export function validateAIQueryRequest(
       systemPrompt = systemPromptValidation.sanitized;
     }
   }
-  
+
   // Validate conversation history (optional)
   let conversationHistory: Array<any> | undefined;
   if (payload.conversationHistory !== undefined) {
@@ -232,7 +232,7 @@ export function validateAIQueryRequest(
       conversationHistory = historyValidation.sanitized;
     }
   }
-  
+
   // Validate image (optional)
   let image: string | undefined;
   if (payload.image !== undefined) {
@@ -243,18 +243,60 @@ export function validateAIQueryRequest(
       image = imageValidation.sanitized;
     }
   }
-  
+
+  // Validate runParallel (optional boolean)
+  let runParallel: boolean | undefined;
+  if (payload.runParallel !== undefined) {
+    if (typeof payload.runParallel !== 'boolean') {
+      errors.push('runParallel must be a boolean');
+    } else {
+      runParallel = payload.runParallel;
+    }
+  }
+
+  // Validate outputLength (optional enum)
+  let outputLength: 'small' | 'medium' | 'large' | undefined;
+  if (payload.outputLength !== undefined) {
+    if (!['small', 'medium', 'large'].includes(payload.outputLength)) {
+      errors.push('outputLength must be one of: small, medium, large');
+    } else {
+      outputLength = payload.outputLength as 'small' | 'medium' | 'large';
+    }
+  }
+
+  // Validate parallelModel1 (optional, only when runParallel is true)
+  let parallelModel1: string | undefined;
+  if (payload.parallelModel1 !== undefined) {
+    const model1Validation = validateModelId(payload.parallelModel1, allowedModels);
+    if (!model1Validation.valid) {
+      errors.push(`parallelModel1: ${model1Validation.error}`);
+    } else {
+      parallelModel1 = model1Validation.sanitized;
+    }
+  }
+
+  // Validate parallelModel2 (optional, only when runParallel is true)
+  let parallelModel2: string | undefined;
+  if (payload.parallelModel2 !== undefined) {
+    const model2Validation = validateModelId(payload.parallelModel2, allowedModels);
+    if (!model2Validation.valid) {
+      errors.push(`parallelModel2: ${model2Validation.error}`);
+    } else {
+      parallelModel2 = model2Validation.sanitized;
+    }
+  }
+
   // Reject unexpected fields (prevent mass assignment)
-  const allowedFields = ['query', 'model', 'systemPrompt', 'conversationHistory', 'image'];
+  const allowedFields = ['query', 'model', 'systemPrompt', 'conversationHistory', 'image', 'runParallel', 'outputLength', 'parallelModel1', 'parallelModel2'];
   const unexpectedFields = Object.keys(payload).filter(key => !allowedFields.includes(key));
   if (unexpectedFields.length > 0) {
     errors.push(`Unexpected fields: ${unexpectedFields.join(', ')}`);
   }
-  
+
   if (errors.length > 0) {
     return { valid: false, errors };
   }
-  
+
   return {
     valid: true,
     errors: [],
@@ -264,6 +306,10 @@ export function validateAIQueryRequest(
       systemPrompt,
       conversationHistory,
       image,
+      runParallel,
+      outputLength,
+      parallelModel1,
+      parallelModel2,
     },
   };
 }
@@ -275,7 +321,7 @@ export function validateTrackingRequest(
   payload: any
 ): { valid: boolean; errors: string[]; sanitized?: any } {
   const errors: string[] = [];
-  
+
   // Validate visitorId (optional)
   let visitorId: string | undefined;
   if (payload.visitorId !== undefined) {
@@ -286,7 +332,7 @@ export function validateTrackingRequest(
       visitorId = visitorIdValidation.sanitized;
     }
   }
-  
+
   // Validate fingerprint (optional)
   let fingerprint: string | undefined;
   if (payload.fingerprint !== undefined) {
@@ -297,18 +343,18 @@ export function validateTrackingRequest(
       fingerprint = fingerprintValidation.sanitized;
     }
   }
-  
+
   // Reject unexpected fields
   const allowedFields = ['visitorId', 'fingerprint'];
   const unexpectedFields = Object.keys(payload).filter(key => !allowedFields.includes(key));
   if (unexpectedFields.length > 0) {
     errors.push(`Unexpected fields: ${unexpectedFields.join(', ')}`);
   }
-  
+
   if (errors.length > 0) {
     return { valid: false, errors };
   }
-  
+
   return {
     valid: true,
     errors: [],
@@ -345,13 +391,13 @@ export function validateBodySize(
   maxSizeBytes: number
 ): string[] {
   const errors: string[] = [];
-  
+
   if (contentLength) {
     const size = parseInt(contentLength, 10);
     if (isNaN(size) || size > maxSizeBytes) {
       errors.push(`Request body too large. Maximum size: ${maxSizeBytes / 1024 / 1024}MB`);
     }
   }
-  
+
   return errors;
 }
