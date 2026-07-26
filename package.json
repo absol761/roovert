@@ -10,13 +10,13 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@ai-sdk/groq": "^3.0.10",
+    "@ai-sdk/groq": "^4.0.13",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "@types/three": "^0.182.0",
     "@upstash/redis": "^1.36.1",
     "@vercel/kv": "^3.0.0",
-    "ai": "^6.0.26",
+    "ai": "^7.0.37",
     "better-sqlite3": "^13.0.1",
     "framer-motion": "^12.24.7",
     "highlight.js": "^11.11.1",
