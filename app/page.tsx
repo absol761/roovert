@@ -54,25 +54,11 @@ const LAYOUTS = [
 // Looks - Modern 2025-2026 design trends
 const LOOKS = [
   { id: 'neominimal', name: 'Neo-Minimal', description: 'Minimalism with depth and soft shadows', category: 'essential' },
-  { id: 'monochrome', name: 'Monochrome', description: 'Soft monochrome design', category: 'essential' },
   { id: 'depth', name: 'Depth Field', description: '3D layers with realistic shadows', category: 'modern' },
-  { id: 'bold', name: 'Bold Typography', description: 'Experimental fonts with maximum impact', category: 'modern' },
-  { id: 'sustainable', name: 'Sustainable', description: 'Eco-friendly green design palette', category: 'modern' },
   { id: 'accessible', name: 'High Contrast', description: 'Accessible design with WCAG compliance', category: 'modern' },
   { id: 'gemini', name: 'Google Gemini', description: 'Inspired by Gemini colors with smooth animations', category: 'modern' },
-  { id: 'nocturne', name: 'Nocturne', description: 'Deep night with orange accents', category: 'dark' },
   { id: 'midnight', name: 'Midnight', description: 'Slate blue with sky accents', category: 'dark' },
-  { id: 'aether', name: 'Aether', description: 'Light indigo with split-grid layout', category: 'light' },
-  { id: 'atlas', name: 'Atlas', description: 'Brutalist blueprint aesthetic', category: 'light' },
-  { id: 'earthtone', name: 'Earthtone', description: 'Natural earth colors with warm palette', category: 'themed' },
   { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s aesthetic', category: 'themed' },
-  { id: 'space', name: 'Deep Space', description: 'Cosmic darkness with stars', category: 'themed' },
-  { id: 'textured-velvet', name: 'Textured Velvet', description: 'Rich velvet textures with deep colors', category: 'textured' },
-  { id: 'textured-marble', name: 'Textured Marble', description: 'Elegant marble patterns and gradients', category: 'textured' },
-  { id: 'textured-wood', name: 'Textured Wood', description: 'Warm wood grain textures', category: 'textured' },
-  { id: 'textured-glass', name: 'Textured Glass', description: 'Frosted glass with light refraction', category: 'textured' },
-  { id: 'colorway-ocean', name: 'Ocean Colorway', description: 'Cool ocean blues and teals', category: 'colorway' },
-  { id: 'colorway-forest', name: 'Forest Colorway', description: 'Natural greens and earth tones', category: 'colorway' },
 ];
 
 
@@ -80,7 +66,7 @@ const LOOKS = [
 function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
   if (!isOpen) return null;
 
-  const categories = ['essential', 'modern', 'dark', 'light', 'themed', 'textured', 'colorway'];
+  const categories = ['essential', 'modern', 'dark', 'themed'];
   const looksByCategory = categories.map(cat => ({
     category: cat,
     looks: LOOKS.filter(l => l.category === cat)
