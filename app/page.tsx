@@ -503,18 +503,21 @@ function LiveStats() {
     return () => clearInterval(interval);
   }, []);
 
+  // Lives inside the nav bar's right-hand group (not fixed-positioned on its
+  // own) so it reads as part of the nav instead of an orphaned floating
+  // widget in the corner. The count popover anchors as a normal dropdown.
   return (
-    <div className="fixed top-20 right-6 z-50">
+    <div className="relative">
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="mb-4 bg-[var(--hud-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-4 shadow-2xl min-w-[200px]"
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            className="absolute right-0 top-full mt-2 z-50 bg-[var(--hud-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-4 shadow-[var(--shadow-lg)] min-w-[180px]"
           >
             <div className="flex items-center justify-between gap-4 text-sm">
-              <span className="text-[var(--muted)]">Users</span>
+              <span className="text-[var(--muted)]">Visitors</span>
               <span className="text-[var(--accent)] font-mono font-bold">
                 {userCount.toLocaleString()}
               </span>
@@ -527,9 +530,10 @@ function LiveStats() {
         onClick={() => setIsExpanded(!isExpanded)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="flex items-center gap-2 bg-[var(--chip-bg)] backdrop-blur-xl border border-[var(--border)] rounded-full px-3 py-1.5 shadow-lg hover:bg-[var(--surface-strong)] transition-colors"
+        className="flex items-center gap-2 bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] rounded-full px-3 py-1.5 transition-colors"
+        title="Visitor count"
       >
-        <Users className="w-3 h-3 text-[var(--accent)]" />
+        <Users className="w-3.5 h-3.5 text-[var(--accent)]" />
         <span className="text-xs text-[var(--muted-strong)] font-mono">
           {userCount.toLocaleString()}
         </span>
@@ -2154,6 +2158,7 @@ export default function Page() {
                   >
                     Careers
                   </Link>
+                  {!focusMode && <LiveStats />}
                 </>
               )}
             </div>
@@ -2216,8 +2221,6 @@ export default function Page() {
         )}
       </AnimatePresence>
 
-      {!focusMode && !isChatMode && <LiveStats />}
-
       {/* Interactive Particle Background for Deep Space Look */}
 
       {/* Main Content Area */}
@@ -2239,7 +2242,7 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
               transition={{ duration: 0.5 }}
-              className="flex-1 flex flex-col items-center justify-center text-center max-w-5xl mx-auto space-y-10 py-12"
+              className="flex flex-col items-center text-center max-w-5xl mx-auto space-y-10 pt-12 pb-16"
             >
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
@@ -2270,7 +2273,9 @@ export default function Page() {
                 className="text-lg md:text-2xl text-[var(--foreground)]/60 font-light max-w-2xl mx-auto leading-relaxed text-balance"
               >
                 Advanced intelligence designed to challenge consensus. Powered by{' '}
-                <span className="text-[var(--accent)]">{selectedModel.name}</span>.
+                <span className="text-[var(--accent)]">
+                  {selectedModelId === 'multi-perspective' ? 'multiple models at once' : selectedModel.name}
+                </span>.
               </motion.p>
 
               <motion.div
@@ -2300,7 +2305,7 @@ export default function Page() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.35 }}
-                className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} md:grid-cols-4 gap-3 w-full max-w-3xl pt-4`}
+                className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-3 w-full max-w-2xl pt-4`}
               >
                 {QUICK_PROMPTS.map((prompt, idx) => (
                   <motion.button
@@ -2309,7 +2314,7 @@ export default function Page() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: 0.4 + idx * 0.05 }}
                     onClick={() => injectPrompt(prompt)}
-                    className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-4 text-xs text-left hover:border-[var(--accent)] hover:bg-[var(--surface)] transition-all text-[var(--foreground)]/80 hover:text-[var(--foreground)]"
+                    className="glass-panel bg-[var(--surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl px-5 py-4 text-sm text-left hover:border-[var(--accent)]/50 hover:bg-[var(--surface-strong)] transition-all text-[var(--foreground)]/85 hover:text-[var(--foreground)] leading-relaxed"
                   >
                     {prompt}
                   </motion.button>
@@ -2321,7 +2326,7 @@ export default function Page() {
 
         {/* Features Section (Shown when NOT in Chat Mode) */}
         {!isChatMode && (
-          <div className="w-full max-w-7xl mx-auto mt-20 space-y-16 pb-20">
+          <div className="w-full max-w-7xl mx-auto mt-8 space-y-16 pb-20">
 
             {/* Browse AI Models */}
             <section className="space-y-6">
@@ -2337,29 +2342,31 @@ export default function Page() {
                   View All Models <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {filteredAvailableModels.slice(0, 8).map((model, idx) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredAvailableModels.slice(0, 6).map((model, idx) => (
                   <motion.div
                     key={model.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: idx * 0.05 }}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.06, duration: 0.4 }}
                     onClick={() => {
                       setSelectedModelId(model.id);
                       handleInitialize();
                     }}
-                    className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-4 hover:border-[var(--accent)]/40 hover:bg-[var(--surface)] transition-all cursor-pointer group"
+                    className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6 hover:border-[var(--accent)]/40 hover:-translate-y-1 transition-all duration-[var(--duration-base)] cursor-pointer group"
                   >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Zap className="w-4 h-4 text-[var(--accent)]" />
-                      <h3 className="text-sm font-medium text-[var(--foreground)] group-hover:text-[var(--accent)] transition-colors">
-                        {model.name}
-                      </h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="w-9 h-9 rounded-full bg-[var(--accent)]/12 flex items-center justify-center group-hover:bg-[var(--accent)]/20 transition-colors">
+                        <Zap className="w-4 h-4 text-[var(--accent)]" />
+                      </div>
+                      <span className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-mono px-2 py-1 rounded-full border border-[var(--border)]">
+                        {model.category}
+                      </span>
                     </div>
-                    <p className="text-xs text-[var(--muted)] line-clamp-2">{model.description}</p>
-                    <div className="mt-3 pt-3 border-t border-[var(--border)]">
-                      <span className="text-xs text-[var(--muted)] font-mono">{model.category}</span>
-                    </div>
+                    <h3 className="text-base font-medium text-[var(--foreground)] group-hover:text-[var(--accent)] transition-colors mb-1.5">
+                      {model.name}
+                    </h3>
+                    <p className="text-sm text-[var(--muted)] leading-relaxed line-clamp-2">{model.description}</p>
                   </motion.div>
                 ))}
               </div>
