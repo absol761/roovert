@@ -2314,7 +2314,7 @@ export default function Page() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: 0.4 + idx * 0.05 }}
                     onClick={() => injectPrompt(prompt)}
-                    className="glass-panel bg-[var(--surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl px-5 py-4 text-sm text-left hover:border-[var(--accent)]/50 hover:bg-[var(--surface-strong)] transition-all text-[var(--foreground)]/85 hover:text-[var(--foreground)] leading-relaxed"
+                    className="bg-[var(--surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl px-5 py-4 text-sm text-left hover:border-[var(--accent)]/50 hover:bg-[var(--surface-strong)] transition-all text-[var(--foreground)]/85 hover:text-[var(--foreground)] leading-relaxed"
                   >
                     {prompt}
                   </motion.button>
@@ -2357,7 +2357,13 @@ export default function Page() {
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="w-9 h-9 rounded-full bg-[var(--accent)]/12 flex items-center justify-center group-hover:bg-[var(--accent)]/20 transition-colors">
-                        <Zap className="w-4 h-4 text-[var(--accent)]" />
+                        {(() => {
+                          const CategoryIcon = model.category === 'OpenRouter' ? Globe
+                            : model.category === 'Premium' ? Sparkles
+                            : model.category === 'Advanced' ? Star
+                            : Zap;
+                          return <CategoryIcon className="w-4 h-4 text-[var(--accent)]" />;
+                        })()}
                       </div>
                       <span className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-mono px-2 py-1 rounded-full border border-[var(--border)]">
                         {model.category}
