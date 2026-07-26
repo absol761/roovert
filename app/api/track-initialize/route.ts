@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       db.prepare('INSERT INTO initialize_clicks (clicked_at) VALUES (?)').run(now);
       
       // Security: Increment rate limit after successful processing
-      incrementRateLimit(request, 'tracking');
+      await incrementRateLimit(request, 'tracking');
       
       return NextResponse.json({ success: true, counted: true });
     } catch (dbError: any) {
@@ -132,13 +132,13 @@ async function getInitializeCount(): Promise<number> {
 export async function GET(request: NextRequest) {
   try {
     // Security: Rate limiting for stats endpoints
-    const rateLimitResponse = applyRateLimit(request, 'stats');
+    const rateLimitResponse = await applyRateLimit(request, 'stats');
     if (rateLimitResponse) {
       try {
         const errorData = await rateLimitResponse.json();
-        return NextResponse.json(errorData, { 
-          status: 429, 
-          headers: Object.fromEntries(rateLimitResponse.headers.entries()) 
+        return NextResponse.json(errorData, {
+          status: 429,
+          headers: Object.fromEntries(rateLimitResponse.headers.entries())
         });
       } catch {
         return rateLimitResponse;
@@ -146,9 +146,9 @@ export async function GET(request: NextRequest) {
     }
 
     const userCount = await getInitializeCount();
-    
+
     // Security: Increment rate limit after validation
-    incrementRateLimit(request, 'stats');
+    await incrementRateLimit(request, 'stats');
     
     return NextResponse.json({ users: userCount, totalUsers: userCount });
   } catch (error) {

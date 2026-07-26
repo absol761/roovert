@@ -22,7 +22,7 @@ function getUserFriendlyErrorMessage(): string {
 export async function POST(request: NextRequest) {
   try {
     // Security: Rate limiting - apply before processing
-    const rateLimitResponse = applyRateLimit(request, 'ai-query');
+    const rateLimitResponse = await applyRateLimit(request, 'ai-query');
     if (rateLimitResponse) {
       return rateLimitResponse;
     }
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Security: Increment rate limit after successful validation
-    incrementRateLimit(request, 'ai-query');
+    await incrementRateLimit(request, 'ai-query');
 
     // Security: API key validation - ensure key exists in environment (never exposed to client)
     if (!process.env.GROQ_API_KEY) {

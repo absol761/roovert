@@ -60,13 +60,13 @@ function getErrorType(statusCode: number, errorBody: string): 'unavailable' | 'r
 export async function POST(request: NextRequest) {
   try {
     // Security: Rate limiting - apply before processing
-    const rateLimitResponse = applyRateLimit(request, 'ai-query');
+    const rateLimitResponse = await applyRateLimit(request, 'ai-query');
     if (rateLimitResponse) {
       return rateLimitResponse;
     }
 
     // Security: Check OpenRouter-specific rate limit (45/24hrs)
-    if (shouldHideOpenRouterModels(request)) {
+    if (await shouldHideOpenRouterModels(request)) {
       return new Response(
         `data: ${JSON.stringify({ 
           content: getUserFriendlyErrorMessage('rate_limit'), 
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Security: Increment rate limit after successful validation
-    incrementRateLimit(request, 'ai-query');
+    await incrementRateLimit(request, 'ai-query');
 
     // Build messages
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }> = [];
@@ -225,8 +225,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Security: Increment rate limit after successful request
-      incrementRateLimit(request, 'openrouter');
-      incrementRateLimit(request, 'ai-query');
+      await incrementRateLimit(request, 'openrouter');
+      await incrementRateLimit(request, 'ai-query');
 
       // Stream the response
       const stream = new ReadableStream({
@@ -304,8 +304,8 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
       console.error('OpenRouter API error:', error);
       // Security: Still increment rate limit on error (to prevent retry abuse)
-      incrementRateLimit(request, 'openrouter');
-      incrementRateLimit(request, 'ai-query');
+      await incrementRateLimit(request, 'openrouter');
+      await incrementRateLimit(request, 'ai-query');
       return new Response(
         `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage('generic'), done: true })}\n\n`,
         {
@@ -335,21 +335,21 @@ export async function POST(request: NextRequest) {
 // GET endpoint to check rate limit status
 export async function GET(request: NextRequest) {
   // Security: Apply rate limiting to status check endpoint
-  const rateLimitResponse = applyRateLimit(request, 'stats');
+  const rateLimitResponse = await applyRateLimit(request, 'stats');
   if (rateLimitResponse) {
     try {
       const errorData = await rateLimitResponse.json();
-      return NextResponse.json(errorData, { 
-        status: 429, 
-        headers: Object.fromEntries(rateLimitResponse.headers.entries()) 
+      return NextResponse.json(errorData, {
+        status: 429,
+        headers: Object.fromEntries(rateLimitResponse.headers.entries())
       });
     } catch {
       return rateLimitResponse;
     }
   }
 
-  const status = getRateLimitStatus(request, 'openrouter');
-  incrementRateLimit(request, 'stats');
+  const status = await getRateLimitStatus(request, 'openrouter');
+  await incrementRateLimit(request, 'stats');
   
   return NextResponse.json({
     shouldHide: status.isBlocked,

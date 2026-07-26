@@ -8,7 +8,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useMobile } from './hooks/useMobile';
-import { shouldHideOpenRouterModels } from './lib/rateLimit';
 // Removed ConsentBanner import - component doesn't exist
 // Removed NeuralNoise and AudioVisualizer imports - not needed for R3F visualizer
 
