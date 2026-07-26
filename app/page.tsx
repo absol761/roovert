@@ -2192,43 +2192,82 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
               transition={{ duration: 0.5 }}
-              className="flex-1 flex flex-col items-center justify-center text-center max-w-4xl mx-auto space-y-12"
+              className="flex-1 flex flex-col items-center justify-center text-center max-w-5xl mx-auto space-y-10 py-12"
             >
-              <div className="space-y-6">
-                <div className="inline-flex items-center gap-2 text-xs font-mono tracking-[0.35em] uppercase text-[var(--foreground)]/50">
-                  <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse"></span>
-                  Roovert · Engine of Truth
-                </div>
-                <h1 className="text-6xl md:text-8xl font-light leading-tight">
-                  <span className="block">Multi-Perspective</span>
-                  <span className="block text-[var(--accent)] opacity-90">AI Models</span>
-                </h1>
-                <p className="text-xl text-[var(--foreground)]/60 font-light max-w-2xl mx-auto">
-                  Advanced intelligence designed to challenge consensus. Powered by <span className="text-[var(--accent)]">{selectedModel.name}</span>.
-                </p>
-              </div>
-
-              <button
-                onClick={handleInitialize}
-                className="group relative px-8 py-4 bg-[var(--accent)] text-white text-lg font-medium rounded-full overflow-hidden transition-all hover:scale-105 shadow-[0_0_40px_var(--accent-glow)]"
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.05 }}
+                className="glass-panel inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel-bg)] backdrop-blur-xl px-4 py-1.5 text-xs font-mono tracking-[0.35em] uppercase text-[var(--foreground)]/60"
               >
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                <span className="relative flex items-center gap-3">
-                  Initialize Chat <Zap className="w-5 h-5" />
-                </span>
-              </button>
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse"></span>
+                Roovert &middot; Engine of Truth
+              </motion.div>
 
-              <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} md:grid-cols-4 gap-4 w-full max-w-2xl`}>
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.12 }}
+                className="text-7xl sm:text-8xl md:text-9xl font-light leading-[0.92] tracking-tight text-balance"
+              >
+                <span className="block">Multi-Perspective</span>
+                <span className="block bg-gradient-to-r from-[var(--accent)] to-[var(--foreground)] bg-clip-text text-transparent">
+                  AI Models
+                </span>
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="text-lg md:text-2xl text-[var(--foreground)]/60 font-light max-w-2xl mx-auto leading-relaxed text-balance"
+              >
+                Advanced intelligence designed to challenge consensus. Powered by{' '}
+                <span className="text-[var(--accent)]">{selectedModel.name}</span>.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.28 }}
+                className="flex flex-wrap items-center justify-center gap-4 pt-2"
+              >
+                <button
+                  onClick={handleInitialize}
+                  className="group relative px-9 py-4 bg-[var(--accent)] text-white text-lg font-medium rounded-full overflow-hidden transition-all duration-[var(--duration-base)] hover:scale-105 active:scale-95 shadow-[0_0_48px_var(--accent-glow)]"
+                >
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                  <span className="relative flex items-center gap-3">
+                    Initialize Chat <Zap className="w-5 h-5" />
+                  </span>
+                </button>
+                <button
+                  onClick={() => setIsLooksOpen(true)}
+                  className="px-6 py-4 text-sm text-[var(--foreground)]/70 hover:text-[var(--accent)] border border-[var(--border)] hover:border-[var(--accent)]/40 rounded-full transition-all duration-[var(--duration-base)] flex items-center gap-2"
+                >
+                  <Paintbrush className="w-4 h-4" /> Explore Looks
+                </button>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.35 }}
+                className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} md:grid-cols-4 gap-3 w-full max-w-3xl pt-4`}
+              >
                 {QUICK_PROMPTS.map((prompt, idx) => (
-                  <button
+                  <motion.button
                     key={idx}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.4 + idx * 0.05 }}
                     onClick={() => injectPrompt(prompt)}
-                    className="p-4 text-xs text-left border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:bg-[var(--surface)] transition-all text-white hover:text-[var(--foreground)]"
+                    className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-4 text-xs text-left hover:border-[var(--accent)] hover:bg-[var(--surface)] transition-all text-[var(--foreground)]/80 hover:text-[var(--foreground)]"
                   >
                     {prompt}
-                  </button>
+                  </motion.button>
                 ))}
-              </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
