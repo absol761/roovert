@@ -2015,13 +2015,13 @@ export default function Page() {
       </div>
 
       {/* Navigation */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-all duration-500 ${focusMode ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] shadow-[var(--shadow-sm)] transition-all duration-500 ${focusMode ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}>
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
               <button
                 onClick={() => setIsChatMode(false)}
-                className="text-2xl font-bold hover:opacity-80 transition-opacity drop-shadow-[0_0_8px_rgba(var(--accent-rgb,0,128,128),0.5)] bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent"
+                className="text-2xl font-bold tracking-tight hover:opacity-80 transition-opacity duration-[var(--duration-fast)] drop-shadow-[0_0_12px_var(--accent-glow)] bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent"
               >
                 ROOVERT
               </button>
@@ -2872,7 +2872,7 @@ while (true) {
                   <button
                     type="submit"
                     disabled={!query.trim() || isProcessing}
-                    className="flex items-center justify-center w-12 h-12 p-0 bg-[var(--accent)] hover:opacity-90 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[var(--accent)]/20"
+                    className="flex items-center justify-center w-12 h-12 p-0 bg-[var(--accent)] hover:opacity-90 hover:scale-105 active:scale-95 rounded-xl disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed transition-all duration-[var(--duration-fast)] shadow-[0_4px_20px_-4px_var(--accent-glow)]"
                   >
                     {isProcessing ? (
                       <Zap className="w-5 h-5 text-white animate-spin" />
