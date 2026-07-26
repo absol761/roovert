@@ -565,6 +565,8 @@ function NavClock() {
 function VisualizerConfigPanel({
   isOpen,
   onClose,
+  enabled,
+  onEnabledChange,
   mode,
   onModeChange,
   speed,
@@ -605,6 +607,8 @@ function VisualizerConfigPanel({
 }: {
   isOpen: boolean;
   onClose: () => void;
+  enabled: boolean;
+  onEnabledChange: (enabled: boolean) => void;
   mode: 'grid' | 'plane' | 'wave_form' | 'manhattan';
   onModeChange: (mode: 'grid' | 'plane' | 'wave_form' | 'manhattan') => void;
   speed: number;
@@ -679,6 +683,23 @@ function VisualizerConfigPanel({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => onEnabledChange(!enabled)}
+          className="w-full flex items-center justify-between p-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]/40 transition-colors"
+        >
+          <span className="text-sm font-medium text-[var(--foreground)]">Ambient Visualizer</span>
+          <span
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-[var(--duration-fast)] ${enabled ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
+              }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-[var(--duration-fast)] ${enabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+            />
+          </span>
+        </button>
 
         <div>
           <label className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2 block font-medium">MODE</label>
@@ -1256,17 +1277,17 @@ function R3FVisualizer({
     }
   }, [mode, speed, color1, color2, density, invertX, invertY, scaleX, scaleY, maxAmplitude, waveFreq, waveFormDouble, autoOrbit]);
 
+  // This is an ambient background layer, not an interactive one - it must
+  // never intercept clicks meant for the nav/composer/buttons above it.
+  // While the 3D libs are loading, render nothing (no opaque cover) so the
+  // page's own background shows through with no flash.
   if (!isMounted || !VisualizerCanvas) {
-    return (
-      <div className="fixed inset-0 z-40 pointer-events-none bg-[#010204] flex items-center justify-center">
-        <div className="text-[var(--accent)] text-sm">Loading visualizer...</div>
-      </div>
-    );
+    return null;
   }
 
   const Canvas = VisualizerCanvas;
   return (
-    <div className="fixed inset-0 z-40 pointer-events-auto">
+    <div className="fixed inset-0 z-0 pointer-events-none opacity-60">
       <Canvas />
     </div>
   );
@@ -1329,13 +1350,17 @@ export default function Page() {
   const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [closedWidgets, setClosedWidgets] = useState<Set<string>>(new Set());
-  // Visualizer state
-  const [visualizerEnabled, setVisualizerEnabled] = useState(false);
+  // Visualizer state - the app ships a full react-three-fiber audio-reactive
+  // background visualizer + config panel; it previously had no way to ever
+  // be enabled or opened (dead feature). Now on by default, reachable via
+  // the nav's Waves button, colors tuned to fit the app's blue/violet accent
+  // range instead of the previous orange/cyan defaults.
+  const [visualizerEnabled, setVisualizerEnabled] = useState(true);
   const [visualizerConfigOpen, setVisualizerConfigOpen] = useState(false);
   const [visualizerMode, setVisualizerMode] = useState<'grid' | 'plane' | 'wave_form' | 'manhattan'>('wave_form');
   const [visualizerSpeed, setVisualizerSpeed] = useState(0.3);
-  const [visualizerColor1, setVisualizerColor1] = useState('#ff6b35');
-  const [visualizerColor2, setVisualizerColor2] = useState('#00d4ff');
+  const [visualizerColor1, setVisualizerColor1] = useState('#4a90e2');
+  const [visualizerColor2, setVisualizerColor2] = useState('#7b68ee');
   const [visualizerDensity, setVisualizerDensity] = useState(0.5);
   const [visualizerInvertX, setVisualizerInvertX] = useState(false);
   const [visualizerInvertY, setVisualizerInvertY] = useState(false);
@@ -1950,6 +1975,8 @@ export default function Page() {
       <VisualizerConfigPanel
         isOpen={visualizerConfigOpen}
         onClose={() => setVisualizerConfigOpen(false)}
+        enabled={visualizerEnabled}
+        onEnabledChange={setVisualizerEnabled}
         mode={visualizerMode}
         onModeChange={setVisualizerMode}
         speed={visualizerSpeed}
@@ -2045,6 +2072,16 @@ export default function Page() {
                 title="Change Theme"
               >
                 <Paintbrush className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+              </button>
+              <button
+                onClick={() => setVisualizerConfigOpen(true)}
+                className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${visualizerEnabled
+                  ? 'bg-[var(--accent)]/15 border-[var(--accent)]/40 text-[var(--accent)]'
+                  : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
+                  }`}
+                title="Ambient Visualizer"
+              >
+                <Waves className="w-5 h-5 group-hover:scale-110 transition-transform" />
               </button>
             </div>
 
