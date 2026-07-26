@@ -2570,21 +2570,21 @@ textarea:focus {
 
 [data-look='monochrome'] body {
   background: #f8f8f8;
-  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
 }
 
 [data-look='monochrome'] h1,
 [data-look='monochrome'] h2,
 [data-look='monochrome'] h3,
 [data-look='monochrome'] h4 {
-  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
   font-weight: 600;
   letter-spacing: -0.03em;
 }
 
 [data-look='monochrome'] code,
 [data-look='monochrome'] pre {
-  font-family: 'DM Mono', 'Courier New', monospace;
+  font-family: var(--font-dm-mono), 'Courier New', monospace;
 }
 
 [data-look='monochrome'] body::before {
@@ -2698,14 +2698,14 @@ textarea:focus {
 
 [data-look='sustainable'] body {
   background: linear-gradient(135deg, #f0f7f4 0%, #e8f5f0 100%);
-  font-family: 'Nunito Sans', 'Quicksand', system-ui, sans-serif;
+  font-family: var(--font-nunito-sans), var(--font-quicksand), system-ui, sans-serif;
 }
 
 [data-look='sustainable'] h1,
 [data-look='sustainable'] h2,
 [data-look='sustainable'] h3,
 [data-look='sustainable'] h4 {
-  font-family: 'Quicksand', 'Nunito Sans', sans-serif;
+  font-family: var(--font-quicksand), var(--font-nunito-sans), sans-serif;
   font-weight: 600;
 }
 
@@ -3033,14 +3033,14 @@ textarea:focus {
     radial-gradient(circle at 80% 70%, rgba(41, 171, 202, 0.15), transparent 50%);
   background-attachment: fixed;
   animation: gemini-gradient-shift 20s ease-in-out infinite;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
 }
 
 [data-look='gemini'] h1,
 [data-look='gemini'] h2,
 [data-look='gemini'] h3,
 [data-look='gemini'] h4 {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-weight: 500;
   letter-spacing: -0.02em;
 }
@@ -3336,7 +3336,7 @@ textarea:focus {
     linear-gradient(180deg, #001f3f 0%, #004d7a 50%, #0077be 100%),
     radial-gradient(circle at 50% 80%, rgba(0, 188, 212, 0.3), transparent 60%);
   background-attachment: fixed;
-  font-family: 'Raleway', system-ui, sans-serif;
+  font-family: var(--font-raleway), system-ui, sans-serif;
 }
 
 [data-look='colorway-ocean'] h1,
@@ -3345,7 +3345,7 @@ textarea:focus {
 [data-theme='colorway-ocean'] h1,
 [data-theme='colorway-ocean'] h2,
 [data-theme='colorway-ocean'] h3 {
-  font-family: 'Pacifico', cursive;
+  font-family: var(--font-pacifico), cursive;
   font-weight: 400;
   letter-spacing: 0.02em;
 }
