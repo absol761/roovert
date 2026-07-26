@@ -689,7 +689,10 @@ function VisualizerConfigPanel({
           onClick={() => onEnabledChange(!enabled)}
           className="w-full flex items-center justify-between p-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]/40 transition-colors"
         >
-          <span className="text-sm font-medium text-[var(--foreground)]">Ambient Visualizer</span>
+          <span className="text-left">
+            <span className="text-sm font-medium text-[var(--foreground)] block">Audio-Reactive Visualizer</span>
+            <span className="text-xs text-[var(--muted)]">Uses your microphone to react to sound</span>
+          </span>
           <span
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-[var(--duration-fast)] ${enabled ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
               }`}
@@ -939,16 +942,55 @@ function R3FVisualizer({
 
         const Scene = () => {
           const { camera } = useThree();
-          const [audioIntensity, setAudioIntensity] = useState(0);
           const timeRef = useRef(0);
+          // Real audio reactivity via the mic (browsers can't passively read
+          // "what's playing on your speakers" - mic input picking up ambient
+          // sound/music is the standard web-visualizer approach). 0..1,
+          // smoothed. Stays at 0 if permission is denied/unavailable, in
+          // which case the visualizer just runs its calm idle motion.
+          const audioLevelRef = useRef(0);
 
           useEffect(() => {
-            const handleMouseMove = (e: MouseEvent) => {
-              const intensity = Math.min(1, Math.sqrt(e.movementX ** 2 + e.movementY ** 2) / 50);
-              setAudioIntensity(intensity);
+            let audioContext: AudioContext | null = null;
+            let stream: MediaStream | null = null;
+            let cancelled = false;
+
+            if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+              navigator.mediaDevices.getUserMedia({ audio: true }).then((mediaStream) => {
+                if (cancelled) {
+                  mediaStream.getTracks().forEach(t => t.stop());
+                  return;
+                }
+                stream = mediaStream;
+                audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 128;
+                analyser.smoothingTimeConstant = 0.8;
+                source.connect(analyser);
+
+                const data = new Uint8Array(analyser.frequencyBinCount);
+                const sample = () => {
+                  if (cancelled) return;
+                  analyser.getByteFrequencyData(data);
+                  const avg = data.reduce((sum, v) => sum + v, 0) / data.length / 255;
+                  // Exponential smoothing so it reacts to music without
+                  // jittering on every single frame.
+                  audioLevelRef.current += (avg - audioLevelRef.current) * 0.25;
+                  requestAnimationFrame(sample);
+                };
+                sample();
+              }).catch(() => {
+                // Mic permission denied or unavailable - fall back to idle
+                // motion only, no crash, no console noise.
+              });
+            }
+
+            return () => {
+              cancelled = true;
+              stream?.getTracks().forEach(t => t.stop());
+              audioContext?.close().catch(() => { });
             };
-            window.addEventListener('mousemove', handleMouseMove);
-            return () => window.removeEventListener('mousemove', handleMouseMove);
           }, []);
 
           useEffect(() => {
@@ -1049,6 +1091,10 @@ function R3FVisualizer({
               const geometry = pointsRef.current.geometry;
               const positions = geometry.attributes.position;
               const colors = geometry.attributes.color;
+              // Idle baseline (quiet/no mic) is subtle; real audio energy
+              // scales the motion up - this replaces the old constant-
+              // amplitude "breathing" that ran regardless of any sound.
+              const audioBoost = 0.2 + audioLevelRef.current * 2.2;
 
               for (let i = 0; i < particleCount; i++) {
                 const x = positions.getX(i);
@@ -1081,7 +1127,7 @@ function R3FVisualizer({
                   const wave = mode === 'wave_form' && waveFormDouble
                     ? (wave1 * 0.5 + wave2 * 0.5) * 0.5 + 0.5
                     : (wave1 * 0.6 + wave2 * 0.4) * 0.5 + 0.5;
-                  const amplitude = mode === 'wave_form' ? maxAmplitude : 1.0;
+                  const amplitude = (mode === 'wave_form' ? maxAmplitude : 1.0) * audioBoost;
 
                   // For wave_form, create radial expansion wave effect using original positions
                   if (mode === 'wave_form' && originalPositionsRef.current) {
@@ -1106,7 +1152,7 @@ function R3FVisualizer({
                   const wave1 = Math.sin(timeRef.current * speed * 2 + distance * 0.5);
                   const wave2 = Math.sin(timeRef.current * speed * 1.3 + distance * 0.8);
                   const wave = (wave1 * 0.7 + wave2 * 0.3) * 0.5 + 0.5;
-                  newY = wave * 2.5 * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
+                  newY = wave * 2.5 * audioBoost * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
                 } else if (mode === 'plane') {
                   // Plane mode - particles on a plane, animated with multiple waves
                   distance = Math.sqrt(x * x + z * z);
@@ -1114,7 +1160,7 @@ function R3FVisualizer({
                   const wave2 = Math.sin(timeRef.current * speed * 1.5 + x * 2);
                   const wave3 = Math.sin(timeRef.current * speed * 1.8 + z * 2);
                   const wave = (wave1 * 0.5 + wave2 * 0.25 + wave3 * 0.25) * 0.5 + 0.5;
-                  newY = wave * 2 * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
+                  newY = wave * 2 * audioBoost * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
                 }
 
                 if (mode !== 'wave_form') {
@@ -1350,12 +1396,13 @@ export default function Page() {
   const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [closedWidgets, setClosedWidgets] = useState<Set<string>>(new Set());
-  // Visualizer state - the app ships a full react-three-fiber audio-reactive
-  // background visualizer + config panel; it previously had no way to ever
-  // be enabled or opened (dead feature). Now on by default, reachable via
-  // the nav's Waves button, colors tuned to fit the app's blue/violet accent
-  // range instead of the previous orange/cyan defaults.
-  const [visualizerEnabled, setVisualizerEnabled] = useState(true);
+  // Visualizer state - the app ships a full react-three-fiber background
+  // visualizer + config panel; it previously had no way to ever be enabled
+  // or opened (dead feature) and wasn't actually audio-reactive despite the
+  // name (its "audioIntensity" was driven by mouse movement, unused). Now
+  // reachable via the nav's Waves button, genuinely reacts to real audio via
+  // the mic, and stays off by default since enabling it requests mic access.
+  const [visualizerEnabled, setVisualizerEnabled] = useState(false);
   const [visualizerConfigOpen, setVisualizerConfigOpen] = useState(false);
   const [visualizerMode, setVisualizerMode] = useState<'grid' | 'plane' | 'wave_form' | 'manhattan'>('wave_form');
   const [visualizerSpeed, setVisualizerSpeed] = useState(0.3);
@@ -2079,7 +2126,7 @@ export default function Page() {
                   ? 'bg-[var(--accent)]/15 border-[var(--accent)]/40 text-[var(--accent)]'
                   : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
                   }`}
-                title="Ambient Visualizer"
+                title="Audio-Reactive Visualizer (uses microphone)"
               >
                 <Waves className="w-5 h-5 group-hover:scale-110 transition-transform" />
               </button>
