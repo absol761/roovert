@@ -55,13 +55,13 @@ async function getInitializeCount(): Promise<number> {
 export async function GET(request: NextRequest) {
   try {
     // Security: Rate limiting for stats endpoints (more lenient for public stats)
-    const rateLimitResponse = applyRateLimit(request, 'stats');
+    const rateLimitResponse = await applyRateLimit(request, 'stats');
     if (rateLimitResponse) {
       try {
         const errorData = await rateLimitResponse.json();
-        return NextResponse.json(errorData, { 
-          status: 429, 
-          headers: Object.fromEntries(rateLimitResponse.headers.entries()) 
+        return NextResponse.json(errorData, {
+          status: 429,
+          headers: Object.fromEntries(rateLimitResponse.headers.entries())
         });
       } catch {
         return rateLimitResponse;
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Security: Increment rate limit after validation
-    incrementRateLimit(request, 'stats');
+    await incrementRateLimit(request, 'stats');
 
     // Get "Initialize Chat" click count - this is now the only stat
     const userCount = await getInitializeCount();

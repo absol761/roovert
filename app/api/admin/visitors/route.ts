@@ -13,7 +13,7 @@ import { applyRateLimit, incrementRateLimit } from '../../../lib/security/rateLi
 export async function GET(request: NextRequest) {
   try {
     // Security: Rate limiting for admin endpoints (stricter)
-    const rateLimitResponse = applyRateLimit(request, 'general', {
+    const rateLimitResponse = await applyRateLimit(request, 'general', {
       maxRequests: 10, // More restrictive for admin
       windowMs: 60 * 1000,
     });
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Security: Increment rate limit after successful authentication
-    incrementRateLimit(request, 'general');
+    await incrementRateLimit(request, 'general');
     
     const db = getDatabase();
     

@@ -7,7 +7,7 @@ import { validateTrackingRequest, validateBodySize, createValidationErrorRespons
 export async function POST(request: NextRequest) {
   try {
     // Security: Rate limiting for tracking endpoints
-    const rateLimitResponse = applyRateLimit(request, 'tracking');
+    const rateLimitResponse = await applyRateLimit(request, 'tracking');
     if (rateLimitResponse) {
       try {
         const errorData = await rateLimitResponse.json();
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
           // Returning visitor - just return current count
           const count = await kv.get('unique_visitors') || 0;
           // Security: Increment rate limit after successful processing
-          incrementRateLimit(request, 'tracking');
+          await incrementRateLimit(request, 'tracking');
           
           return NextResponse.json({ success: true, count: Number(count), isNew: false });
         }
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Security: Increment rate limit even on fallback
-    incrementRateLimit(request, 'tracking');
+    await incrementRateLimit(request, 'tracking');
     
     // Fallback if no KV (silent success)
     return NextResponse.json({ success: true, mode: 'simulation' });

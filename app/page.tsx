@@ -8,145 +8,12 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useMobile } from './hooks/useMobile';
-import { shouldHideOpenRouterModels } from './lib/rateLimit';
+import { LooksModal } from './components/modals/LooksModal';
+import { type Model, MODELS, OPENROUTER_MODELS } from './lib/models';
+import { LOOKS, LAYOUTS } from './lib/looks';
+import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
 // Removed ConsentBanner import - component doesn't exist
 // Removed NeuralNoise and AudioVisualizer imports - not needed for R3F visualizer
-
-interface Model {
-  id: string;
-  name: string;
-  apiId: string;
-  category: string;
-  description: string;
-}
-
-// Groq Models - Free tier available
-const MODELS: Model[] = [
-  { id: 'multi-perspective', name: 'Multi-Perspective', apiId: 'multi-perspective', category: 'Premium', description: 'Uses multiple AI models simultaneously for comprehensive answers.' },
-  { id: 'ooverta', name: 'Ooverta', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Premium', description: 'Llama 4 Scout - Advanced reasoning and analysis.' },
-  { id: 'llama-4-scout', name: 'Llama 4 Scout', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Premium', description: 'Meta\'s latest Llama 4 model with enhanced capabilities.' },
-  { id: 'llama-3.3-70b', name: 'Llama 3.3 70B', apiId: 'llama-3.3-70b-versatile', category: 'Advanced', description: 'Powerful 70B parameter model for complex tasks.' },
-  { id: 'llama-3.1-8b', name: 'Llama 3.1 8B', apiId: 'llama-3.1-8b-instant', category: 'Standard', description: 'Extremely fast and lightweight.' },
-];
-
-// OpenRouter Models - Removed per user request
-const OPENROUTER_MODELS: Model[] = [];
-
-
-const QUICK_PROMPTS = [
-  'Stress test this assumption about AGI timelines.',
-  'Summarize the latest x-risk research with citations.',
-  'Cross-check today’s markets sentiment vs macro data.',
-  'Explain why the universe favors or rejects life.',
-];
-
-const SIGNALS = [
-  { title: 'Mission Feed', detail: 'Truth Ops syncing with live telemetry.' },
-  { title: 'Signal Integrity', detail: 'All anomalies logged and traced.' },
-];
-
-// Layout/Animation Options
-const LAYOUTS = [
-  { id: 'standard', name: 'Standard' },
-  { id: 'compact', name: 'Compact' },
-  { id: 'wide', name: 'Spacious' },
-];
-
-// Looks - Modern 2025-2026 design trends
-const LOOKS = [
-  { id: 'neominimal', name: 'Neo-Minimal', description: 'Minimalism with depth and soft shadows', category: 'essential' },
-  { id: 'monochrome', name: 'Monochrome', description: 'Soft monochrome design', category: 'essential' },
-  { id: 'depth', name: 'Depth Field', description: '3D layers with realistic shadows', category: 'modern' },
-  { id: 'bold', name: 'Bold Typography', description: 'Experimental fonts with maximum impact', category: 'modern' },
-  { id: 'sustainable', name: 'Sustainable', description: 'Eco-friendly green design palette', category: 'modern' },
-  { id: 'accessible', name: 'High Contrast', description: 'Accessible design with WCAG compliance', category: 'modern' },
-  { id: 'gemini', name: 'Google Gemini', description: 'Inspired by Gemini colors with smooth animations', category: 'modern' },
-  { id: 'nocturne', name: 'Nocturne', description: 'Deep night with orange accents', category: 'dark' },
-  { id: 'midnight', name: 'Midnight', description: 'Slate blue with sky accents', category: 'dark' },
-  { id: 'aether', name: 'Aether', description: 'Light indigo with split-grid layout', category: 'light' },
-  { id: 'atlas', name: 'Atlas', description: 'Brutalist blueprint aesthetic', category: 'light' },
-  { id: 'earthtone', name: 'Earthtone', description: 'Natural earth colors with warm palette', category: 'themed' },
-  { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s aesthetic', category: 'themed' },
-  { id: 'space', name: 'Deep Space', description: 'Cosmic darkness with stars', category: 'themed' },
-  { id: 'textured-velvet', name: 'Textured Velvet', description: 'Rich velvet textures with deep colors', category: 'textured' },
-  { id: 'textured-marble', name: 'Textured Marble', description: 'Elegant marble patterns and gradients', category: 'textured' },
-  { id: 'textured-wood', name: 'Textured Wood', description: 'Warm wood grain textures', category: 'textured' },
-  { id: 'textured-glass', name: 'Textured Glass', description: 'Frosted glass with light refraction', category: 'textured' },
-  { id: 'colorway-ocean', name: 'Ocean Colorway', description: 'Cool ocean blues and teals', category: 'colorway' },
-  { id: 'colorway-forest', name: 'Forest Colorway', description: 'Natural greens and earth tones', category: 'colorway' },
-];
-
-
-// Looks Modal Component
-function LooksModal({ isOpen, onClose, currentLook, setLook }: any) {
-  if (!isOpen) return null;
-
-  const categories = ['essential', 'modern', 'dark', 'light', 'themed', 'textured', 'colorway'];
-  const looksByCategory = categories.map(cat => ({
-    category: cat,
-    looks: LOOKS.filter(l => l.category === cat)
-  }));
-
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 text-[var(--foreground)]">
-      <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-5xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <h2 className="text-2xl font-light tracking-wide flex items-center gap-2">
-            <Palette className="w-6 h-6 text-[var(--accent)]" />
-            Browse Looks
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8" style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
-          {looksByCategory.map(({ category, looks }) => (
-            <motion.section
-              key={category}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-            >
-              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">
-                {category.charAt(0).toUpperCase() + category.slice(1)}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {looks.map((look, idx) => (
-                  <motion.button
-                    key={look.id}
-                    onClick={() => { setLook(look.id); onClose(); }}
-                    data-look-preview={look.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.2, delay: idx * 0.03, ease: 'easeOut' }}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`look-preview-button p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden ${currentLook === look.id
-                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20'
-                      : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
-                      }`}
-                  >
-                    <div className="font-medium text-[var(--foreground)] mb-1 relative z-10 transition-transform duration-300">{look.name}</div>
-                    <div className="text-xs text-[var(--muted)] relative z-10">{look.description}</div>
-                    <div className="look-preview-animation absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-500 ease-out pointer-events-none"></div>
-                  </motion.button>
-                ))}
-              </div>
-            </motion.section>
-          ))}
-        </div>
-      </motion.div>
-    </div>
-  );
-}
 
 // More Models Modal Component
 function MoreModelsModal({
@@ -166,7 +33,7 @@ function MoreModelsModal({
 }) {
   if (!isOpen) return null;
 
-  const categories = ['Standard', 'Advanced', 'Premium'];
+  const categories = ['Standard', 'Advanced', 'Premium', 'OpenRouter'];
   const modelsByCategory = categories.map(cat => ({
     category: cat,
     models: models.filter(m => m.category === cat)

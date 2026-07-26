@@ -1,61 +1,20 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { checkRateLimit, incrementRateLimit, createRateLimitResponse } from './app/lib/security/rateLimit';
 
-// Simple in-memory rate limiting (for production, use Redis/Upstash)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+// Cheap first-pass rate limit at the edge, shared (via Redis) across all
+// serverless instances. Individual routes still apply their own
+// endpoint-specific limits (ai-query, tracking, openrouter, stats) on top
+// of this general one.
+const GENERAL_CONFIG = { windowMs: 60 * 1000, maxRequests: 30 };
 
-// Rate limit configuration
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 30; // 30 requests per minute per IP
-
-function getRateLimitKey(request: NextRequest): string {
-  // Use IP address for rate limiting
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIp = request.headers.get('x-real-ip');
-  const cfConnectingIp = request.headers.get('cf-connecting-ip'); // Cloudflare
-  const ip = forwarded?.split(',')[0]?.trim() || realIp?.trim() || cfConnectingIp?.trim() || 'unknown';
-  return ip;
-}
-
-function checkRateLimit(key: string): boolean {
-  const now = Date.now();
-  const record = rateLimitMap.get(key);
-
-  if (!record || now > record.resetTime) {
-    // Create new rate limit record
-    rateLimitMap.set(key, {
-      count: 1,
-      resetTime: now + RATE_LIMIT_WINDOW,
-    });
-    return true;
-  }
-
-  if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return false; // Rate limit exceeded
-  }
-
-  // Increment count
-  record.count++;
-  return true;
-}
-
-// Clean up old rate limit records periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, record] of rateLimitMap.entries()) {
-    if (now > record.resetTime) {
-      rateLimitMap.delete(key);
-    }
-  }
-}, RATE_LIMIT_WINDOW);
-
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   // Only apply rate limiting to API routes
   if (!request.nextUrl.pathname.startsWith('/api/')) {
     return NextResponse.next();
   }
 
-  // Skip rate limiting for certain endpoints (e.g., health checks)
+  // Skip rate limiting for endpoints that apply their own (more lenient) limits
   const skipRateLimit = [
     '/api/stats', // Public stats endpoint
   ].some(path => request.nextUrl.pathname.startsWith(path));
@@ -64,25 +23,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Apply rate limiting
-  const key = getRateLimitKey(request);
-  if (!checkRateLimit(key)) {
-    return new NextResponse(
-      JSON.stringify({ 
-        error: 'Rate limit exceeded. Please try again later.',
-        retryAfter: RATE_LIMIT_WINDOW / 1000,
-      }),
-      {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'Retry-After': String(Math.ceil(RATE_LIMIT_WINDOW / 1000)),
-          'X-RateLimit-Limit': String(RATE_LIMIT_MAX_REQUESTS),
-          'X-RateLimit-Remaining': '0',
-        },
-      }
-    );
+  const result = await checkRateLimit(request, 'general', GENERAL_CONFIG);
+  if (!result.allowed) {
+    return createRateLimitResponse(result, { ...GENERAL_CONFIG, message: 'Rate limit exceeded. Please try again later.' });
   }
+  await incrementRateLimit(request, 'general', GENERAL_CONFIG);
 
   return NextResponse.next();
 }

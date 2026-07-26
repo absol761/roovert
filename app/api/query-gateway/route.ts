@@ -22,7 +22,7 @@ function getUserFriendlyErrorMessage(): string {
 export async function POST(request: NextRequest) {
   try {
     // Security: Rate limiting - apply before processing
-    const rateLimitResponse = applyRateLimit(request, 'ai-query');
+    const rateLimitResponse = await applyRateLimit(request, 'ai-query');
     if (rateLimitResponse) {
       return rateLimitResponse;
     }
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Security: Increment rate limit after successful validation
-    incrementRateLimit(request, 'ai-query');
+    await incrementRateLimit(request, 'ai-query');
 
     // Security: API key validation - ensure key exists in environment (never exposed to client)
     if (!process.env.GROQ_API_KEY) {
@@ -114,24 +114,33 @@ export async function POST(request: NextRequest) {
       targetModelId = MODEL_MAP[model];
     }
 
-    // Build messages
-    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }> = [];
+    // Build messages. System prompt is passed separately via streamText's
+    // `instructions` param - the ai SDK (v7+) rejects role: 'system' entries
+    // inside `messages` by default (prompt-injection hardening).
+    const messages: Array<{
+      role: 'user' | 'assistant';
+      content: string | Array<
+        | { type: 'text'; text: string }
+        | { type: 'file'; data: URL; mediaType: string }
+      >;
+    }> = [];
 
-    // Add system prompt with Roovert context and content moderation
     const systemPrompt = getSystemPrompt(customSystemPrompt);
-    messages.push({ role: 'system', content: systemPrompt });
 
     // Security: Validate and limit conversation history (already validated, but enforce limits)
     if (conversationHistory && Array.isArray(conversationHistory)) {
       const limitedHistory = conversationHistory.slice(-MAX_LENGTHS.CONVERSATION_HISTORY_MESSAGES);
       for (const msg of limitedHistory) {
-        // Additional validation - ensure message structure is correct
+        // Additional validation - ensure message structure is correct.
+        // Security: only 'user'/'assistant' are accepted here - a client-
+        // supplied 'system' role would otherwise let conversationHistory
+        // smuggle in a fake system-level instruction (prompt injection).
         if (msg && typeof msg === 'object' && msg.role && msg.content &&
-          (msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system') &&
+          (msg.role === 'user' || msg.role === 'assistant') &&
           typeof msg.content === 'string' && msg.content.length <= MAX_LENGTHS.MESSAGE_CONTENT) {
           messages.push({
             role: msg.role,
-            content: msg.content as any
+            content: msg.content
           });
         }
       }
@@ -139,12 +148,17 @@ export async function POST(request: NextRequest) {
 
     // Add current message
     if (image) {
+      // `image` is a data: URL (e.g. "data:image/jpeg;base64,...") from the
+      // client's FileReader.readAsDataURL - a valid URL, so pass it as the
+      // ai SDK's `file` part rather than the removed `image`/`image_url` shape.
+      const mediaTypeMatch = /^data:([^;,]+)/.exec(image);
+      const mediaType = mediaTypeMatch?.[1] || 'image/jpeg';
       messages.push({
         role: 'user',
         content: [
           { type: 'text', text: query },
-          { type: 'image_url', image_url: { url: image } }
-        ] as any
+          { type: 'file', data: new URL(image), mediaType }
+        ]
       });
     } else {
       messages.push({ role: 'user', content: query });
@@ -165,7 +179,8 @@ export async function POST(request: NextRequest) {
             const modelId = MODEL_MAP[selectedModel] || targetModelId;
             const result = await streamText({
               model: groq(modelId),
-              messages: messages as any,
+              instructions: systemPrompt,
+              messages,
             });
 
             let fullText = '';
@@ -222,7 +237,8 @@ export async function POST(request: NextRequest) {
       // Use Vercel AI SDK to stream the response via Groq Provider
       const result = await streamText({
         model: groq(targetModelId),
-        messages: messages as any,
+        instructions: systemPrompt,
+        messages,
       });
 
       // Convert to Server-Sent Events format with content filtering and token limiting

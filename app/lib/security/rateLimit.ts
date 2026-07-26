@@ -2,21 +2,23 @@
  * Comprehensive Rate Limiting System
  * Implements IP-based and user-based rate limiting with configurable limits
  * Follows OWASP best practices for rate limiting
- * 
+ *
  * Features:
  * - IP-based rate limiting (primary)
  * - User-based rate limiting (when user identifier available)
- * - Sliding window algorithm
+ * - Fixed window algorithm, backed by Upstash Redis so limits are shared
+ *   across serverless instances; falls back to a per-instance in-memory
+ *   store if Redis isn't configured (e.g. local dev)
  * - Graceful 429 responses with Retry-After headers
  * - Configurable limits per endpoint
  */
+
+import { getRedis } from '../redis';
 
 interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
   maxRequests: number; // Maximum requests per window
   message?: string; // Custom error message
-  skipSuccessfulRequests?: boolean; // Don't count successful requests
-  skipFailedRequests?: boolean; // Don't count failed requests
 }
 
 interface RateLimitResult {
@@ -29,11 +31,10 @@ interface RateLimitResult {
 interface RateLimitEntry {
   count: number;
   resetAt: number;
-  firstRequestAt: number;
 }
 
-// In-memory store (for production, consider Redis/Upstash)
-const rateLimitStores = new Map<string, Map<string, RateLimitEntry>>();
+// In-memory fallback store, used only when Redis isn't configured.
+const memoryStore = new Map<string, RateLimitEntry>();
 
 // Default rate limit configurations per endpoint type
 const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
@@ -86,127 +87,116 @@ export function getClientIP(request: { headers: { get: (key: string) => string |
  * Can be extended to use session IDs, API keys, etc.
  */
 export function getUserIdentifier(request: { headers: { get: (key: string) => string | null } }): string | null {
-  // Could use session ID, API key, or other user identifier
   const userId = request.headers.get('x-user-id');
   return userId || null;
 }
 
 /**
- * Check rate limit for a given identifier and configuration
+ * Read the current count for a key without incrementing it.
  */
-function checkRateLimitInternal(
-  storeKey: string,
-  identifier: string,
-  config: RateLimitConfig
-): RateLimitResult {
+async function peekCount(key: string, windowMs: number): Promise<{ count: number; resetAt: number }> {
+  const redis = getRedis();
   const now = Date.now();
-  
-  // Get or create store for this configuration
-  let store = rateLimitStores.get(storeKey);
-  if (!store) {
-    store = new Map<string, RateLimitEntry>();
-    rateLimitStores.set(storeKey, store);
+
+  if (redis) {
+    const [count, ttlMs] = await Promise.all([
+      redis.get<number>(key),
+      redis.pttl(key),
+    ]);
+    const resetAt = ttlMs && ttlMs > 0 ? now + ttlMs : now + windowMs;
+    return { count: count ?? 0, resetAt };
   }
 
-  let entry = store.get(identifier);
-
-  // If no entry or reset time has passed, create new entry
+  const entry = memoryStore.get(key);
   if (!entry || now >= entry.resetAt) {
-    entry = {
-      count: 0,
-      resetAt: now + config.windowMs,
-      firstRequestAt: now,
-    };
-    store.set(identifier, entry);
+    return { count: 0, resetAt: now + windowMs };
+  }
+  return { count: entry.count, resetAt: entry.resetAt };
+}
+
+/**
+ * Atomically increment the counter for a key, setting its expiry on first
+ * increment within a window.
+ */
+async function incrementCount(key: string, windowMs: number): Promise<{ count: number; resetAt: number }> {
+  const redis = getRedis();
+  const now = Date.now();
+
+  if (redis) {
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.pexpire(key, windowMs);
+    }
+    const ttlMs = await redis.pttl(key);
+    const resetAt = ttlMs && ttlMs > 0 ? now + ttlMs : now + windowMs;
+    return { count, resetAt };
   }
 
-  const remaining = Math.max(0, config.maxRequests - entry.count);
-  const allowed = entry.count < config.maxRequests;
+  let entry = memoryStore.get(key);
+  if (!entry || now >= entry.resetAt) {
+    entry = { count: 0, resetAt: now + windowMs };
+  }
+  entry.count++;
+  memoryStore.set(key, entry);
+
+  // Clean up old entries periodically (bound memory growth)
+  if (memoryStore.size > 10000) {
+    for (const [k, v] of memoryStore.entries()) {
+      if (now >= v.resetAt) memoryStore.delete(k);
+    }
+  }
+
+  return { count: entry.count, resetAt: entry.resetAt };
+}
+
+function storeKey(endpointType: string, config: RateLimitConfig, identifierType: string, identifier: string): string {
+  return `ratelimit:${endpointType}:${config.windowMs}:${config.maxRequests}:${identifierType}:${identifier}`;
+}
+
+function resolveIdentifier(request: { headers: { get: (key: string) => string | null } }): { identifier: string; identifierType: string } {
+  const userId = getUserIdentifier(request);
+  return userId
+    ? { identifier: userId, identifierType: 'user' }
+    : { identifier: getClientIP(request), identifierType: 'ip' };
+}
+
+/**
+ * Check rate limit for a request without consuming from the quota.
+ * Returns result with allowed status and remaining requests.
+ */
+export async function checkRateLimit(
+  request: { headers: { get: (key: string) => string | null } },
+  endpointType: keyof typeof DEFAULT_LIMITS = 'general',
+  customConfig?: Partial<RateLimitConfig>
+): Promise<RateLimitResult> {
+  const config = { ...DEFAULT_LIMITS[endpointType], ...customConfig };
+  const { identifier, identifierType } = resolveIdentifier(request);
+  const key = storeKey(endpointType, config, identifierType, identifier);
+
+  const { count, resetAt } = await peekCount(key, config.windowMs);
+  const remaining = Math.max(0, config.maxRequests - count);
 
   return {
-    allowed,
+    allowed: count < config.maxRequests,
     remaining,
-    resetAt: entry.resetAt,
+    resetAt,
     limit: config.maxRequests,
   };
 }
 
 /**
- * Increment rate limit counter
+ * Increment rate limit counter for a request (consumes one unit of quota).
  */
-function incrementRateLimitInternal(
-  storeKey: string,
-  identifier: string,
-  config: RateLimitConfig
-): void {
-  const now = Date.now();
-  
-  let store = rateLimitStores.get(storeKey);
-  if (!store) {
-    store = new Map<string, RateLimitEntry>();
-    rateLimitStores.set(storeKey, store);
-  }
-
-  let entry = store.get(identifier);
-
-  if (!entry || now >= entry.resetAt) {
-    entry = {
-      count: 0,
-      resetAt: now + config.windowMs,
-      firstRequestAt: now,
-    };
-  }
-
-  entry.count++;
-  store.set(identifier, entry);
-
-  // Clean up old entries periodically (older than 2x window)
-  if (store.size > 10000) {
-    const cutoff = now - (2 * config.windowMs);
-    for (const [key, value] of store.entries()) {
-      if (value.resetAt < cutoff) {
-        store.delete(key);
-      }
-    }
-  }
-}
-
-/**
- * Check rate limit for a request
- * Returns result with allowed status and remaining requests
- */
-export function checkRateLimit(
+export async function incrementRateLimit(
   request: { headers: { get: (key: string) => string | null } },
   endpointType: keyof typeof DEFAULT_LIMITS = 'general',
   customConfig?: Partial<RateLimitConfig>
-): RateLimitResult {
+): Promise<void> {
   const config = { ...DEFAULT_LIMITS[endpointType], ...customConfig };
-  const storeKey = `${endpointType}-${config.windowMs}-${config.maxRequests}`;
-  
-  // Try user-based first, fallback to IP-based
-  const userId = getUserIdentifier(request);
-  const identifier = userId || getClientIP(request);
-  const identifierType = userId ? 'user' : 'ip';
-  
-  return checkRateLimitInternal(`${storeKey}-${identifierType}`, identifier, config);
-}
+  const { identifier, identifierType } = resolveIdentifier(request);
+  const key = storeKey(endpointType, config, identifierType, identifier);
 
-/**
- * Increment rate limit counter for a request
- */
-export function incrementRateLimit(
-  request: { headers: { get: (key: string) => string | null } },
-  endpointType: keyof typeof DEFAULT_LIMITS = 'general',
-  customConfig?: Partial<RateLimitConfig>
-): void {
-  const config = { ...DEFAULT_LIMITS[endpointType], ...customConfig };
-  const storeKey = `${endpointType}-${config.windowMs}-${config.maxRequests}`;
-  
-  const userId = getUserIdentifier(request);
-  const identifier = userId || getClientIP(request);
-  const identifierType = userId ? 'user' : 'ip';
-  
-  incrementRateLimitInternal(`${storeKey}-${identifierType}`, identifier, config);
+  await incrementCount(key, config.windowMs);
 }
 
 /**
@@ -217,7 +207,7 @@ export function createRateLimitResponse(
   config: RateLimitConfig
 ): Response {
   const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000);
-  
+
   return new Response(
     JSON.stringify({
       error: config.message || 'Rate limit exceeded',
@@ -241,18 +231,18 @@ export function createRateLimitResponse(
  * Middleware helper to apply rate limiting to a request
  * Returns null if allowed, or a Response if rate limited
  */
-export function applyRateLimit(
+export async function applyRateLimit(
   request: { headers: { get: (key: string) => string | null } },
   endpointType: keyof typeof DEFAULT_LIMITS = 'general',
   customConfig?: Partial<RateLimitConfig>
-): Response | null {
+): Promise<Response | null> {
   const config = { ...DEFAULT_LIMITS[endpointType], ...customConfig };
-  const result = checkRateLimit(request, endpointType, customConfig);
-  
+  const result = await checkRateLimit(request, endpointType, customConfig);
+
   if (!result.allowed) {
     return createRateLimitResponse(result, config);
   }
-  
+
   return null;
 }
 
@@ -260,23 +250,20 @@ export function applyRateLimit(
  * Get rate limit status for a request (for OpenRouter model hiding)
  * Returns detailed status including count, limit, remaining, and blocked status
  */
-export function getRateLimitStatus(
+export async function getRateLimitStatus(
   request: { headers: { get: (key: string) => string | null } },
   endpointType: keyof typeof DEFAULT_LIMITS = 'general',
   customConfig?: Partial<RateLimitConfig>
-): {
+): Promise<{
   count: number;
   limit: number;
   remaining: number;
   resetAt: number;
   isBlocked: boolean;
-} {
-  const config = { ...DEFAULT_LIMITS[endpointType], ...customConfig };
-  const result = checkRateLimit(request, endpointType, customConfig);
-  
-  // Calculate count from remaining
+}> {
+  const result = await checkRateLimit(request, endpointType, customConfig);
   const count = result.limit - result.remaining;
-  
+
   return {
     count: Math.max(0, count),
     limit: result.limit,
@@ -288,11 +275,12 @@ export function getRateLimitStatus(
 
 /**
  * Check if OpenRouter models should be hidden for this user
- * Used by frontend to conditionally hide models when rate limit is reached
+ * Used by the /api/openrouter/status endpoint to tell the client whether to
+ * hide OpenRouter models (rate limit reached).
  */
-export function shouldHideOpenRouterModels(
+export async function shouldHideOpenRouterModels(
   request: { headers: { get: (key: string) => string | null } }
-): boolean {
-  const status = getRateLimitStatus(request, 'openrouter');
+): Promise<boolean> {
+  const status = await getRateLimitStatus(request, 'openrouter');
   return status.isBlocked;
 }
