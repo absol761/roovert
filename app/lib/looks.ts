@@ -4,7 +4,7 @@ export const LOOKS = [
   { id: 'depth', name: 'Depth Field', description: '3D layers with realistic shadows', category: 'modern' },
   { id: 'accessible', name: 'High Contrast', description: 'Accessible design with WCAG compliance', category: 'modern' },
   { id: 'gemini', name: 'Google Gemini', description: 'Inspired by Gemini colors with smooth animations', category: 'modern' },
-  { id: 'midnight', name: 'Midnight', description: 'Slate blue with sky accents', category: 'dark' },
+  { id: 'midnight', name: 'Ember', description: 'Warm charcoal with a muted terracotta accent', category: 'dark' },
   { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s aesthetic', category: 'themed' },
 ];
 

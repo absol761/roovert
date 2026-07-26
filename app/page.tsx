@@ -2281,7 +2281,7 @@ export default function Page() {
               >
                 <button
                   onClick={handleInitialize}
-                  className="group relative px-9 py-4 bg-[var(--accent)] text-white text-lg font-medium rounded-full overflow-hidden transition-all duration-[var(--duration-base)] hover:scale-105 active:scale-95 shadow-[0_0_48px_var(--accent-glow)]"
+                  className="group relative px-9 py-4 bg-[var(--accent)] text-white text-lg font-medium rounded-full overflow-hidden transition-all duration-[var(--duration-base)] hover:scale-[1.03] active:scale-95 shadow-[var(--shadow-lg)]"
                 >
                   <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                   <span className="relative flex items-center gap-3">
