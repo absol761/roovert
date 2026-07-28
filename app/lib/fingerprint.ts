@@ -44,7 +44,7 @@ export function generateFingerprint(): string {
       const canvasData = canvas.toDataURL();
       components.push(canvasData.substring(0, 50)); // First 50 chars for hash
     }
-  } catch (e) {
+  } catch {
     // Canvas not available
   }
 

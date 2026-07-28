@@ -1,1350 +1,36 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Clock, AlertTriangle, RotateCcw, Monitor, Maximize, Minimize, Download, Eye, EyeOff, Palette, Copy, Check, Square, Paperclip, Image as ImageIcon, Edit2, RefreshCw, Search, Code, Users, Star, ArrowRight, Paintbrush, Waves, MapPin } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useMobile } from './hooks/useMobile';
 import { LooksModal } from './components/modals/LooksModal';
-import { type Model, MODELS, OPENROUTER_MODELS } from './lib/models';
-import { LOOKS, LAYOUTS } from './lib/looks';
+import { MoreModelsModal } from './components/modals/MoreModelsModal';
+import { SettingsModal } from './components/modals/SettingsModal';
+import { GlobalFeedExpanded } from './components/GlobalFeedExpanded';
+import { LiveStats } from './components/nav/LiveStats';
+import { NavClock } from './components/nav/NavClock';
+import { MODELS, OPENROUTER_MODELS } from './lib/models';
 import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
-// Removed ConsentBanner import - component doesn't exist
-// Removed NeuralNoise and AudioVisualizer imports - not needed for R3F visualizer
 
-// More Models Modal Component
-function MoreModelsModal({
-  isOpen,
-  onClose,
-  models,
-  selectedModelId,
-  onSelectModel,
-  onInitialize
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  models: Model[];
-  selectedModelId: string;
-  onSelectModel: (id: string) => void;
-  onInitialize: () => void;
-}) {
-  if (!isOpen) return null;
-
-  const categories = ['Standard', 'Advanced', 'Premium', 'OpenRouter'];
-  const modelsByCategory = categories.map(cat => ({
-    category: cat,
-    models: models.filter(m => m.category === cat)
-  })).filter(cat => cat.models.length > 0);
-
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 text-[var(--foreground)]">
-      <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-5xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <h2 className="text-2xl font-light tracking-wide flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-[var(--accent)]" />
-            All AI Models
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8" style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
-          {modelsByCategory.map(({ category, models: catModels }) => (
-            <motion.section
-              key={category}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-            >
-              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">
-                {category}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {catModels.map((model, idx) => (
-                  <motion.button
-                    key={model.id}
-                    onClick={() => {
-                      onSelectModel(model.id);
-                      onInitialize();
-                      onClose();
-                    }}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.2, delay: idx * 0.03, ease: 'easeOut' }}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden ${selectedModelId === model.id
-                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20'
-                      : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
-                      }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Zap className="w-4 h-4 text-[var(--accent)]" />
-                      <span className="font-medium text-[var(--foreground)]">{model.name}</span>
-                    </div>
-                    <div className="text-xs text-[var(--muted)]">{model.description}</div>
-                  </motion.button>
-                ))}
-              </div>
-            </motion.section>
-          ))}
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// Settings Modal Component
-function SettingsModal({
-  isOpen,
-  onClose,
-  currentModelId, setModelId,
-  layout, setLayout,
-  fontSize, setFontSize,
-  dataSaver, setDataSaver,
-  focusMode, setFocusMode,
-  systemPrompt, setSystemPrompt,
-  onExportChat,
-  currentLook, setLook,
-  neuralNoiseEnabled,
-  setNeuralNoiseEnabled,
-  availableModels = [] as typeof MODELS
-}: any) {
-  if (!isOpen) return null;
-
-  const handleReset = () => {
-    setLayout('standard');
-    setFontSize('normal');
-    setDataSaver(false);
-    setFocusMode(false);
-    setSystemPrompt('');
-    setModelId('ooverta');
-    setNeuralNoiseEnabled(true);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 text-[var(--foreground)]">
-      <div className="absolute inset-0 bg-[var(--background)]/70 backdrop-blur-sm" onClick={onClose} />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-2xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col text-[var(--foreground)]"
-      >
-        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <h2 className="text-xl font-light tracking-wide flex items-center gap-2 text-[var(--foreground)]">
-            <Settings className="w-5 h-5 text-[var(--accent)]" />
-            System Configuration
-          </h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleReset}
-              className="text-xs text-[var(--muted)] hover:text-[var(--accent)] transition-colors px-3 py-1.5 rounded-lg border border-transparent hover:border-[var(--border)] hover:bg-[var(--surface)]"
-            >
-              Reset Defaults
-            </button>
-            <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8" style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
-
-          {/* Layout Section - Structure Only */}
-          <section>
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Layout</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {LAYOUTS.map(l => (
-                <button
-                  key={l.id}
-                  onClick={() => setLayout(l.id)}
-                  className={`px-3 py-2 rounded-lg border text-sm transition-all ${layout === l.id
-                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
-                    : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)]'
-                    }`}
-                >
-                  {l.name}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Styles / Appearance Section - Size, Density */}
-          <section>
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Appearance & Style</h3>
-            <div className="grid gap-8">
-              <div>
-                <h4 className="text-xs text-[var(--muted)] mb-2 uppercase">Text Size</h4>
-                <div className="flex gap-2">
-                  {['small', 'normal', 'large'].map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setFontSize(size)}
-                      className={`flex-1 px-3 py-2 text-xs rounded-lg border transition-colors ${fontSize === size
-                        ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)]'
-                        : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]'
-                        }`}
-                    >
-                      {size.charAt(0).toUpperCase() + size.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Preferences Section - Toggles */}
-          <section className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono flex items-center gap-2">
-              <Monitor className="w-4 h-4" /> Preferences
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    Data Saver Mode
-                    {dataSaver && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20">ACTIVE</span>}
-                  </div>
-                  <div className="text-xs text-[var(--muted)]">Reduces animations & blur effects</div>
-                </div>
-                <button
-                  onClick={() => setDataSaver(!dataSaver)}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${dataSaver ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
-                    }`}
-                >
-                  <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${dataSaver ? 'translate-x-5' : 'translate-x-0'
-                    }`} />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    Focus Mode
-                    {focusMode && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20">ACTIVE</span>}
-                  </div>
-                  <div className="text-xs text-[var(--muted)]">Hide all distractions during chat</div>
-                </div>
-                <button
-                  onClick={() => setFocusMode(!focusMode)}
-                  className={`p-2 rounded-lg border transition-colors ${focusMode ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]' : 'border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]'
-                    }`}
-                >
-                  {focusMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    Neural Background
-                    {neuralNoiseEnabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20">ACTIVE</span>}
-                  </div>
-                  <div className="text-xs text-[var(--muted)]">Animated neural network background effect</div>
-                </div>
-                <button
-                  onClick={() => setNeuralNoiseEnabled(!neuralNoiseEnabled)}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${neuralNoiseEnabled ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
-                    }`}
-                >
-                  <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${neuralNoiseEnabled ? 'translate-x-5' : 'translate-x-0'
-                    }`} />
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* AI Configuration */}
-          <section className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono flex items-center gap-2">
-              <Zap className="w-4 h-4" /> Intelligence Override
-            </h3>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="system-prompt" className="text-xs text-[var(--muted)] uppercase">Custom System Prompt</label>
-                <textarea
-                  id="system-prompt"
-                  name="system-prompt"
-                  value={systemPrompt}
-                  onChange={(e) => setSystemPrompt(e.target.value)}
-                  placeholder="e.g., 'You are a pirate...' or 'Explain like I'm 5'"
-                  className="w-full h-24 bg-[var(--background)] border border-[var(--border)] rounded-xl p-3 text-sm resize-none focus:border-[var(--accent)] outline-none"
-                  aria-label="Custom system prompt"
-                />
-              </div>
-              <button
-                onClick={onExportChat}
-                className="w-full flex items-center justify-center gap-2 py-2 bg-[var(--surface-strong)] hover:bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm transition-colors"
-              >
-                <Download className="w-4 h-4" /> Export Conversation Log
-              </button>
-            </div>
-          </section>
-
-          {/* Model Section */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] font-mono">Default Intelligence</h3>
-            </div>
-            <div className="grid gap-2">
-              {availableModels.map((model: typeof MODELS[0]) => (
-                <button
-                  key={model.id}
-                  onClick={() => setModelId(model.id)}
-                  className={`flex items-center justify-between p-4 rounded-xl border transition-all ${currentModelId === model.id
-                    ? 'border-[var(--accent)] bg-[var(--accent)]/10'
-                    : 'border-[var(--border)] hover:border-[var(--accent)]/30 bg-[var(--surface)]'
-                    }`}
-                >
-                  <div className="text-left">
-                    <div className="font-medium flex items-center gap-2 text-[var(--foreground)]">
-                      {model.name}
-                      {model.category === 'Advanced' && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]">PRO</span>
-                      )}
-                    </div>
-                    <div className="text-xs text-[var(--muted)] mt-1">{model.description}</div>
-                  </div>
-                  {currentModelId === model.id && (
-                    <div className="w-2 h-2 rounded-full bg-[var(--accent)] shadow-[0_0_10px_var(--accent)]" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// Global Feed Expanded Component
-function GlobalFeedExpanded({ onClose }: { onClose: () => void }) {
-  const [news, setNews] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    fetch('/api/news')
-      .then(res => {
-        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
-          throw new Error('Failed to fetch news');
-        }
-        return res.json();
-      })
-      .then(data => {
-        setNews(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.warn('News fetch error (non-critical):', error);
-        setNews([]);
-        setLoading(false);
-      });
-  }, []);
-
-  return (
-    <motion.div
-      initial={{ height: 0, opacity: 0 }}
-      animate={{ height: 'auto', opacity: 1 }}
-      exit={{ height: 0, opacity: 0 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="w-full mb-8 bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl overflow-hidden"
-    >
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-light tracking-wide flex items-center gap-2">
-            <Globe className="w-5 h-5 text-[var(--accent)]" />
-            Global Feed
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="overflow-y-auto custom-scrollbar max-h-[60vh]">
-          {loading ? (
-            <div className="space-y-3">
-              <div className="h-4 w-full bg-[var(--surface-strong)] rounded animate-pulse" />
-              <div className="h-4 w-3/4 bg-[var(--surface-strong)] rounded animate-pulse" />
-              <div className="h-4 w-5/6 bg-[var(--surface-strong)] rounded animate-pulse" />
-            </div>
-          ) : news.length > 0 ? (
-            <div className="space-y-4">
-              {news.map((story: any) => (
-                <a
-                  key={story.id}
-                  href={story.url || `https://news.ycombinator.com/item?id=${story.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block p-4 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] hover:border-[var(--accent)] transition-all group"
-                >
-                  <h3 className="text-sm font-medium text-[var(--foreground)] mb-2 group-hover:text-[var(--accent)] transition-colors">
-                    {story.title}
-                  </h3>
-                  {story.by && (
-                    <p className="text-xs text-[var(--muted)]">
-                      by {story.by} {story.score && `• ${story.score} points`}
-                    </p>
-                  )}
-                </a>
-              ))}
-            </div>
-          ) : (
-            <p className="text-[var(--muted)]">No news available at the moment.</p>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// Widgets Component
-function Widgets() {
-  const [news, setNews] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetch('/api/news')
-      .then(res => {
-        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
-          return [];
-        }
-        return res.json();
-      })
-      .then(data => setNews(Array.isArray(data) ? data : []))
-      .catch(() => { });
-  }, []);
-
-  return (
-    <div className="widgets-stack flex gap-4 overflow-x-auto pb-4 custom-scrollbar">
-      {/* News Widget */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.1 }}
-        className="widget-card flex-shrink-0 min-w-[280px] max-w-[360px] p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md"
-      >
-        <div className="flex items-center gap-2 mb-2 text-[var(--muted)]">
-          <Globe className="w-4 h-4" />
-          <span className="text-xs uppercase font-mono">Global Feed</span>
-        </div>
-        {news.length > 0 ? (
-          <div className="space-y-3">
-            {news.map((story: any) => (
-              <a
-                key={story.id}
-                href={story.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-sm hover:text-[var(--accent)] transition-colors truncate"
-              >
-                • {story.title}
-              </a>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="h-4 w-3/4 bg-[var(--surface-strong)] rounded animate-pulse" />
-            <div className="h-4 w-1/2 bg-[var(--surface-strong)] rounded animate-pulse" />
-          </div>
-        )}
-      </motion.div>
-    </div>
-  );
-}
-
-// Real-time Stats Component - Shows only number of users (Initialize Chat clicks)
-function LiveStats() {
-  const [userCount, setUserCount] = useState(0);
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await fetch('/api/stats', {
-          cache: 'no-store',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        if (!response.ok) {
-          console.warn('Stats API not available:', response.status);
-          return;
-        }
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.warn('Stats API returned non-JSON response');
-          return;
-        }
-        const data = await response.json();
-        const count = data.users || data.totalUsers || 0;
-        if (count > 0) {
-          setUserCount(count);
-        }
-      } catch (error) {
-        console.warn('Stats fetch error:', error);
-      }
-    };
-
-    fetchStats();
-    const interval = setInterval(fetchStats, 10000); // Check every 10 seconds
-    return () => clearInterval(interval);
-  }, []);
-
-  // Lives inside the nav bar's right-hand group (not fixed-positioned on its
-  // own) so it reads as part of the nav instead of an orphaned floating
-  // widget in the corner. The count popover anchors as a normal dropdown.
-  return (
-    <div className="relative">
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.95 }}
-            className="absolute right-0 top-full mt-2 z-50 bg-[var(--hud-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-4 shadow-[var(--shadow-lg)] min-w-[180px]"
-          >
-            <div className="flex items-center justify-between gap-4 text-sm">
-              <span className="text-[var(--muted)]">Visitors</span>
-              <span className="text-[var(--accent)] font-mono font-bold">
-                {userCount.toLocaleString()}
-              </span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <motion.button
-        onClick={() => setIsExpanded(!isExpanded)}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        className="flex items-center gap-2 bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] rounded-full px-3 py-1.5 transition-colors"
-        title="Visitor count"
-      >
-        <Users className="w-3.5 h-3.5 text-[var(--accent)]" />
-        <span className="text-xs text-[var(--muted-strong)] font-mono">
-          {userCount.toLocaleString()}
-        </span>
-      </motion.button>
-    </div>
-  );
-}
-
-// Clock Component for Nav
-function NavClock() {
-  const [time, setTime] = useState<string>('');
-
-  useEffect(() => {
-    const updateTime = () => {
-      setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  if (!time) return null;
-
-  return (
-    <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] border border-[var(--border)] text-xs text-[var(--muted)] font-mono">
-      <Clock className="w-3 h-3" />
-      <span>{time}</span>
-    </div>
-  );
-}
-
-// Visualizer Configuration Panel Component - Rewritten to match image
-function VisualizerConfigPanel({
-  isOpen,
-  onClose,
-  enabled,
-  onEnabledChange,
-  mode,
-  onModeChange,
-  speed,
-  onSpeedChange,
-  color1,
-  onColor1Change,
-  color2,
-  onColor2Change,
-  density,
-  onDensityChange,
-  invertX,
-  onInvertXChange,
-  invertY,
-  onInvertYChange,
-  scaleX,
-  onScaleXChange,
-  scaleY,
-  onScaleYChange,
-  onReset,
-  waveFormPreset,
-  onWaveFormPresetChange,
-  waveFormDouble,
-  onWaveFormDoubleChange,
-  maxAmplitude,
-  onMaxAmplitudeChange,
-  waveFreq,
-  onWaveFreqChange,
-  colorBackground,
-  onColorBackgroundChange,
-  colorsFollowMusic,
-  onColorsFollowMusicChange,
-  autoOrbit,
-  onAutoOrbitChange,
-  gridPreset,
-  onGridPresetChange,
-  selectedPalette,
-  onSelectedPaletteChange,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  enabled: boolean;
-  onEnabledChange: (enabled: boolean) => void;
-  mode: 'grid' | 'plane' | 'wave_form' | 'manhattan';
-  onModeChange: (mode: 'grid' | 'plane' | 'wave_form' | 'manhattan') => void;
-  speed: number;
-  onSpeedChange: (speed: number) => void;
-  color1: string;
-  onColor1Change: (color: string) => void;
-  color2: string;
-  onColor2Change: (color: string) => void;
-  density: number;
-  onDensityChange: (density: number) => void;
-  invertX: boolean;
-  onInvertXChange: (invert: boolean) => void;
-  invertY: boolean;
-  onInvertYChange: (invert: boolean) => void;
-  scaleX: boolean;
-  onScaleXChange: (scale: boolean) => void;
-  scaleY: boolean;
-  onScaleYChange: (scale: boolean) => void;
-  onReset: () => void;
-  waveFormPreset: 'default' | 'custom';
-  onWaveFormPresetChange: (preset: 'default' | 'custom') => void;
-  waveFormDouble: boolean;
-  onWaveFormDoubleChange: (double: boolean) => void;
-  maxAmplitude: number;
-  onMaxAmplitudeChange: (amplitude: number) => void;
-  waveFreq: number;
-  onWaveFreqChange: (freq: number) => void;
-  colorBackground: boolean;
-  onColorBackgroundChange: (enabled: boolean) => void;
-  colorsFollowMusic: boolean;
-  onColorsFollowMusicChange: (enabled: boolean) => void;
-  autoOrbit: boolean;
-  onAutoOrbitChange: (enabled: boolean) => void;
-  gridPreset: 'default' | 'bands' | 'custom';
-  onGridPresetChange: (preset: 'default' | 'bands' | 'custom') => void;
-  selectedPalette: number;
-  onSelectedPaletteChange: (index: number) => void;
-}) {
-  if (!isOpen) return null;
-
-  const palettes = [
-    ['#4a90e2', '#7b68ee'], ['#ff6b35', '#00d4ff'], ['#ff4757', '#5352ed'],
-    ['#2ed573', '#1e90ff'], ['#ffa502', '#ff6348'], ['#5f27cd', '#00d2d3'],
-    ['#ee5a6f', '#c44569'], ['#00d2ff', '#3a7bd5'], ['#f093fb', '#f5576c'],
-    ['#4facfe', '#00f2fe'], ['#43e97b', '#38f9d7'], ['#fa709a', '#fee140'],
-    ['#30cfd0', '#330867'], ['#a8edea', '#fed6e3'], ['#ff9a9e', '#fecfef'],
-    ['#ffecd2', '#fcb69f'],
-  ];
-
-  const modeOptions = [
-    { value: 'wave_form', label: 'WAVE_FORM', icon: Waves },
-    { value: 'grid', label: 'GRID', icon: Square },
-    { value: 'plane', label: 'PLANE', icon: Square },
-    { value: 'manhattan', label: 'MANHATTAN', icon: MapPin },
-  ];
-
-  return (
-    <motion.div
-      initial={{ x: 400, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: 400, opacity: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="fixed right-0 top-0 bottom-0 z-50 w-80 bg-[var(--hud-bg)]/98 backdrop-blur-xl border-l border-[var(--border)] shadow-2xl overflow-y-auto"
-    >
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium text-[var(--foreground)]">Visualizer Config</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-[var(--surface)] rounded transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onEnabledChange(!enabled)}
-          className="w-full flex items-center justify-between p-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]/40 transition-colors"
-        >
-          <span className="text-left">
-            <span className="text-sm font-medium text-[var(--foreground)] block">Audio-Reactive Visualizer</span>
-            <span className="text-xs text-[var(--muted)]">Uses your microphone to react to sound</span>
-          </span>
-          <span
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-[var(--duration-fast)] ${enabled ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
-              }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-[var(--duration-fast)] ${enabled ? 'translate-x-6' : 'translate-x-1'
-                }`}
-            />
-          </span>
-        </button>
-
-        <div>
-          <label className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2 block font-medium">MODE</label>
-          <div className="relative">
-            <select
-              value={mode}
-              onChange={(e) => onModeChange(e.target.value as any)}
-              className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] appearance-none cursor-pointer hover:border-[var(--accent)] transition-colors pr-10"
-            >
-              {modeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-              <ChevronDown className="w-4 h-4 text-[var(--muted)]" />
-            </div>
-          </div>
-        </div>
-
-        {mode === 'wave_form' && (
-          <div className="space-y-4 border-t border-[var(--border)] pt-4">
-            <label className="text-xs text-[var(--muted)] uppercase tracking-wider block font-medium">Wave Form</label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => onWaveFormPresetChange('default')}
-                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${waveFormPreset === 'default'
-                  ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                  : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
-                  }`}
-              >
-                default
-              </button>
-              <button
-                onClick={() => onWaveFormPresetChange('custom')}
-                className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all ${waveFormPreset === 'custom'
-                  ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                  : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
-                  }`}
-              >
-                custom
-              </button>
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="text-xs text-[var(--muted)]">Double</label>
-              <button
-                onClick={() => onWaveFormDoubleChange(!waveFormDouble)}
-                className={`relative w-12 h-6 rounded-full transition-colors ${waveFormDouble ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-                  }`}
-              >
-                <div
-                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${waveFormDouble ? 'translate-x-6' : 'translate-x-0'
-                    }`}
-                />
-              </button>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs text-[var(--muted)]">Max Amplitude</label>
-                <span className="text-xs text-[var(--muted)] font-mono">{maxAmplitude.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="3"
-                step="0.01"
-                value={maxAmplitude}
-                onChange={(e) => onMaxAmplitudeChange(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-[var(--surface)] rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
-              />
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs text-[var(--muted)] flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[var(--accent)]"></span>
-                  Wave #1 - Freq (hz)
-                </label>
-                <span className="text-xs text-[var(--muted)] font-mono">{waveFreq.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="10"
-                step="0.01"
-                value={waveFreq}
-                onChange={(e) => onWaveFreqChange(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-[var(--surface)] rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="border-t border-[var(--border)] pt-4">
-          <label className="text-xs text-[var(--muted)] uppercase tracking-wider mb-3 block font-medium">Palette</label>
-          <div className="grid grid-cols-4 gap-2">
-            {palettes.map((palette, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  onSelectedPaletteChange(idx);
-                  onColor1Change(palette[0]);
-                  onColor2Change(palette[1]);
-                }}
-                className={`relative aspect-square rounded-full border-2 transition-all ${selectedPalette === idx
-                  ? 'border-[var(--accent)] scale-110'
-                  : 'border-[var(--border)] hover:border-[var(--accent)]'
-                  }`}
-                style={{
-                  background: `linear-gradient(135deg, ${palette[0]}, ${palette[1]})`,
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-3 border-t border-[var(--border)] pt-4">
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-[var(--muted)]">Color Background</label>
-            <button
-              onClick={() => onColorBackgroundChange(!colorBackground)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${colorBackground ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-                }`}
-            >
-              <div
-                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${colorBackground ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-              />
-            </button>
-          </div>
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-[var(--muted)]">Colors Follow Music</label>
-            <button
-              onClick={() => onColorsFollowMusicChange(!colorsFollowMusic)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${colorsFollowMusic ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-                }`}
-            >
-              <div
-                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${colorsFollowMusic ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-              />
-            </button>
-          </div>
-          <div className="flex items-center justify-between">
-            <label className="text-xs text-[var(--muted)]">Auto Orbit Camera</label>
-            <button
-              onClick={() => onAutoOrbitChange(!autoOrbit)}
-              className={`relative w-12 h-6 rounded-full transition-colors ${autoOrbit ? 'bg-[var(--accent)]' : 'bg-[var(--surface)] border border-[var(--border)]'
-                }`}
-            >
-              <div
-                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${autoOrbit ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-              />
-            </button>
-          </div>
-        </div>
-
-        {mode === 'grid' && (
-          <div className="border-t border-[var(--border)] pt-4">
-            <label className="text-xs text-[var(--muted)] uppercase tracking-wider mb-3 block font-medium">Grid Presets</label>
-            <div className="flex gap-2">
-              {(['default', 'bands', 'custom'] as const).map((preset) => (
-                <button
-                  key={preset}
-                  onClick={() => onGridPresetChange(preset)}
-                  className={`flex-1 px-3 py-2 rounded border text-xs font-medium transition-all capitalize ${gridPreset === preset
-                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
-                    : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]'
-                    }`}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="border-t border-[var(--border)] pt-4">
-          <button
-            onClick={onReset}
-            className="w-full px-4 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all text-sm font-medium"
-          >
-            Reset
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// R3F Visualizer Component - Dynamically loaded
-function R3FVisualizer({
-  mode = 'wave_form',
-  speed = 0.3,
-  color1 = '#ff6b35',
-  color2 = '#00d4ff',
-  density = 0.5,
-  invertX = false,
-  invertY = false,
-  scaleX = true,
-  scaleY = true,
-  maxAmplitude = 1.36,
-  waveFreq = 2.0,
-  waveFormDouble = false,
-  autoOrbit = false,
-}: {
-  mode?: 'grid' | 'plane' | 'wave_form' | 'manhattan';
-  speed?: number;
-  color1?: string;
-  color2?: string;
-  density?: number;
-  invertX?: boolean;
-  invertY?: boolean;
-  scaleX?: boolean;
-  scaleY?: boolean;
-  maxAmplitude?: number;
-  waveFreq?: number;
-  waveFormDouble?: boolean;
-  autoOrbit?: boolean;
-}) {
-  const [isMounted, setIsMounted] = useState(false);
-  const [VisualizerCanvas, setVisualizerCanvas] = useState<React.ComponentType | null>(null);
-
-  useEffect(() => {
-    setIsMounted(true);
-
-    if (typeof window !== 'undefined') {
-      Promise.all([
-        import('@react-three/fiber'),
-        import('three'),
-        import('@react-three/drei')
-      ]).then(([r3f, THREE, drei]) => {
-        const { Canvas, useThree } = r3f;
-        const { BufferAttribute, AdditiveBlending } = THREE;
-        const { OrbitControls, useGLTF } = drei;
-
-        const Scene = () => {
-          const { camera } = useThree();
-          const timeRef = useRef(0);
-          // Real audio reactivity via the mic (browsers can't passively read
-          // "what's playing on your speakers" - mic input picking up ambient
-          // sound/music is the standard web-visualizer approach). 0..1,
-          // smoothed. Stays at 0 if permission is denied/unavailable, in
-          // which case the visualizer just runs its calm idle motion.
-          const audioLevelRef = useRef(0);
-
-          useEffect(() => {
-            let audioContext: AudioContext | null = null;
-            let stream: MediaStream | null = null;
-            let cancelled = false;
-
-            if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
-              navigator.mediaDevices.getUserMedia({ audio: true }).then((mediaStream) => {
-                if (cancelled) {
-                  mediaStream.getTracks().forEach(t => t.stop());
-                  return;
-                }
-                stream = mediaStream;
-                audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-                const source = audioContext.createMediaStreamSource(mediaStream);
-                const analyser = audioContext.createAnalyser();
-                analyser.fftSize = 128;
-                analyser.smoothingTimeConstant = 0.8;
-                source.connect(analyser);
-
-                const data = new Uint8Array(analyser.frequencyBinCount);
-                const sample = () => {
-                  if (cancelled) return;
-                  analyser.getByteFrequencyData(data);
-                  const avg = data.reduce((sum, v) => sum + v, 0) / data.length / 255;
-                  // Exponential smoothing so it reacts to music without
-                  // jittering on every single frame.
-                  audioLevelRef.current += (avg - audioLevelRef.current) * 0.25;
-                  requestAnimationFrame(sample);
-                };
-                sample();
-              }).catch(() => {
-                // Mic permission denied or unavailable - fall back to idle
-                // motion only, no crash, no console noise.
-              });
-            }
-
-            return () => {
-              cancelled = true;
-              stream?.getTracks().forEach(t => t.stop());
-              audioContext?.close().catch(() => { });
-            };
-          }, []);
-
-          useEffect(() => {
-            if (camera) {
-              if (mode === 'plane') {
-                camera.position.set(0, 8, 8);
-                camera.lookAt(0, 0, 0);
-              } else if (mode === 'grid') {
-                camera.position.set(0, 5, 8);
-                camera.lookAt(0, 0, 0);
-              } else if (mode === 'wave_form') {
-                camera.position.set(0, 3, 10);
-                camera.lookAt(0, 0, 0);
-              } else if (mode === 'manhattan') {
-                // Fly-over view for Manhattan
-                camera.position.set(0, 8, 12);
-                camera.lookAt(0, 0, 0);
-                // Animate to 60 degree pitch
-                camera.rotation.x = -Math.PI / 3; // 60 degrees
-              }
-            }
-          }, [mode, camera]);
-
-          r3f.useFrame((state, delta) => {
-            timeRef.current += delta * speed * 2;
-          });
-
-          const renderVisualizer = () => {
-            const particleCount = Math.floor(2000 * (0.5 + density));
-            const pointsRef = useRef<any>(null);
-            const [initialized, setInitialized] = useState(false);
-            const originalPositionsRef = useRef<Float32Array | null>(null);
-
-            const hexToRgb = (hex: string) => {
-              const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-              return result ? {
-                r: parseInt(result[1], 16),
-                g: parseInt(result[2], 16),
-                b: parseInt(result[3], 16)
-              } : { r: 255, g: 255, b: 255 };
-            };
-
-            useEffect(() => {
-              if (!pointsRef.current) return;
-              setInitialized(false);
-              const positions = new Float32Array(particleCount * 3);
-              const colors = new Float32Array(particleCount * 3);
-
-              for (let i = 0; i < particleCount; i++) {
-                let x, y, z;
-                if (mode === 'wave_form') {
-                  const theta = Math.acos(1 - 2 * i / particleCount);
-                  const phi = Math.PI * (1 + Math.sqrt(5)) * i;
-                  const radius = 5;
-                  x = radius * Math.cos(phi) * Math.sin(theta);
-                  y = radius * Math.sin(phi) * Math.sin(theta);
-                  z = radius * Math.cos(theta);
-                } else if (mode === 'grid') {
-                  const gridSize = Math.ceil(Math.sqrt(particleCount));
-                  const gridX = i % gridSize;
-                  const gridZ = Math.floor(i / gridSize);
-                  const spacing = 0.3;
-                  x = (gridX - gridSize / 2) * spacing;
-                  y = 0;
-                  z = (gridZ - gridSize / 2) * spacing;
-                } else {
-                  const gridSize = Math.ceil(Math.sqrt(particleCount));
-                  const gridX = i % gridSize;
-                  const gridZ = Math.floor(i / gridSize);
-                  const spacing = 0.2;
-                  x = (gridX - gridSize / 2) * spacing;
-                  y = 0;
-                  z = (gridZ - gridSize / 2) * spacing;
-                }
-                positions[i * 3] = x;
-                positions[i * 3 + 1] = y;
-                positions[i * 3 + 2] = z;
-                colors[i * 3] = 1;
-                colors[i * 3 + 1] = 1;
-                colors[i * 3 + 2] = 1;
-              }
-
-              // Store original positions for wave_form mode
-              if (mode === 'wave_form') {
-                originalPositionsRef.current = new Float32Array(positions);
-              } else {
-                originalPositionsRef.current = null;
-              }
-
-              const geometry = pointsRef.current.geometry;
-              geometry.setAttribute('position', new BufferAttribute(positions, 3));
-              geometry.setAttribute('color', new BufferAttribute(colors, 3));
-              setInitialized(true);
-            }, [particleCount, mode]);
-
-            r3f.useFrame(() => {
-              if (!pointsRef.current || !initialized) return;
-              const geometry = pointsRef.current.geometry;
-              const positions = geometry.attributes.position;
-              const colors = geometry.attributes.color;
-              // Idle baseline (quiet/no mic) is subtle; real audio energy
-              // scales the motion up - this replaces the old constant-
-              // amplitude "breathing" that ran regardless of any sound.
-              const audioBoost = 0.2 + audioLevelRef.current * 2.2;
-
-              for (let i = 0; i < particleCount; i++) {
-                const x = positions.getX(i);
-                const y = positions.getY(i);
-                const z = positions.getZ(i);
-                let newY = y;
-                let distance = 0;
-
-                if (mode === 'wave_form') {
-                  // For wave_form, use original positions as base
-                  let baseX: number;
-                  let baseY: number;
-                  let baseZ: number;
-
-                  if (originalPositionsRef.current) {
-                    baseX = originalPositionsRef.current[i * 3];
-                    baseY = originalPositionsRef.current[i * 3 + 1];
-                    baseZ = originalPositionsRef.current[i * 3 + 2];
-                  } else {
-                    baseX = x;
-                    baseY = y;
-                    baseZ = z;
-                  }
-
-                  distance = Math.sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ);
-                  const wave1 = Math.sin(timeRef.current * speed * waveFreq + distance * 0.5);
-                  const wave2 = mode === 'wave_form' && waveFormDouble
-                    ? Math.cos(timeRef.current * speed * waveFreq * 1.5 + distance * 0.3)
-                    : Math.cos(timeRef.current * speed * 1.5 + distance * 0.3);
-                  const wave = mode === 'wave_form' && waveFormDouble
-                    ? (wave1 * 0.5 + wave2 * 0.5) * 0.5 + 0.5
-                    : (wave1 * 0.6 + wave2 * 0.4) * 0.5 + 0.5;
-                  const amplitude = (mode === 'wave_form' ? maxAmplitude : 1.0) * audioBoost;
-
-                  // For wave_form, create radial expansion wave effect using original positions
-                  if (mode === 'wave_form' && originalPositionsRef.current) {
-                    const baseRadius = distance; // Already calculated from original positions
-                    const radialOffset = (wave - 0.5) * amplitude * 0.5; // Oscillate around base radius
-                    const newRadius = baseRadius + radialOffset;
-                    if (baseRadius > 0) {
-                      const scale = newRadius / baseRadius;
-                      // Always scale from original positions to prevent cumulative shrinking
-                      positions.setX(i, baseX * scale);
-                      positions.setY(i, baseY * scale);
-                      positions.setZ(i, baseZ * scale);
-                    }
-                    // Update distance for color calculation
-                    distance = newRadius;
-                  } else {
-                    newY = baseY + wave * amplitude * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
-                  }
-                } else if (mode === 'grid') {
-                  // Grid mode - particles arranged in a grid, animated vertically
-                  distance = Math.sqrt(x * x + z * z);
-                  const wave1 = Math.sin(timeRef.current * speed * 2 + distance * 0.5);
-                  const wave2 = Math.sin(timeRef.current * speed * 1.3 + distance * 0.8);
-                  const wave = (wave1 * 0.7 + wave2 * 0.3) * 0.5 + 0.5;
-                  newY = wave * 2.5 * audioBoost * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
-                } else if (mode === 'plane') {
-                  // Plane mode - particles on a plane, animated with multiple waves
-                  distance = Math.sqrt(x * x + z * z);
-                  const wave1 = Math.sin(timeRef.current * speed * 2 + distance * 0.5);
-                  const wave2 = Math.sin(timeRef.current * speed * 1.5 + x * 2);
-                  const wave3 = Math.sin(timeRef.current * speed * 1.8 + z * 2);
-                  const wave = (wave1 * 0.5 + wave2 * 0.25 + wave3 * 0.25) * 0.5 + 0.5;
-                  newY = wave * 2 * audioBoost * (scaleY ? 1 : 0) * (invertY ? -1 : 1);
-                }
-
-                if (mode !== 'wave_form') {
-                  positions.setY(i, newY);
-                }
-
-                // Get current position for color calculation
-                const currentX = positions.getX(i);
-                const currentZ = positions.getZ(i);
-
-                const waveIntensity = Math.sin(timeRef.current * speed * 2 + distance * 0.5) * 0.5 + 0.5;
-                const color1RGB = hexToRgb(color1);
-                const color2RGB = hexToRgb(color2);
-                const mix = waveIntensity;
-                const posVariation = (Math.sin(currentX * 0.5) + Math.cos(currentZ * 0.5)) * 0.1;
-                const finalMix = Math.max(0, Math.min(1, mix + posVariation));
-                colors.setX(i, (color1RGB.r + (color2RGB.r - color1RGB.r) * finalMix) / 255);
-                colors.setY(i, (color1RGB.g + (color2RGB.g - color1RGB.g) * finalMix) / 255);
-                colors.setZ(i, (color1RGB.b + (color2RGB.b - color1RGB.b) * finalMix) / 255);
-              }
-              positions.needsUpdate = true;
-              colors.needsUpdate = true;
-            });
-
-            if (mode === 'manhattan') {
-              return null; // Don't render particles for manhattan mode
-            }
-
-            return (
-              <points ref={pointsRef} rotation={mode === 'plane' ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
-                <bufferGeometry />
-                <pointsMaterial
-                  size={mode === 'wave_form' ? 0.2 : 0.15}
-                  vertexColors
-                  transparent
-                  opacity={0.95}
-                  sizeAttenuation={true}
-                  blending={AdditiveBlending}
-                />
-              </points>
-            );
-          };
-
-          // Enhanced procedural Manhattan with more detail
-          const renderManhattan = () => {
-            const buildings: React.ReactElement[] = [];
-            const gridSize = 40; // Larger grid for more detail
-            const spacing = 0.3;
-
-            // Create a more detailed and realistic Manhattan
-            for (let x = 0; x < gridSize; x++) {
-              for (let z = 0; z < gridSize; z++) {
-                const centerX = gridSize / 2;
-                const centerZ = gridSize / 2;
-                const distFromCenter = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2);
-                const maxDist = Math.sqrt(centerX ** 2 + centerZ ** 2);
-
-                // More realistic height distribution - taller in center, with some randomness
-                const heightVariation = 1 - (distFromCenter / maxDist) * 0.5;
-                const randomFactor = 0.3 + Math.random() * 0.7;
-                const height = 0.4 + heightVariation * randomFactor * 5;
-
-                // Skip very short buildings to create more realistic cityscape
-                if (height < 0.6) continue;
-
-                const posX = (x - gridSize / 2) * spacing;
-                const posZ = (z - gridSize / 2) * spacing;
-
-                // More realistic gray colors with variation
-                const grayBase = 0.3 + Math.random() * 0.3;
-                const color = `rgb(${Math.floor(grayBase * 255)}, ${Math.floor(grayBase * 255)}, ${Math.floor(grayBase * 255)})`;
-
-                // Building width/depth variation for more realism
-                const width = spacing * (0.6 + Math.random() * 0.4);
-                const depth = spacing * (0.6 + Math.random() * 0.4);
-
-                buildings.push(
-                  <mesh key={`building-${x}-${z}`} position={[posX, height / 2, posZ]}>
-                    <boxGeometry args={[width, height, depth]} />
-                    <meshStandardMaterial color={color} metalness={0.1} roughness={0.8} />
-                  </mesh>
-                );
-              }
-            }
-
-            // Add ground plane
-            buildings.push(
-              <mesh key="ground" rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-                <planeGeometry args={[gridSize * spacing * 1.2, gridSize * spacing * 1.2]} />
-                <meshStandardMaterial color="#0f0f0f" />
-              </mesh>
-            );
-
-            return <group>{buildings}</group>;
-          };
-
-          return (
-            <>
-              <color attach="background" args={mode === 'manhattan' ? ['#0a0a0a'] : ['#010204']} />
-              {mode === 'manhattan' ? (
-                <>
-                  <ambientLight intensity={0.4} />
-                  <directionalLight position={[10, 10, 5]} intensity={0.8} />
-                  <directionalLight position={[-10, 5, -5]} intensity={0.3} />
-                  <OrbitControls
-                    enablePan={true}
-                    enableZoom={true}
-                    enableRotate={true}
-                    minDistance={5}
-                    maxDistance={30}
-                    autoRotate={autoOrbit}
-                    rotateSpeed={0.5}
-                    zoomSpeed={0.8}
-                  />
-                  {renderManhattan()}
-                </>
-              ) : (
-                <>
-                  <ambientLight intensity={0.8} />
-                  <pointLight position={[10, 10, 10]} intensity={1} color={color1} />
-                  <pointLight position={[-10, -10, -10]} intensity={1} color={color2} />
-                  <pointLight position={[0, 10, 0]} intensity={0.5} />
-                  <OrbitControls
-                    enablePan={false}
-                    enableZoom={true}
-                    enableRotate={true}
-                    minDistance={5}
-                    maxDistance={20}
-                    autoRotate={autoOrbit}
-                    rotateSpeed={0.5}
-                    zoomSpeed={0.8}
-                  />
-                  {renderVisualizer()}
-                </>
-              )}
-            </>
-          );
-        };
-
-        const Visualizer = () => (
-          <Canvas
-            key={mode}
-            camera={{
-              fov: 50,
-              near: 0.1,
-              far: 1000,
-              position: mode === 'plane' ? [0, 8, 8] : mode === 'grid' ? [0, 5, 8] : mode === 'wave_form' ? [0, 3, 10] : mode === 'manhattan' ? [0, 8, 12] : [0, 8, 8],
-            }}
-            gl={{ antialias: true, alpha: true }}
-            className="w-full h-full"
-          >
-            <Scene />
-          </Canvas>
-        );
-
-        setVisualizerCanvas(() => Visualizer);
-      }).catch((err) => {
-        console.error('Failed to load R3F:', err);
-      });
-    }
-  }, [mode, speed, color1, color2, density, invertX, invertY, scaleX, scaleY, maxAmplitude, waveFreq, waveFormDouble, autoOrbit]);
-
-  // This is an ambient background layer, not an interactive one - it must
-  // never intercept clicks meant for the nav/composer/buttons above it.
-  // While the 3D libs are loading, render nothing (no opaque cover) so the
-  // page's own background shows through with no flash.
-  if (!isMounted || !VisualizerCanvas) {
-    return null;
-  }
-
-  const Canvas = VisualizerCanvas;
-  return (
-    <div className="fixed inset-0 z-0 pointer-events-none opacity-60">
-      <Canvas />
-    </div>
-  );
-}
+// Both pull in react-three-fiber/three/drei (a large 3D dependency) so they're
+// only ever fetched by the browser once the visualizer is actually opened,
+// instead of shipping in every visitor's initial bundle.
+const R3FVisualizer = dynamic(() => import('./components/visualizer/R3FVisualizer'), { ssr: false });
+const VisualizerConfigPanel = dynamic(
+  () => import('./components/visualizer/VisualizerConfigPanel').then(m => m.VisualizerConfigPanel),
+  { ssr: false }
+);
+
+type ChatContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
 
 export default function Page() {
-  const { isMobile, isTablet, isMobileOrTablet } = useMobile();
+  const { isMobile } = useMobile();
   const [query, setQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
@@ -1354,8 +40,6 @@ export default function Page() {
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [hideOpenRouterModels, setHideOpenRouterModels] = useState(false);
@@ -1370,7 +54,7 @@ export default function Page() {
         }
         const data = await res.json();
         setHideOpenRouterModels(data.shouldHide || false);
-      } catch (error) {
+      } catch {
         // Silently handle errors - non-critical
       }
     };
@@ -1413,9 +97,7 @@ export default function Page() {
   const [visualizerColor1, setVisualizerColor1] = useState('#4a90e2');
   const [visualizerColor2, setVisualizerColor2] = useState('#7b68ee');
   const [visualizerDensity, setVisualizerDensity] = useState(0.5);
-  const [visualizerInvertX, setVisualizerInvertX] = useState(false);
   const [visualizerInvertY, setVisualizerInvertY] = useState(false);
-  const [visualizerScaleX, setVisualizerScaleX] = useState(true);
   const [visualizerScaleY, setVisualizerScaleY] = useState(true);
   // New wave form settings
   const [waveFormPreset, setWaveFormPreset] = useState<'default' | 'custom'>('default');
@@ -1432,8 +114,10 @@ export default function Page() {
   const [selectedPalette, setSelectedPalette] = useState(0);
 
   // Parallel orchestration and output length
-  const [runParallel, setRunParallel] = useState(false);
-  const [outputLength, setOutputLength] = useState<'small' | 'medium' | 'large'>('medium');
+  // No UI control currently sets these - they're pinned at their defaults,
+  // so only the getter is meaningful here.
+  const [runParallel] = useState(false);
+  const [outputLength] = useState<'small' | 'medium' | 'large'>('medium');
   const [parallelModel1, setParallelModel1] = useState(availableModels[0]?.id || 'ooverta');
   const [parallelModel2, setParallelModel2] = useState(availableModels[1]?.id || 'llama-3.3-70b');
 
@@ -1459,21 +143,6 @@ export default function Page() {
     }
   }, [history.length, response, isChatMode]);
 
-  // Model availability checking removed - endpoint deleted
-  useEffect(() => {
-    const checkModelAvailability = async () => {
-      // Model availability endpoint removed
-      // Availability is now handled client-side based on errors
-    };
-
-    // Check immediately on mount
-    checkModelAvailability();
-
-    // Then check every 5 minutes
-    const interval = setInterval(checkModelAvailability, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleWidget = (widgetId: string) => {
@@ -1487,11 +156,6 @@ export default function Page() {
       return next;
     });
   };
-
-  // Check consent and initialize Segment if already accepted
-  useEffect(() => {
-    // checkConsentAndInitialize(); // Removed - function doesn't exist
-  }, []);
 
   // Apply Look & Layout
   useEffect(() => {
@@ -1547,7 +211,7 @@ export default function Page() {
     // Track "Initialize Chat" click
     try {
       await fetch('/api/track-initialize', { method: 'POST' });
-    } catch (error) {
+    } catch {
       // Silently fail - tracking is not critical
     }
 
@@ -1704,8 +368,6 @@ export default function Page() {
       return;
     }
 
-    setImageFile(file);
-
     try {
       // Compress image before converting to base64
       const compressedBase64 = await compressImage(file);
@@ -1725,13 +387,12 @@ export default function Page() {
 
   const handleRemoveImage = () => {
     setSelectedImage(null);
-    setImageFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
 
     const trimmedQuery = query.trim();
@@ -1752,34 +413,18 @@ export default function Page() {
       // Build conversation history in the format expected by the API
       // Preserve image data in history
       const conversationHistory = history.map(h => {
-        const userMsg: any = { role: 'user' as const };
-
-        // If history entry has an image, use vision format
-        if (h.image) {
-          userMsg.content = [
+        const content: ChatContent = h.image
+          ? [
             { type: 'text', text: h.query },
-            { type: 'image_url', image_url: { url: h.image } }
-          ];
-        } else {
-          userMsg.content = h.query;
-        }
+            { type: 'image_url', image_url: { url: h.image } },
+          ]
+          : h.query;
 
         return [
-          userMsg,
-          { role: 'assistant' as const, content: h.response }
+          { role: 'user' as const, content },
+          { role: 'assistant' as const, content: h.response },
         ];
       }).flat();
-
-      // Build current message with image if present
-      let currentMessageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
-      if (selectedImage) {
-        currentMessageContent = [
-          { type: 'text', text: trimmedQuery },
-          { type: 'image_url', image_url: { url: selectedImage } }
-        ];
-      } else {
-        currentMessageContent = trimmedQuery;
-      }
 
       // Determine if this is an OpenRouter model
       const isOpenRouterModel = OPENROUTER_MODELS.some(m => m.id === selectedModel.id);
@@ -1886,8 +531,6 @@ export default function Page() {
               setResponse(null); // Clear current response after adding to history
               setQuery('');
               setSelectedImage(null); // Clear image after sending
-              setImageFile(null);
-              setEditingIndex(null); // Clear editing state
               if (fileInputRef.current) {
                 fileInputRef.current.value = '';
               }
@@ -1916,13 +559,14 @@ export default function Page() {
                 });
               }, 5 * 60 * 1000); // 5 minutes
             }
-          } catch (e) {
+          } catch {
             // Skip invalid JSON
             continue;
           }
         }
       }
-    } catch (error: any) {
+    } catch (caughtError) {
+      const error = caughtError instanceof Error ? caughtError : new Error(String(caughtError));
       if (error.name === 'AbortError') {
         // User cancelled, keep current response - silently handle
         setIsProcessing(false);
@@ -1986,7 +630,7 @@ export default function Page() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
         if (!isProcessing && query.trim()) {
-          handleSubmit(e as any);
+          handleSubmit(e);
         }
       }
       // Escape to stop
@@ -1997,6 +641,11 @@ export default function Page() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // handleSubmit/handleStop intentionally omitted: they're recreated every
+    // render (not memoized) and this effect already re-subscribes on every
+    // query/isProcessing change, so including them would add churn with no
+    // behavioral difference.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, isProcessing]);
 
   return (
@@ -2011,9 +660,7 @@ export default function Page() {
           color1={visualizerColor1}
           color2={visualizerColor2}
           density={visualizerDensity}
-          invertX={visualizerInvertX}
           invertY={visualizerInvertY}
-          scaleX={visualizerScaleX}
           scaleY={visualizerScaleY}
           maxAmplitude={maxAmplitude}
           waveFreq={waveFreq}
@@ -2030,22 +677,8 @@ export default function Page() {
         onEnabledChange={setVisualizerEnabled}
         mode={visualizerMode}
         onModeChange={setVisualizerMode}
-        speed={visualizerSpeed}
-        onSpeedChange={setVisualizerSpeed}
-        color1={visualizerColor1}
         onColor1Change={setVisualizerColor1}
-        color2={visualizerColor2}
         onColor2Change={setVisualizerColor2}
-        density={visualizerDensity}
-        onDensityChange={setVisualizerDensity}
-        invertX={visualizerInvertX}
-        onInvertXChange={setVisualizerInvertX}
-        invertY={visualizerInvertY}
-        onInvertYChange={setVisualizerInvertY}
-        scaleX={visualizerScaleX}
-        onScaleXChange={setVisualizerScaleX}
-        scaleY={visualizerScaleY}
-        onScaleYChange={setVisualizerScaleY}
         waveFormPreset={waveFormPreset}
         onWaveFormPresetChange={setWaveFormPreset}
         waveFormDouble={waveFormDouble}
@@ -2070,9 +703,7 @@ export default function Page() {
           setVisualizerColor1('#ff6b35');
           setVisualizerColor2('#00d4ff');
           setVisualizerDensity(0.5);
-          setVisualizerInvertX(false);
           setVisualizerInvertY(false);
-          setVisualizerScaleX(true);
           setVisualizerScaleY(true);
           setWaveFormPreset('default');
           setWaveFormDouble(false);
@@ -2185,8 +816,6 @@ export default function Page() {
             systemPrompt={systemPrompt}
             setSystemPrompt={setSystemPrompt}
             onExportChat={handleExportChat}
-            currentLook={look}
-            setLook={setLook}
             neuralNoiseEnabled={neuralNoiseEnabled}
             setNeuralNoiseEnabled={setNeuralNoiseEnabled}
             availableModels={availableModels}
@@ -2552,6 +1181,7 @@ while (true) {
                                     </div>
                                     {entry.image && (
                                       <div className="mb-3 rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)]">
+                                        {/* eslint-disable-next-line @next/next/no-img-element -- client-side base64 data URL, not a next/image-optimizable asset */}
                                         <img
                                           src={entry.image}
                                           alt="User uploaded"
@@ -2586,7 +1216,6 @@ while (true) {
                                           onClick={() => {
                                             setQuery(entry.query);
                                             setSelectedImage(entry.image || null);
-                                            setEditingIndex(idx);
                                             inputRef.current?.focus();
                                           }}
                                           className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -2604,30 +1233,17 @@ while (true) {
 
                                             try {
                                               const conversationHistory = history.slice(0, idx).map(h => {
-                                                const userMsg: any = { role: 'user' as const };
-                                                if (h.image) {
-                                                  userMsg.content = [
+                                                const content: ChatContent = h.image
+                                                  ? [
                                                     { type: 'text', text: h.query },
-                                                    { type: 'image_url', image_url: { url: h.image } }
-                                                  ];
-                                                } else {
-                                                  userMsg.content = h.query;
-                                                }
+                                                    { type: 'image_url', image_url: { url: h.image } },
+                                                  ]
+                                                  : h.query;
                                                 return [
-                                                  userMsg,
-                                                  { role: 'assistant' as const, content: h.response }
+                                                  { role: 'user' as const, content },
+                                                  { role: 'assistant' as const, content: h.response },
                                                 ];
                                               }).flat();
-
-                                              let currentMessageContent: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
-                                              if (entry.image) {
-                                                currentMessageContent = [
-                                                  { type: 'text', text: entry.query },
-                                                  { type: 'image_url', image_url: { url: entry.image } }
-                                                ];
-                                              } else {
-                                                currentMessageContent = entry.query;
-                                              }
 
                                               const res = await fetch('/api/query-gateway', {
                                                 method: 'POST',
@@ -2672,10 +1288,11 @@ while (true) {
                                                       setResponse(null);
                                                       return;
                                                     }
-                                                  } catch (e) { }
+                                                  } catch { }
                                                 }
                                               }
-                                            } catch (error: any) {
+                                            } catch (caughtError) {
+                                              const error = caughtError instanceof Error ? caughtError : new Error(String(caughtError));
                                               console.error('Regenerate error:', error);
                                               setIsProcessing(false);
                                               setAbortController(null);
@@ -2696,12 +1313,13 @@ while (true) {
                                         disallowedElements={['script', 'iframe', 'object', 'embed']}
                                         unwrapDisallowed={true}
                                         components={{
-                                          code: ({ node, inline, className, children, ...props }: any) => {
+                                          code: ({ className, children, ...props }: React.HTMLAttributes<HTMLElement>) => {
                                             const match = /language-(\w+)/.exec(className || '');
                                             const code = String(children).replace(/\n$/, '');
                                             const isCopied = copiedCodeBlock === code;
+                                            const isInline = !className;
 
-                                            return !inline ? (
+                                            return !isInline ? (
                                               <div className="relative my-4">
                                                 <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
                                                   <span className="text-xs text-[var(--muted)] font-mono">
@@ -2796,12 +1414,16 @@ while (true) {
                                       disallowedElements={['script', 'iframe', 'object', 'embed']}
                                       unwrapDisallowed={true}
                                       components={{
-                                        code: ({ node, inline, className, children, ...props }: any) => {
+                                        code: ({ className, children, ...props }: React.HTMLAttributes<HTMLElement>) => {
                                           const match = /language-(\w+)/.exec(className || '');
                                           const code = String(children).replace(/\n$/, '');
                                           const isCopied = copiedCodeBlock === code;
+                                          // react-markdown v9+ no longer passes an `inline` prop - block
+                                          // code is the only kind that gets a `language-x` className from
+                                          // rehype-highlight, so its presence is the reliable signal.
+                                          const isInline = !className;
 
-                                          return !inline ? (
+                                          return !isInline ? (
                                             <div className="relative my-4">
                                               <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
                                                 <span className="text-xs text-[var(--muted)] font-mono">
@@ -2880,6 +1502,7 @@ while (true) {
                   className="mb-4 relative inline-block"
                 >
                   <div className="relative rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)] p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- client-side base64 data URL, not a next/image-optimizable asset */}
                     <img
                       src={selectedImage}
                       alt="Preview"
@@ -2976,6 +1599,25 @@ while (true) {
                     </div>
                   )}
 
+                  {/* Attach Image */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                    aria-hidden="true"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isImageUploadDisabled}
+                    className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    title={isImageUploadDisabled ? `Image upload disabled: ${imageUploadDisabledReason}` : 'Attach image'}
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
+
                   {/* Fullscreen Toggle */}
                   <button
                     type="button"
@@ -3031,7 +1673,7 @@ while (true) {
               <h2 className="text-4xl font-light mb-8">Our Mission</h2>
               <p className="text-xl text-[var(--foreground)]/70 font-light leading-relaxed">
                 In an era of curated realities and algorithmic bias, truth has become a scarcity.
-                Roovert exists to reverse this entropy. We are building the world's most rigorous
+                Roovert exists to reverse this entropy. We are building the world&apos;s most rigorous
                 AI engine, designed not to please, but to <span className="text-[var(--accent)]">understand</span>.
               </p>
             </div>
@@ -3053,19 +1695,19 @@ while (true) {
                 </div>
                 <div className="space-y-6 text-[var(--foreground)]/80 leading-relaxed">
                   <p className="text-lg">
-                    Here's something interesting: large portions of Roovert were built using Roovert itself.
+                    Here&apos;s something interesting: large portions of Roovert were built using Roovert itself.
                   </p>
                   <p>
-                    The code you're reading, the components rendering on this page, the API routes handling your requests—many of them started as conversations with the AI models powering this interface. We asked questions, refined prompts, iterated on responses, and built features in real-time through the same chat interface you're using now.
+                    The code you&apos;re reading, the components rendering on this page, the API routes handling your requests—many of them started as conversations with the AI models powering this interface. We asked questions, refined prompts, iterated on responses, and built features in real-time through the same chat interface you&apos;re using now.
                   </p>
                   <p>
-                    This isn't a gimmick. It's a practical demonstration of what happens when you treat AI as a first-class development tool rather than a novelty. The privacy policy, the consent banner, the visitor tracking system, the UI components—all of it emerged from iterative conversations where we challenged assumptions, tested implementations, and refined code until it worked.
+                    This isn&apos;t a gimmick. It&apos;s a practical demonstration of what happens when you treat AI as a first-class development tool rather than a novelty. The privacy policy, the consent banner, the visitor tracking system, the UI components—all of it emerged from iterative conversations where we challenged assumptions, tested implementations, and refined code until it worked.
                   </p>
                   <p>
-                    There's something recursive about building an AI interface with AI. You end up with a product that understands its own construction, that can explain its architecture, that knows why certain decisions were made. It creates a kind of self-awareness in the codebase that traditional development doesn't usually achieve.
+                    There&apos;s something recursive about building an AI interface with AI. You end up with a product that understands its own construction, that can explain its architecture, that knows why certain decisions were made. It creates a kind of self-awareness in the codebase that traditional development doesn&apos;t usually achieve.
                   </p>
                   <p className="text-[var(--accent)] font-medium">
-                    We're not just building tools for AI. We're building tools with AI, and that changes everything.
+                    We&apos;re not just building tools for AI. We&apos;re building tools with AI, and that changes everything.
                   </p>
                 </div>
               </motion.div>

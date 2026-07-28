@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/app/lib/db';
 import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
-import { validateBodySize, createValidationErrorResponse } from '../../lib/security/validation';
 import { Redis } from '@upstash/redis';
 
 // Initialize Redis client if environment variables are available
