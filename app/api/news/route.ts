@@ -22,7 +22,7 @@ export async function GET() {
     );
 
     return NextResponse.json(stories);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch news' }, { status: 500 });
   }
 }

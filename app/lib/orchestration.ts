@@ -137,7 +137,7 @@ export function selectModels(analysis: QueryAnalysis, availableModels: string[])
 /**
  * Synthesize responses from multiple models
  */
-export function synthesizeResponses(responses: Array<{ model: string; content: string }>, query: string): string {
+export function synthesizeResponses(responses: Array<{ model: string; content: string }>): string {
   if (responses.length === 0) return '';
   if (responses.length === 1) return responses[0].content;
   

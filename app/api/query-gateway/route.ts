@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
           const responses = await Promise.all(modelPromises);
 
           // Synthesize responses
-          const synthesized = synthesizeResponses(responses, query);
+          const synthesized = synthesizeResponses(responses);
 
           // Stream the synthesized response
           const stream = new ReadableStream({
