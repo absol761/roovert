@@ -56,15 +56,16 @@ export function SettingsModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/70 backdrop-blur-sm" onClick={onClose} />
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-2xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col text-[var(--foreground)]"
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.97, y: 8 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-2xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden max-h-[85vh] flex flex-col text-[var(--foreground)]"
       >
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <h2 className="text-xl font-light tracking-wide flex items-center gap-2 text-[var(--foreground)]">
+          <h2 className="serif-display text-xl flex items-center gap-2.5 text-[var(--foreground)]">
             <Settings className="w-5 h-5 text-[var(--accent)]" />
-            System Configuration
+            Settings
           </h2>
           <div className="flex items-center gap-2">
             <button
@@ -83,7 +84,7 @@ export function SettingsModal({
 
           {/* Layout Section - Structure Only */}
           <section>
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Layout</h3>
+            <h3 className="label mb-4 pb-2 border-b border-[var(--border)]">Layout</h3>
             <div className="grid grid-cols-3 gap-2">
               {LAYOUTS.map(l => (
                 <button
@@ -102,10 +103,10 @@ export function SettingsModal({
 
           {/* Styles / Appearance Section - Size, Density */}
           <section>
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">Appearance & Style</h3>
+            <h3 className="label mb-4 pb-2 border-b border-[var(--border)]">Appearance & Style</h3>
             <div className="grid gap-8">
               <div>
-                <h4 className="text-xs text-[var(--muted)] mb-2 uppercase">Text Size</h4>
+                <h4 className="label mb-2">Text Size</h4>
                 <div className="flex gap-2">
                   {['small', 'normal', 'large'].map((size) => (
                     <button
@@ -126,7 +127,7 @@ export function SettingsModal({
 
           {/* Preferences Section - Toggles */}
           <section className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono flex items-center gap-2">
+            <h3 className="label mb-4 flex items-center gap-2">
               <Monitor className="w-4 h-4" /> Preferences
             </h3>
             <div className="space-y-4">
@@ -187,12 +188,12 @@ export function SettingsModal({
 
           {/* AI Configuration */}
           <section className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
-            <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono flex items-center gap-2">
-              <Zap className="w-4 h-4" /> Intelligence Override
+            <h3 className="label mb-4 flex items-center gap-2">
+              <Zap className="w-4 h-4" /> Model Behavior
             </h3>
             <div className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="system-prompt" className="text-xs text-[var(--muted)] uppercase">Custom System Prompt</label>
+                <label htmlFor="system-prompt" className="label">Custom System Prompt</label>
                 <textarea
                   id="system-prompt"
                   name="system-prompt"
@@ -215,16 +216,16 @@ export function SettingsModal({
           {/* Model Section */}
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] font-mono">Default Intelligence</h3>
+              <h3 className="label">Default Model</h3>
             </div>
             <div className="grid gap-2">
               {availableModels.map((model) => (
                 <button
                   key={model.id}
                   onClick={() => setModelId(model.id)}
-                  className={`flex items-center justify-between p-4 rounded-xl border transition-all ${currentModelId === model.id
+                  className={`card-hover flex items-center justify-between p-4 rounded-xl border transition-all ${currentModelId === model.id
                     ? 'border-[var(--accent)] bg-[var(--accent)]/10'
-                    : 'border-[var(--border)] hover:border-[var(--accent)]/30 bg-[var(--surface)]'
+                    : 'border-[var(--border)] bg-[var(--surface)]'
                     }`}
                 >
                   <div className="text-left">

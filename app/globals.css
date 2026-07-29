@@ -142,6 +142,7 @@
   --color-border: var(--border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-serif);
 }
 
 body {
@@ -207,6 +208,52 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 4rem;
+}
+
+/* Calm, editorial replacement for the old font-mono/uppercase/tracked-out
+   "HUD" label treatment - modest tracking on the regular sans, not a
+   monospace terminal readout. */
+.label {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.serif-display {
+  font-family: var(--font-serif), Georgia, serif;
+  font-optical-sizing: auto;
+  font-weight: 380;
+  letter-spacing: -0.02em;
+}
+
+/* Quiet Apple/Claude-style card interaction: a small lift plus a slightly
+   stronger shadow, no color glow, no scale gimmicks. */
+.card-hover {
+  transition: transform var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out);
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+/* Composer input bar - single clean border, calm accent ring on focus
+   instead of the old animated conic-gradient rainbow border. */
+.composer-bar {
+  transition: border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+
+.composer-bar:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow), var(--shadow-md);
 }
 
 .theme-content {
@@ -2053,87 +2100,3 @@ textarea:focus {
   }
 }
 
-/* ============================================
-   VIBE MODE - EDM Party Theme
-   ============================================ */
-
-/* Gemini Rainbow Border Animation - Theme-based colors traveling along border */
-@property --gemini-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
-/* Animated traveling gradient border - single border on container */
-.gemini-rainbow-border {
-  position: relative;
-  border-radius: 24px;
-  background: var(--panel-bg);
-  border: 2px solid transparent;
-  /* Theme-aware gradient colors */
-  --border-color-1: var(--foreground);
-  --border-color-2: var(--accent);
-  --border-color-3: var(--muted-strong);
-  --border-color-4: color-mix(in srgb, var(--accent) 60%, var(--foreground) 40%);
-  --border-angle: 0deg;
-}
-
-/* Animated gradient border using border-image technique */
-.gemini-rainbow-border::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 24px;
-  padding: 2px;
-  background: conic-gradient(from var(--border-angle),
-      var(--border-color-1) 0deg,
-      var(--border-color-2) 25%,
-      var(--border-color-3) 50%,
-      var(--border-color-4) 75%,
-      var(--border-color-1) 100%);
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  -webkit-mask-composite: exclude;
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  opacity: 0.35;
-  z-index: 0;
-  pointer-events: none;
-  filter: blur(0.5px);
-  transition: opacity var(--duration-base, 250ms) var(--ease-out, ease);
-}
-
-/* Calm at rest - the animated gradient only plays while the composer is
-   actually focused, instead of spinning constantly in the background. */
-.gemini-rainbow-border:focus-within::before {
-  opacity: 1;
-  filter: blur(0px);
-  animation: gemini-border-travel 5s linear infinite;
-}
-
-@property --border-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
-@keyframes gemini-border-travel {
-  0% {
-    --border-angle: 0deg;
-  }
-
-  100% {
-    --border-angle: 360deg;
-  }
-}
-
-.gemini-rainbow-border>* {
-  position: relative;
-  z-index: 1;
-  background: var(--panel-bg);
-  border-radius: 22px;
-}
