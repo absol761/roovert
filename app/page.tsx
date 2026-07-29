@@ -724,68 +724,68 @@ export default function Page() {
       </div>
 
       {/* Navigation */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] shadow-[var(--shadow-sm)] transition-all duration-500 ${focusMode ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}>
-        <div className="max-w-7xl mx-auto px-6 py-4">
+      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-all duration-500 ${focusMode ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}>
+        <div className="max-w-7xl mx-auto px-6 py-3.5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 sm:gap-5">
               <button
                 onClick={() => setIsChatMode(false)}
-                className="text-2xl font-bold tracking-tight hover:opacity-80 transition-opacity duration-[var(--duration-fast)] drop-shadow-[0_0_12px_var(--accent-glow)] bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent"
+                className="serif-display text-xl text-[var(--foreground)] hover:text-[var(--accent)] transition-colors duration-[var(--duration-fast)]"
               >
-                ROOVERT
+                Roovert
               </button>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--accent)]"
-                >
-                  <Settings className="w-3 h-3" />
-                  <span>Config</span>
-                </button>
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Settings</span>
+              </button>
+              <div className="hidden sm:block">
                 <NavClock />
               </div>
             </div>
 
-            {/* Theme Selector - Center */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2">
+            {/* Theme + Visualizer controls - Center */}
+            <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1 sm:gap-1.5 p-1 rounded-full bg-[var(--surface)] border border-[var(--border)]">
               <button
                 onClick={() => setIsLooksOpen(true)}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] hover:border-[var(--accent)] transition-all text-[var(--muted)] hover:text-[var(--accent)] group"
+                className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full hover:bg-[var(--surface-strong)] transition-all text-[var(--muted)] hover:text-[var(--foreground)]"
                 title="Change Theme"
               >
-                <Paintbrush className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                <Paintbrush className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setVisualizerConfigOpen(true)}
-                className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all group ${visualizerEnabled
-                  ? 'bg-[var(--accent)]/15 border-[var(--accent)]/40 text-[var(--accent)]'
-                  : 'bg-[var(--surface)] hover:bg-[var(--surface-strong)] border-[var(--border)] hover:border-[var(--accent)] text-[var(--muted)] hover:text-[var(--accent)]'
+                className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all ${visualizerEnabled
+                  ? 'bg-[var(--accent)]/15 text-[var(--accent)]'
+                  : 'hover:bg-[var(--surface-strong)] text-[var(--muted)] hover:text-[var(--foreground)]'
                   }`}
                 title="Audio-Reactive Visualizer (uses microphone)"
               >
-                <Waves className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <Waves className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="hidden md:flex items-center gap-8">
+            <div className="hidden md:flex items-center gap-7">
               <button
                 onClick={() => setIsGlobalFeedOpen(true)}
-                className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-[var(--surface)] transition-colors text-[var(--foreground)]/70 hover:text-[var(--accent)]"
+                className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-[var(--surface)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
                 title="Global Feed"
               >
-                <Globe className="w-5 h-5" />
+                <Globe className="w-4 h-4" />
               </button>
               {!isChatMode && (
                 <>
                   <a
                     href="#mission"
-                    className="text-sm text-[var(--foreground)]/70 hover:text-[var(--accent)] transition-colors uppercase tracking-wider"
+                    className="text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
                   >
                     Mission
                   </a>
                   <Link
                     href="/careers"
-                    className="text-sm text-[var(--foreground)]/70 hover:text-[var(--accent)] transition-colors uppercase tracking-wider"
+                    className="text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
                   >
                     Careers
                   </Link>
@@ -877,32 +877,30 @@ export default function Page() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.05 }}
-                className="glass-panel inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel-bg)] backdrop-blur-xl px-4 py-1.5 text-xs font-mono tracking-[0.35em] uppercase text-[var(--foreground)]/60"
+                className="label inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-1.5"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse"></span>
-                Roovert &middot; Engine of Truth
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]"></span>
+                Engine of Truth
               </motion.div>
 
               <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.12 }}
-                className="text-7xl sm:text-8xl md:text-9xl font-light leading-[0.92] tracking-tight text-balance"
+                className="serif-display text-6xl sm:text-7xl md:text-8xl leading-[1.02] text-balance text-[var(--foreground)]"
               >
                 <span className="block">Multi-Perspective</span>
-                <span className="block bg-gradient-to-r from-[var(--accent)] to-[var(--foreground)] bg-clip-text text-transparent">
-                  AI Models
-                </span>
+                <span className="block text-[var(--accent)]">AI Models</span>
               </motion.h1>
 
               <motion.p
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-lg md:text-2xl text-[var(--foreground)]/60 font-light max-w-2xl mx-auto leading-relaxed text-balance"
+                className="text-lg md:text-xl text-[var(--muted)] max-w-2xl mx-auto leading-relaxed text-balance"
               >
                 Advanced intelligence designed to challenge consensus. Powered by{' '}
-                <span className="text-[var(--accent)]">
+                <span className="text-[var(--foreground)]">
                   {selectedModelId === 'multi-perspective' ? 'multiple models at once' : selectedModel.name}
                 </span>.
               </motion.p>
@@ -911,20 +909,17 @@ export default function Page() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.28 }}
-                className="flex flex-wrap items-center justify-center gap-4 pt-2"
+                className="flex flex-wrap items-center justify-center gap-3 pt-2"
               >
                 <button
                   onClick={handleInitialize}
-                  className="group relative px-9 py-4 bg-[var(--accent)] text-white text-lg font-medium rounded-full overflow-hidden transition-all duration-[var(--duration-base)] hover:scale-[1.03] active:scale-95 shadow-[var(--shadow-lg)]"
+                  className="px-8 py-3.5 bg-[var(--accent)] text-white text-base font-medium rounded-full transition-all duration-[var(--duration-base)] hover:opacity-90 active:scale-[0.98] shadow-[var(--shadow-md)] flex items-center gap-2"
                 >
-                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                  <span className="relative flex items-center gap-3">
-                    Initialize Chat <Zap className="w-5 h-5" />
-                  </span>
+                  Start a conversation <ArrowRight className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setIsLooksOpen(true)}
-                  className="px-6 py-4 text-sm text-[var(--foreground)]/70 hover:text-[var(--accent)] border border-[var(--border)] hover:border-[var(--accent)]/40 rounded-full transition-all duration-[var(--duration-base)] flex items-center gap-2"
+                  className="px-6 py-3.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] border border-[var(--border)] hover:border-[var(--accent)]/40 rounded-full transition-all duration-[var(--duration-base)] flex items-center gap-2"
                 >
                   <Paintbrush className="w-4 h-4" /> Explore Looks
                 </button>
@@ -943,7 +938,7 @@ export default function Page() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: 0.4 + idx * 0.05 }}
                     onClick={() => injectPrompt(prompt)}
-                    className="bg-[var(--surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl px-5 py-4 text-sm text-left hover:border-[var(--accent)]/50 hover:bg-[var(--surface-strong)] transition-all text-[var(--foreground)]/85 hover:text-[var(--foreground)] leading-relaxed"
+                    className="card-hover bg-[var(--surface)] border border-[var(--border)] rounded-xl px-5 py-4 text-sm text-left text-[var(--muted)] hover:text-[var(--foreground)] leading-relaxed"
                   >
                     {prompt}
                   </motion.button>
@@ -962,7 +957,7 @@ export default function Page() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Sparkles className="w-5 h-5 text-[var(--accent)]" />
-                  <h2 className="text-2xl font-light">Browse AI Models</h2>
+                  <h2 className="serif-display text-2xl text-[var(--foreground)]">Browse AI Models</h2>
                 </div>
                 <button
                   onClick={() => setIsMoreModelsOpen(true)}
@@ -982,7 +977,7 @@ export default function Page() {
                       setSelectedModelId(model.id);
                       handleInitialize();
                     }}
-                    className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6 hover:border-[var(--accent)]/40 hover:-translate-y-1 transition-all duration-[var(--duration-base)] cursor-pointer group"
+                    className="card-hover bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 cursor-pointer group"
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="w-9 h-9 rounded-full bg-[var(--accent)]/12 flex items-center justify-center group-hover:bg-[var(--accent)]/20 transition-colors">
@@ -994,7 +989,7 @@ export default function Page() {
                           return <CategoryIcon className="w-4 h-4 text-[var(--accent)]" />;
                         })()}
                       </div>
-                      <span className="text-[10px] uppercase tracking-wider text-[var(--muted)] font-mono px-2 py-1 rounded-full border border-[var(--border)]">
+                      <span className="label px-2 py-1 rounded-full border border-[var(--border)]">
                         {model.category}
                       </span>
                     </div>
@@ -1013,7 +1008,7 @@ export default function Page() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Code className="w-5 h-5 text-[var(--accent)]" />
-                  <h2 className="text-2xl font-light">Code Examples</h2>
+                  <h2 className="serif-display text-2xl text-[var(--foreground)]">Code Examples</h2>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1045,7 +1040,7 @@ while (true) {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.1 }}
-                    className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-5"
+                    className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5"
                   >
                     <h3 className="text-sm font-medium text-[var(--foreground)] mb-3">{example.title}</h3>
                     <pre className="bg-[var(--surface-strong)] rounded-lg p-4 overflow-x-auto text-xs font-mono text-[var(--foreground)]">
@@ -1083,7 +1078,7 @@ while (true) {
                         >
                           <X className="w-4 h-4" />
                         </button>
-                        <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Active Intelligence</span>
+                        <span className="label">Active Intelligence</span>
                         <h3 className="font-light">{selectedModel.name}</h3>
                         <p>{selectedModel.description}</p>
                         <button
@@ -1104,11 +1099,11 @@ while (true) {
                         >
                           <X className="w-4 h-4" />
                         </button>
-                        <span className="text-xs uppercase tracking-[0.35em] text-[var(--foreground)]/50">Ops Snapshot</span>
+                        <span className="label">Ops Snapshot</span>
                         <div className="mt-4 space-y-4">
                           {SIGNALS.map(signal => (
                             <div key={signal.title}>
-                              <p className="text-xs uppercase tracking-[0.45em] text-[var(--foreground)]/40">{signal.title}</p>
+                              <p className="label">{signal.title}</p>
                               <p className="text-base mt-1 text-[var(--foreground)]/80">{signal.detail}</p>
                             </div>
                           ))}
@@ -1169,14 +1164,14 @@ while (true) {
                               <motion.div
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6 shadow-xl"
+                                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6"
                               >
                                 <div className="flex items-start gap-4">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
                                     <Zap className="w-5 h-5 text-[var(--accent)]" />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold mb-2">
+                                    <div className="label text-[var(--accent)] mb-2">
                                       You
                                     </div>
                                     {entry.image && (
@@ -1200,7 +1195,7 @@ while (true) {
                               <motion.div
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6 shadow-xl"
+                                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6"
                               >
                                 <div className="flex items-start gap-4">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
@@ -1208,7 +1203,7 @@ while (true) {
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-2">
-                                      <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
+                                      <div className="label text-[var(--accent)]">
                                         {filteredAvailableModels.find(m => m.id === entry.model)?.name || availableModels.find(m => m.id === entry.model)?.name || 'AI'}
                                       </div>
                                       <div className="flex items-center gap-2">
@@ -1374,18 +1369,18 @@ while (true) {
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.9 }}
-                          className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 shadow-xl mb-6"
+                          className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 mb-6"
                         >
                           <div className="flex items-start gap-4">
                             <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
                               <Sparkles className="w-5 h-5 text-[var(--accent)]" />
                             </div>
                             <div className="space-y-3 flex-1 min-w-0">
-                              <div className="text-xs text-[var(--accent)] font-mono uppercase tracking-wider font-bold">
-                                {isProcessing ? 'Processing Query...' : `Response from ${selectedModel.name}`}
+                              <div className="label text-[var(--accent)]">
+                                {isProcessing ? 'Processing…' : `Response from ${selectedModel.name}`}
                               </div>
                               {!isProcessing && statusNote && (
-                                <div className="text-[10px] text-[var(--muted)] uppercase tracking-[0.35em]">
+                                <div className="label">
                                   {statusNote}
                                 </div>
                               )}
@@ -1521,7 +1516,7 @@ while (true) {
             </AnimatePresence>
 
             <form onSubmit={handleSubmit} className="relative">
-              <div className={`gemini-rainbow-border glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl ${isMobile ? 'p-3' : 'p-4'} shadow-2xl transition-all duration-300`}>
+              <div className={`composer-bar glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] ${isMobile ? 'p-3' : 'p-4'} transition-all duration-300`}>
                 <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-4'}`}>
                   {isProcessing && (
                     <button
@@ -1580,7 +1575,7 @@ while (true) {
                       <select
                         value={parallelModel1}
                         onChange={(e) => setParallelModel1(e.target.value)}
-                        className="px-2 py-1 text-xs bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--accent)] transition-colors"
+                        className="px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none"
                       >
                         {availableModels.filter(m => m.id !== 'multi-perspective').map(m => (
                           <option key={m.id} value={m.id}>{m.name}</option>
@@ -1590,7 +1585,7 @@ while (true) {
                       <select
                         value={parallelModel2}
                         onChange={(e) => setParallelModel2(e.target.value)}
-                        className="px-2 py-1 text-xs bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--accent)] transition-colors"
+                        className="px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none"
                       >
                         {availableModels.filter(m => m.id !== 'multi-perspective').map(m => (
                           <option key={m.id} value={m.id}>{m.name}</option>
@@ -1668,10 +1663,10 @@ while (true) {
       {/* Expanded Sections (Only on Landing) */}
       {!isChatMode && (
         <>
-          <section id="mission" className="relative z-10 py-32 border-t border-[var(--border)] bg-black/20">
+          <section id="mission" className="relative z-10 py-32 border-t border-[var(--border)]">
             <div className="max-w-4xl mx-auto px-6 text-center">
-              <h2 className="text-4xl font-light mb-8">Our Mission</h2>
-              <p className="text-xl text-[var(--foreground)]/70 font-light leading-relaxed">
+              <h2 className="serif-display text-4xl mb-8 text-[var(--foreground)]">Our Mission</h2>
+              <p className="text-xl text-[var(--muted)] leading-relaxed">
                 In an era of curated realities and algorithmic bias, truth has become a scarcity.
                 Roovert exists to reverse this entropy. We are building the world&apos;s most rigorous
                 AI engine, designed not to please, but to <span className="text-[var(--accent)]">understand</span>.
@@ -1687,11 +1682,11 @@ while (true) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6 }}
-                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-12"
+                className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-12"
               >
                 <div className="flex items-center gap-3 mb-6">
                   <Code className="w-6 h-6 text-[var(--accent)]" />
-                  <h2 className="text-3xl font-light">Built With Itself</h2>
+                  <h2 className="serif-display text-3xl text-[var(--foreground)]">Built With Itself</h2>
                 </div>
                 <div className="space-y-6 text-[var(--foreground)]/80 leading-relaxed">
                   <p className="text-lg">

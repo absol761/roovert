@@ -35,13 +35,13 @@ export function MoreModelsModal({
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative w-full max-w-5xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        className="relative w-full max-w-5xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <h2 className="text-2xl font-light tracking-wide flex items-center gap-2">
+          <h2 className="serif-display text-2xl flex items-center gap-2.5">
             <Sparkles className="w-6 h-6 text-[var(--accent)]" />
-            All AI Models
+            All Models
           </h2>
           <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
             <X className="w-5 h-5" />
@@ -56,7 +56,7 @@ export function MoreModelsModal({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
             >
-              <h3 className="text-sm uppercase tracking-wider text-[var(--muted)] mb-4 font-mono border-b border-[var(--border)] pb-2">
+              <h3 className="label mb-4 pb-2 border-b border-[var(--border)]">
                 {category}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -71,11 +71,10 @@ export function MoreModelsModal({
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.2, delay: idx * 0.03, ease: 'easeOut' }}
-                    whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden ${selectedModelId === model.id
+                    className={`card-hover p-4 rounded-xl border text-left relative overflow-hidden ${selectedModelId === model.id
                       ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20'
-                      : 'border-[var(--border)] hover:border-[var(--accent)]/40 bg-[var(--surface)]'
+                      : 'border-[var(--border)] bg-[var(--surface)]'
                       }`}
                   >
                     <div className="flex items-center gap-2 mb-2">
