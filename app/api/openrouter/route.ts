@@ -94,8 +94,9 @@ export async function POST(request: NextRequest) {
     let payload;
     try {
       payload = await request.json();
-    } catch (jsonError: any) {
-      if (jsonError.message && jsonError.message.includes('body')) {
+    } catch (jsonError) {
+      const jsonErrorMessage = jsonError instanceof Error ? jsonError.message : String(jsonError);
+      if (jsonErrorMessage.includes('body')) {
         return new Response(
           JSON.stringify({ error: 'Invalid JSON payload' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
             typeof msg.content === 'string' && msg.content.length <= MAX_LENGTHS.MESSAGE_CONTENT) {
           messages.push({
             role: msg.role,
-            content: msg.content as any
+            content: msg.content
           });
         }
       }
@@ -185,7 +186,7 @@ export async function POST(request: NextRequest) {
         content: [
           { type: 'text', text: query },
           { type: 'image_url', image_url: { url: image } }
-        ] as any
+        ]
       });
     } else {
       messages.push({ role: 'user', content: query });
@@ -281,7 +282,7 @@ export async function POST(request: NextRequest) {
               encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`)
             );
             controller.close();
-          } catch (error: any) {
+          } catch (error) {
             console.error('Streaming error:', error);
             try {
               controller.enqueue(
@@ -301,7 +302,7 @@ export async function POST(request: NextRequest) {
           'X-Accel-Buffering': 'no',
         },
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('OpenRouter API error:', error);
       // Security: Still increment rate limit on error (to prevent retry abuse)
       await incrementRateLimit(request, 'openrouter');
@@ -317,7 +318,7 @@ export async function POST(request: NextRequest) {
         }
       );
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Query processing error:', error);
     return new Response(
       `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage('generic'), done: true })}\n\n`,
