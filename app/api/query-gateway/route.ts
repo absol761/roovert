@@ -167,70 +167,69 @@ export async function POST(request: NextRequest) {
     try {
       // If parallel mode is enabled and no image, use user-selected models
       if (runParallel && !image && parallelModel1 && parallelModel2) {
-        // Use the two models selected by the user
+        // Use the two models selected by the user - genuinely stream BOTH
+        // models concurrently, tagging each chunk with which model it came
+        // from, so the client can render both answers side by side as they
+        // arrive instead of silently discarding one (see orchestration.ts's
+        // synthesizeResponses, which this path used to funnel through).
         const selectedModels = [parallelModel1, parallelModel2];
 
-        // If we have multiple models, run them in parallel
-        if (selectedModels.length > 1) {
-          // Import orchestration utilities
-          const { synthesizeResponses } = await import('../../lib/orchestration');
+        const stream = new ReadableStream({
+          start(controller) {
+            const encoder = new TextEncoder();
+            let remaining = selectedModels.length;
+            let closed = false;
 
-          const modelPromises = selectedModels.map(async (selectedModel) => {
-            const modelId = MODEL_MAP[selectedModel] || targetModelId;
-            const result = await streamText({
-              model: groq(modelId),
-              instructions: systemPrompt,
-              messages,
-            });
+            const enqueue = (obj: Record<string, unknown>) => {
+              if (closed) return;
+              try {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+              } catch (ignore) { /* controller already closed */ }
+            };
 
-            let fullText = '';
-            for await (const chunk of result.textStream) {
-              fullText += chunk;
-            }
-            return { model: selectedModel, content: fullText };
-          });
+            const finishModel = () => {
+              remaining -= 1;
+              if (remaining <= 0 && !closed) {
+                enqueue({ content: '', done: true });
+                closed = true;
+                try { controller.close(); } catch (ignore) { }
+              }
+            };
 
-          const responses = await Promise.all(modelPromises);
+            selectedModels.forEach((selectedModel) => {
+              const modelId = MODEL_MAP[selectedModel] || targetModelId;
+              (async () => {
+                try {
+                  const result = await streamText({
+                    model: groq(modelId),
+                    instructions: systemPrompt,
+                    messages,
+                  });
 
-          // Synthesize responses
-          const synthesized = synthesizeResponses(responses);
+                  for await (const chunk of result.textStream) {
+                    enqueue({ model: selectedModel, content: chunk, done: false });
+                  }
 
-          // Stream the synthesized response
-          const stream = new ReadableStream({
-            start(controller) {
-              const encoder = new TextEncoder();
-              const words = synthesized.split(' ');
-              let index = 0;
-
-              const sendChunk = () => {
-                if (index < words.length) {
-                  const chunk = (index > 0 ? ' ' : '') + words[index];
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify({ content: chunk, done: false })}\n\n`)
-                  );
-                  index++;
-                  setTimeout(sendChunk, 10); // Small delay for streaming effect
-                } else {
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`)
-                  );
-                  controller.close();
+                  enqueue({ model: selectedModel, content: '', done: true });
+                } catch (error) {
+                  console.error(`Multi-perspective streaming error (${selectedModel}):`, error);
+                  enqueue({ model: selectedModel, content: getUserFriendlyErrorMessage(), done: true });
+                } finally {
+                  finishModel();
                 }
-              };
+              })();
+            });
+          },
+        });
 
-              sendChunk();
-            },
-          });
-
-          return new Response(stream, {
-            headers: {
-              'Content-Type': 'text/event-stream',
-              'Cache-Control': 'no-cache',
-              'Connection': 'keep-alive',
-              'X-Accel-Buffering': 'no',
-            },
-          });
-        }
+        return new Response(stream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+          },
+        });
       }
 
       // Single model mode (default or when image is present)

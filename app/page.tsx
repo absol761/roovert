@@ -35,7 +35,7 @@ export default function Page() {
   const [query, setQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
-  const [history, setHistory] = useState<Array<{ query: string; response: string; model: string; image?: string }>>([]);
+  const [history, setHistory] = useState<Array<{ query: string; response: string; model: string; image?: string; perspectives?: Array<{ model: string; content: string }> }>>([]);
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [isChatMode, setIsChatMode] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
@@ -123,8 +123,19 @@ export default function Page() {
   // so only the getter is meaningful here.
   const [runParallel] = useState(false);
   const [outputLength] = useState<'small' | 'medium' | 'large'>('medium');
-  const [parallelModel1, setParallelModel1] = useState(availableModels[0]?.id || 'ooverta');
-  const [parallelModel2, setParallelModel2] = useState(availableModels[1]?.id || 'llama-3.3-70b');
+  // Multi-Perspective dropdowns must only offer Groq-backed models - the
+  // backend's MODEL_MAP (query-gateway/route.ts) only knows how to route
+  // those ids; an OpenRouter model here would silently mis-route.
+  const groqOnlyModels = MODELS.filter(m => m.id !== 'multi-perspective');
+  const [parallelModel1, setParallelModel1] = useState(groqOnlyModels[0]?.id || 'ooverta');
+  const [parallelModel2, setParallelModel2] = useState(groqOnlyModels[1]?.id || 'llama-3.3-70b');
+  // Live per-model text for an in-flight Multi-Perspective request, keyed by
+  // model id (e.g. parallelModel1's value). Null when not in a
+  // multi-perspective request.
+  const [perspectiveResponses, setPerspectiveResponses] = useState<Record<string, string> | null>(null);
+  // Which models (by id) in the current in-flight Multi-Perspective request
+  // have individually finished streaming - drives the per-card loader.
+  const [perspectiveDoneModels, setPerspectiveDoneModels] = useState<Set<string>>(new Set());
 
   const [neuralNoiseEnabled, setNeuralNoiseEnabled] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -253,7 +264,15 @@ export default function Page() {
   }, []);
 
   const handleExportChat = () => {
-    const text = history.map(h => `User: ${h.query}\nAI (${h.model}): ${h.response}\n\n`).join('---\n');
+    const text = history.map(h => {
+      if (h.perspectives && h.perspectives.length > 0) {
+        const perspectivesText = h.perspectives
+          .map(p => `  [${availableModels.find(m => m.id === p.model)?.name || p.model}]: ${p.content}`)
+          .join('\n');
+        return `User: ${h.query}\nAI (Multi-Perspective):\n${perspectivesText}\n\n`;
+      }
+      return `User: ${h.query}\nAI (${h.model}): ${h.response}\n\n`;
+    }).join('---\n');
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -408,6 +427,8 @@ export default function Page() {
     setIsChatMode(true);
     setIsProcessing(true);
     setResponse('');
+    setPerspectiveResponses(null);
+    setPerspectiveDoneModels(new Set());
     setStatusNote(null);
 
     // Create abort controller for streaming
@@ -438,6 +459,17 @@ export default function Page() {
       // Automatically enable parallel mode if Multi-Perspective is selected
       const isMultiPerspective = selectedModel.id === 'multi-perspective';
       const actualRunParallel = isMultiPerspective || runParallel;
+      const activeParallelModel1 = parallelModel1 || 'llama-3.3-70b';
+      const activeParallelModel2 = parallelModel2 || 'ooverta';
+
+      if (actualRunParallel) {
+        // Seed both models' live buffers so the comparison cards render
+        // immediately with their loaders, before the first chunk arrives.
+        setPerspectiveResponses({
+          [activeParallelModel1]: '',
+          [activeParallelModel2]: '',
+        });
+      }
 
       const res = await fetch(apiEndpoint, {
         method: 'POST',
@@ -452,8 +484,8 @@ export default function Page() {
           conversationHistory: conversationHistory,
           runParallel: actualRunParallel,
           outputLength: outputLength,
-          parallelModel1: actualRunParallel ? (parallelModel1 || 'llama-3.3-70b') : undefined,
-          parallelModel2: actualRunParallel ? (parallelModel2 || 'ooverta') : undefined,
+          parallelModel1: actualRunParallel ? activeParallelModel1 : undefined,
+          parallelModel2: actualRunParallel ? activeParallelModel2 : undefined,
         }),
         signal: controller.signal,
       });
@@ -478,6 +510,35 @@ export default function Page() {
       }
 
       let fullResponse = '';
+      // Multi-perspective bookkeeping: local mirror of perspectiveResponses
+      // (state updates are async, so we need a synchronous accumulator) plus
+      // which models have individually reported `done`.
+      const perspectiveText: Record<string, string> = {
+        [activeParallelModel1]: '',
+        [activeParallelModel2]: '',
+      };
+      const perspectiveDone = new Set<string>();
+
+      const flagPossibleModelError = (content: string) => {
+        if (
+          content.includes('Provider Error') ||
+          content.includes('rate limit') ||
+          content.includes('quota') ||
+          content.includes('limit exceeded') ||
+          content.includes('Systems Notice') ||
+          content.includes('Provider returned error')
+        ) {
+          // Mark model as unavailable temporarily (for 5 minutes)
+          setUnavailableModels(prev => new Set(prev).add(selectedModelId));
+          setTimeout(() => {
+            setUnavailableModels(prev => {
+              const next = new Set(prev);
+              next.delete(selectedModelId);
+              return next;
+            });
+          }, 5 * 60 * 1000); // 5 minutes
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -492,29 +553,65 @@ export default function Page() {
         for (const line of lines) {
           try {
             const data = JSON.parse(line.slice(6));
+
+            if (actualRunParallel) {
+              // Multiplexed protocol: each chunk is tagged with which model
+              // it belongs to. A `done` with no `model` field means BOTH
+              // models have finished and the whole exchange is complete.
+              if (data.model) {
+                if (typeof data.content === 'string' && data.content) {
+                  perspectiveText[data.model] = (perspectiveText[data.model] || '') + data.content;
+                  flagPossibleModelError(data.content);
+                }
+                if (data.done) {
+                  perspectiveDone.add(data.model);
+                  setPerspectiveDoneModels(new Set(perspectiveDone));
+                }
+                setPerspectiveResponses({ ...perspectiveText });
+
+                setTimeout(() => {
+                  responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+                continue;
+              }
+
+              if (data.done) {
+                setIsProcessing(false);
+                setAbortController(null);
+                setHistory(prev => [
+                  ...prev,
+                  {
+                    query: trimmedQuery,
+                    response: [activeParallelModel1, activeParallelModel2]
+                      .map(m => `[${m}] ${perspectiveText[m] || ''}`)
+                      .join('\n\n'),
+                    model: selectedModelId,
+                    image: selectedImage || undefined,
+                    perspectives: [activeParallelModel1, activeParallelModel2].map(m => ({
+                      model: m,
+                      content: perspectiveText[m] || '',
+                    })),
+                  },
+                ]);
+                setPerspectiveResponses(null);
+                setPerspectiveDoneModels(new Set());
+                setQuery('');
+                setSelectedImage(null);
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                }
+                setTimeout(() => {
+                  responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+                return;
+              }
+              continue;
+            }
+
             if (data.content) {
               fullResponse += data.content;
               setResponse(fullResponse);
-
-              // Check if response indicates model error (provider error, rate limit, etc.)
-              if (typeof data.content === 'string' && (
-                data.content.includes('Provider Error') ||
-                data.content.includes('rate limit') ||
-                data.content.includes('quota') ||
-                data.content.includes('limit exceeded') ||
-                data.content.includes('Systems Notice') ||
-                data.content.includes('Provider returned error')
-              )) {
-                // Mark model as unavailable temporarily (for 5 minutes)
-                setUnavailableModels(prev => new Set(prev).add(selectedModelId));
-                setTimeout(() => {
-                  setUnavailableModels(prev => {
-                    const next = new Set(prev);
-                    next.delete(selectedModelId);
-                    return next;
-                  });
-                }, 5 * 60 * 1000); // 5 minutes
-              }
+              flagPossibleModelError(data.content);
 
               // Auto-scroll to bottom
               setTimeout(() => {
@@ -544,25 +641,6 @@ export default function Page() {
                 responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
               }, 100);
               return;
-            }
-
-            // Check if response indicates model error
-            if (data.content && typeof data.content === 'string' && (
-              data.content.includes('Provider Error') ||
-              data.content.includes('rate limit') ||
-              data.content.includes('quota') ||
-              data.content.includes('limit exceeded') ||
-              data.content.includes('Systems Notice')
-            )) {
-              // Mark model as unavailable temporarily
-              setUnavailableModels(prev => new Set(prev).add(selectedModelId));
-              setTimeout(() => {
-                setUnavailableModels(prev => {
-                  const next = new Set(prev);
-                  next.delete(selectedModelId);
-                  return next;
-                });
-              }, 5 * 60 * 1000); // 5 minutes
             }
           } catch {
             // Skip invalid JSON
@@ -652,6 +730,69 @@ export default function Page() {
     // behavioral difference.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, isProcessing]);
+
+  // Shared react-markdown `code` renderer (copy-to-clipboard code blocks) -
+  // reused by every ReactMarkdown instance on this page (history entries,
+  // the live single-model response, and each Multi-Perspective card) so the
+  // block isn't copy-pasted per call site.
+  const markdownComponents = {
+    code: ({ className, children, ...props }: React.HTMLAttributes<HTMLElement>) => {
+      const match = /language-(\w+)/.exec(className || '');
+      const code = String(children).replace(/\n$/, '');
+      const isCopied = copiedCodeBlock === code;
+      // react-markdown v9+ no longer passes an `inline` prop - block
+      // code is the only kind that gets a `language-x` className from
+      // rehype-highlight, so its presence is the reliable signal.
+      const isInline = !className;
+
+      return !isInline ? (
+        <div className="relative my-4">
+          <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
+            <span className="text-xs text-[var(--muted)] font-mono">
+              {match ? match[1] : 'code'}
+            </span>
+            <button
+              onClick={() => copyCodeBlock(code)}
+              className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+            >
+              {isCopied ? (
+                <>
+                  <Check className="w-3 h-3" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3" />
+                  Copy
+                </>
+              )}
+            </button>
+          </div>
+          <pre className={`${className} m-0 rounded-b-lg rounded-t-none overflow-x-auto`} {...props}>
+            <code className={className} {...props}>
+              {children}
+            </code>
+          </pre>
+        </div>
+      ) : (
+        <code className={`${className} bg-[var(--surface-strong)] px-1.5 py-0.5 rounded text-sm`} {...props}>
+          {children}
+        </code>
+      );
+    },
+  };
+
+  // Small 3-dot bounce loader, reused for both the single-model "processing"
+  // state and each Multi-Perspective card while that model is still
+  // streaming. A plain element (not a component defined at render-time) so
+  // it's safe to reuse across multiple spots in the JSX below.
+  const bounceLoader = (
+    <div className="flex space-x-1 h-6 items-center">
+      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce"></div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
@@ -1341,60 +1482,44 @@ while (true) {
                                         </button>
                                       </div>
                                     </div>
-                                    <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
-                                      <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        rehypePlugins={[rehypeHighlight]}
-                                        // Security: Disable HTML rendering to prevent XSS
-                                        disallowedElements={['script', 'iframe', 'object', 'embed']}
-                                        unwrapDisallowed={true}
-                                        components={{
-                                          code: ({ className, children, ...props }: React.HTMLAttributes<HTMLElement>) => {
-                                            const match = /language-(\w+)/.exec(className || '');
-                                            const code = String(children).replace(/\n$/, '');
-                                            const isCopied = copiedCodeBlock === code;
-                                            const isInline = !className;
-
-                                            return !isInline ? (
-                                              <div className="relative my-4">
-                                                <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
-                                                  <span className="text-xs text-[var(--muted)] font-mono">
-                                                    {match ? match[1] : 'code'}
-                                                  </span>
-                                                  <button
-                                                    onClick={() => copyCodeBlock(code)}
-                                                    className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                                                  >
-                                                    {isCopied ? (
-                                                      <>
-                                                        <Check className="w-3 h-3" />
-                                                        Copied
-                                                      </>
-                                                    ) : (
-                                                      <>
-                                                        <Copy className="w-3 h-3" />
-                                                        Copy
-                                                      </>
-                                                    )}
-                                                  </button>
-                                                </div>
-                                                <pre className={`${className} m-0 rounded-b-lg rounded-t-none overflow-x-auto`} {...props}>
-                                                  <code className={className} {...props}>
-                                                    {children}
-                                                  </code>
-                                                </pre>
-                                              </div>
-                                            ) : (
-                                              <code className={`${className} bg-[var(--surface-strong)] px-1.5 py-0.5 rounded text-sm`} {...props}>
-                                                {children}
-                                              </code>
-                                            );
-                                          },
-                                        }}
-                                      >
-                                        {entry.response}
-                                      </ReactMarkdown>
-                                    </div>
+                                    {entry.perspectives && entry.perspectives.length > 0 ? (
+                                      <div className="grid md:grid-cols-2 gap-4">
+                                        {entry.perspectives.map((p) => (
+                                          <div
+                                            key={p.model}
+                                            className="glass-panel card-hover bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4"
+                                          >
+                                            <div className="label text-[var(--accent)] mb-2">
+                                              {availableModels.find(m => m.id === p.model)?.name || p.model}
+                                            </div>
+                                            <div className="text-[var(--foreground)] text-base leading-relaxed font-light markdown-content">
+                                              <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                rehypePlugins={[rehypeHighlight]}
+                                                disallowedElements={['script', 'iframe', 'object', 'embed']}
+                                                unwrapDisallowed={true}
+                                                components={markdownComponents}
+                                              >
+                                                {p.content}
+                                              </ReactMarkdown>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
+                                        <ReactMarkdown
+                                          remarkPlugins={[remarkGfm]}
+                                          rehypePlugins={[rehypeHighlight]}
+                                          // Security: Disable HTML rendering to prevent XSS
+                                          disallowedElements={['script', 'iframe', 'object', 'embed']}
+                                          unwrapDisallowed={true}
+                                          components={markdownComponents}
+                                        >
+                                          {entry.response}
+                                        </ReactMarkdown>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </motion.div>
@@ -1405,7 +1530,7 @@ while (true) {
 
                     {/* Current Response (if processing or showing latest) */}
                     <AnimatePresence mode="popLayout">
-                      {(response || isProcessing) && (
+                      {(response || isProcessing || perspectiveResponses) && (
                         <motion.div
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
@@ -1418,89 +1543,87 @@ while (true) {
                             </div>
                             <div className="space-y-3 flex-1 min-w-0">
                               <div className="label text-[var(--accent)]">
-                                {isProcessing ? 'Processing…' : `Response from ${selectedModel.name}`}
+                                {perspectiveResponses
+                                  ? 'Comparing Perspectives…'
+                                  : isProcessing ? 'Processing…' : `Response from ${selectedModel.name}`}
                               </div>
                               {!isProcessing && statusNote && (
                                 <div className="label">
                                   {statusNote}
                                 </div>
                               )}
-                              <div className="prose prose-invert max-w-none">
-                                {isProcessing ? (
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex space-x-1 h-6 items-center">
-                                      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce"></div>
+                              {perspectiveResponses ? (
+                                <div className="space-y-3">
+                                  <button
+                                    onClick={handleStop}
+                                    className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                  >
+                                    <Square className="w-3 h-3" />
+                                    Stop
+                                  </button>
+                                <div className="grid md:grid-cols-2 gap-4">
+                                  {Object.entries(perspectiveResponses).map(([modelId, content]) => {
+                                    const isDone = perspectiveDoneModels.has(modelId);
+                                    return (
+                                      <div
+                                        key={modelId}
+                                        className="glass-panel card-hover bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4"
+                                      >
+                                        <div className="label text-[var(--accent)] mb-2">
+                                          {availableModels.find(m => m.id === modelId)?.name || modelId}
+                                        </div>
+                                        {!isDone && (
+                                          <div className="mb-2">
+                                            {bounceLoader}
+                                          </div>
+                                        )}
+                                        {content && (
+                                          <div className="text-[var(--foreground)] text-base leading-relaxed font-light markdown-content">
+                                            <ReactMarkdown
+                                              remarkPlugins={[remarkGfm]}
+                                              rehypePlugins={[rehypeHighlight]}
+                                              disallowedElements={['script', 'iframe', 'object', 'embed']}
+                                              unwrapDisallowed={true}
+                                              components={markdownComponents}
+                                            >
+                                              {content}
+                                            </ReactMarkdown>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="prose prose-invert max-w-none">
+                                  {isProcessing ? (
+                                    <div className="flex items-center gap-3">
+                                      {bounceLoader}
+                                      <button
+                                        onClick={handleStop}
+                                        className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                      >
+                                        <Square className="w-3 h-3" />
+                                        Stop
+                                      </button>
                                     </div>
-                                    <button
-                                      onClick={handleStop}
-                                      className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                                    >
-                                      <Square className="w-3 h-3" />
-                                      Stop
-                                    </button>
-                                  </div>
-                                ) : response ? (
-                                  <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
-                                    <ReactMarkdown
-                                      remarkPlugins={[remarkGfm]}
-                                      rehypePlugins={[rehypeHighlight]}
-                                      // Security: Disable HTML rendering to prevent XSS
-                                      disallowedElements={['script', 'iframe', 'object', 'embed']}
-                                      unwrapDisallowed={true}
-                                      components={{
-                                        code: ({ className, children, ...props }: React.HTMLAttributes<HTMLElement>) => {
-                                          const match = /language-(\w+)/.exec(className || '');
-                                          const code = String(children).replace(/\n$/, '');
-                                          const isCopied = copiedCodeBlock === code;
-                                          // react-markdown v9+ no longer passes an `inline` prop - block
-                                          // code is the only kind that gets a `language-x` className from
-                                          // rehype-highlight, so its presence is the reliable signal.
-                                          const isInline = !className;
-
-                                          return !isInline ? (
-                                            <div className="relative my-4">
-                                              <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
-                                                <span className="text-xs text-[var(--muted)] font-mono">
-                                                  {match ? match[1] : 'code'}
-                                                </span>
-                                                <button
-                                                  onClick={() => copyCodeBlock(code)}
-                                                  className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                                                >
-                                                  {isCopied ? (
-                                                    <>
-                                                      <Check className="w-3 h-3" />
-                                                      Copied
-                                                    </>
-                                                  ) : (
-                                                    <>
-                                                      <Copy className="w-3 h-3" />
-                                                      Copy
-                                                    </>
-                                                  )}
-                                                </button>
-                                              </div>
-                                              <pre className={`${className} m-0 rounded-b-lg rounded-t-none overflow-x-auto`} {...props}>
-                                                <code className={className} {...props}>
-                                                  {children}
-                                                </code>
-                                              </pre>
-                                            </div>
-                                          ) : (
-                                            <code className={`${className} bg-[var(--surface-strong)] px-1.5 py-0.5 rounded text-sm`} {...props}>
-                                              {children}
-                                            </code>
-                                          );
-                                        },
-                                      }}
-                                    >
-                                      {response}
-                                    </ReactMarkdown>
-                                  </div>
-                                ) : null}
-                              </div>
+                                  ) : response ? (
+                                    <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
+                                      <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
+                                        rehypePlugins={[rehypeHighlight]}
+                                        // Security: Disable HTML rendering to prevent XSS
+                                        disallowedElements={['script', 'iframe', 'object', 'embed']}
+                                        unwrapDisallowed={true}
+                                        components={markdownComponents}
+                                      >
+                                        {response}
+                                      </ReactMarkdown>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </motion.div>
@@ -1621,7 +1744,7 @@ while (true) {
                         onChange={(e) => setParallelModel1(e.target.value)}
                         className="px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none"
                       >
-                        {availableModels.filter(m => m.id !== 'multi-perspective').map(m => (
+                        {groqOnlyModels.map(m => (
                           <option key={m.id} value={m.id}>{m.name}</option>
                         ))}
                       </select>
@@ -1631,7 +1754,7 @@ while (true) {
                         onChange={(e) => setParallelModel2(e.target.value)}
                         className="px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none"
                       >
-                        {availableModels.filter(m => m.id !== 'multi-perspective').map(m => (
+                        {groqOnlyModels.map(m => (
                           <option key={m.id} value={m.id}>{m.name}</option>
                         ))}
                       </select>
