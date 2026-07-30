@@ -93,11 +93,34 @@ export function validateModelId(
 }
 
 /**
+ * A single content part of a multimodal (text + image) message.
+ */
+export interface MessageTextContent {
+  type: 'text';
+  text: string;
+}
+
+export interface MessageImageContent {
+  type: 'image_url';
+  image_url: { url: string };
+}
+
+export type MessageContentItem = MessageTextContent | MessageImageContent;
+
+/**
+ * A single validated/sanitized conversation history entry.
+ */
+export interface ConversationMessage {
+  role: string;
+  content: string | Array<MessageContentItem>;
+}
+
+/**
  * Validate conversation history array
  */
 export function validateConversationHistory(
   history: unknown
-): { valid: boolean; error?: string; sanitized?: Array<{ role: string; content: string | Array<any> }> } {
+): { valid: boolean; error?: string; sanitized?: Array<ConversationMessage> } {
   if (!Array.isArray(history)) {
     return { valid: false, error: 'Conversation history must be an array' };
   }
@@ -106,7 +129,7 @@ export function validateConversationHistory(
     return { valid: false, error: `Conversation history cannot exceed ${MAX_LENGTHS.CONVERSATION_HISTORY_MESSAGES} messages` };
   }
 
-  const sanitized: Array<{ role: string; content: string | Array<any> }> = [];
+  const sanitized: Array<ConversationMessage> = [];
 
   for (let i = 0; i < history.length; i++) {
     const msg = history[i];
@@ -115,12 +138,15 @@ export function validateConversationHistory(
       return { valid: false, error: `Message ${i} is invalid` };
     }
 
-    const role = msg.role;
-    if (role !== 'user' && role !== 'assistant' && role !== 'system') {
-      return { valid: false, error: `Message ${i} has invalid role: ${role}` };
-    }
+    const msgRecord = msg as Record<string, unknown>;
 
-    const content = msg.content;
+    const roleValue = msgRecord.role;
+    if (roleValue !== 'user' && roleValue !== 'assistant' && roleValue !== 'system') {
+      return { valid: false, error: `Message ${i} has invalid role: ${String(roleValue)}` };
+    }
+    const role = roleValue;
+
+    const content = msgRecord.content;
     if (typeof content === 'string') {
       const contentValidation = validateString(content, 'message content', MAX_LENGTHS.MESSAGE_CONTENT, true);
       if (!contentValidation.valid) {
@@ -129,17 +155,25 @@ export function validateConversationHistory(
       sanitized.push({ role, content: contentValidation.sanitized! });
     } else if (Array.isArray(content)) {
       // Multimodal content (text + image)
-      const validatedContent: Array<any> = [];
-      for (const item of content) {
+      const validatedContent: Array<MessageContentItem> = [];
+      for (const rawItem of content as unknown[]) {
+        if (!rawItem || typeof rawItem !== 'object') {
+          return { valid: false, error: `Message ${i} has invalid content item` };
+        }
+        const item = rawItem as Record<string, unknown>;
+        const imageUrl = item.image_url && typeof item.image_url === 'object'
+          ? (item.image_url as Record<string, unknown>)
+          : undefined;
+
         if (item.type === 'text' && typeof item.text === 'string') {
           const textValidation = validateString(item.text, 'text content', MAX_LENGTHS.MESSAGE_CONTENT, true);
           if (!textValidation.valid) {
             return { valid: false, error: `Message ${i} text content: ${textValidation.error}` };
           }
           validatedContent.push({ type: 'text', text: textValidation.sanitized! });
-        } else if (item.type === 'image_url' && typeof item.image_url === 'object' && typeof item.image_url.url === 'string') {
+        } else if (item.type === 'image_url' && imageUrl && typeof imageUrl.url === 'string') {
           // Validate image URL (base64 or http/https)
-          const urlValidation = validateString(item.image_url.url, 'image URL', MAX_LENGTHS.IMAGE_BASE64, true);
+          const urlValidation = validateString(imageUrl.url, 'image URL', MAX_LENGTHS.IMAGE_BASE64, true);
           if (!urlValidation.valid) {
             return { valid: false, error: `Message ${i} image URL: ${urlValidation.error}` };
           }
@@ -186,12 +220,28 @@ export function validateImage(image: unknown): { valid: boolean; error?: string;
 }
 
 /**
+ * Fields produced by validateAIQueryRequest once a payload has passed
+ * validation - i.e. the shape consumers can rely on.
+ */
+export interface SanitizedAIQueryRequest {
+  query: string;
+  model?: string;
+  systemPrompt?: string;
+  conversationHistory?: Array<ConversationMessage>;
+  image?: string;
+  runParallel?: boolean;
+  outputLength?: 'small' | 'medium' | 'large';
+  parallelModel1?: string;
+  parallelModel2?: string;
+}
+
+/**
  * Validate AI query request payload
  */
 export function validateAIQueryRequest(
-  payload: any,
+  payload: Record<string, unknown>,
   allowedModels: Set<string>
-): { valid: boolean; errors: string[]; sanitized?: any } {
+): { valid: boolean; errors: string[]; sanitized?: SanitizedAIQueryRequest } {
   const errors: string[] = [];
 
   // Validate query (required)
@@ -223,7 +273,7 @@ export function validateAIQueryRequest(
   }
 
   // Validate conversation history (optional)
-  let conversationHistory: Array<any> | undefined;
+  let conversationHistory: Array<ConversationMessage> | undefined;
   if (payload.conversationHistory !== undefined) {
     const historyValidation = validateConversationHistory(payload.conversationHistory);
     if (!historyValidation.valid) {
@@ -257,10 +307,11 @@ export function validateAIQueryRequest(
   // Validate outputLength (optional enum)
   let outputLength: 'small' | 'medium' | 'large' | undefined;
   if (payload.outputLength !== undefined) {
-    if (!['small', 'medium', 'large'].includes(payload.outputLength)) {
+    const outputLengthValue = payload.outputLength;
+    if (typeof outputLengthValue !== 'string' || !['small', 'medium', 'large'].includes(outputLengthValue)) {
       errors.push('outputLength must be one of: small, medium, large');
     } else {
-      outputLength = payload.outputLength as 'small' | 'medium' | 'large';
+      outputLength = outputLengthValue as 'small' | 'medium' | 'large';
     }
   }
 
@@ -315,11 +366,20 @@ export function validateAIQueryRequest(
 }
 
 /**
+ * Fields produced by validateTrackingRequest once a payload has passed
+ * validation.
+ */
+export interface SanitizedTrackingRequest {
+  visitorId?: string;
+  fingerprint?: string;
+}
+
+/**
  * Validate tracking request payload
  */
 export function validateTrackingRequest(
-  payload: any
-): { valid: boolean; errors: string[]; sanitized?: any } {
+  payload: Record<string, unknown>
+): { valid: boolean; errors: string[]; sanitized?: SanitizedTrackingRequest } {
   const errors: string[] = [];
 
   // Validate visitorId (optional)

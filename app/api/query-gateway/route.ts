@@ -38,8 +38,9 @@ export async function POST(request: NextRequest) {
     let payload;
     try {
       payload = await request.json();
-    } catch (jsonError: any) {
-      if (jsonError.message && jsonError.message.includes('body')) {
+    } catch (jsonError) {
+      const jsonErrorMessage = jsonError instanceof Error ? jsonError.message : '';
+      if (jsonErrorMessage && jsonErrorMessage.includes('body')) {
         return new Response(
           JSON.stringify({ error: 'Invalid JSON payload' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -170,8 +171,7 @@ export async function POST(request: NextRequest) {
         // Use the two models selected by the user - genuinely stream BOTH
         // models concurrently, tagging each chunk with which model it came
         // from, so the client can render both answers side by side as they
-        // arrive instead of silently discarding one (see orchestration.ts's
-        // synthesizeResponses, which this path used to funnel through).
+        // arrive instead of silently discarding one.
         const selectedModels = [parallelModel1, parallelModel2];
 
         const stream = new ReadableStream({
@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
               encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`)
             );
             controller.close();
-          } catch (error: any) {
+          } catch (error) {
             console.error('Streaming error:', streamError ?? error);
             // Only try to send error if controller is still writable
             try {
@@ -320,7 +320,7 @@ export async function POST(request: NextRequest) {
           'X-Accel-Buffering': 'no',
         },
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Groq API error:', error);
       return new Response(
         `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(), done: true })}\n\n`,
@@ -333,7 +333,7 @@ export async function POST(request: NextRequest) {
         }
       );
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Query processing error:', error);
     return new Response(
       `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(), done: true })}\n\n`,

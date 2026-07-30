@@ -193,14 +193,17 @@ export default function Page() {
   const filteredAvailableModels = availableModels.filter(m => !unavailableModels.has(m.id));
   const selectedModel = filteredAvailableModels.find(m => m.id === selectedModelId) || filteredAvailableModels[0];
 
-  // If selected model becomes unavailable, switch to first available
+  // If selected model becomes unavailable, switch to first available.
+  // Deferred (not a synchronous setState-in-effect) so React doesn't
+  // cascade a render while this effect is still committing - same pattern
+  // used in app/hooks/useMicLevel.ts for the same lint rule.
   useEffect(() => {
     if (selectedModelId && unavailableModels.has(selectedModelId)) {
       if (filteredAvailableModels.length > 0) {
-        setSelectedModelId(filteredAvailableModels[0].id);
+        const fallbackId = filteredAvailableModels[0].id;
+        queueMicrotask(() => setSelectedModelId(fallbackId));
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unavailableModels, selectedModelId, filteredAvailableModels]);
 
   // Check if image upload should be disabled

@@ -46,11 +46,3 @@ export function getDatabase(): Database.Database {
   return db;
 }
 
-// Close database connection (useful for cleanup)
-export function closeDatabase() {
-  if (db) {
-    db.close();
-    db = null;
-  }
-}
-

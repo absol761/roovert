@@ -76,8 +76,9 @@ export async function POST(request: NextRequest) {
       await incrementRateLimit(request, 'tracking');
       
       return NextResponse.json({ success: true, counted: true });
-    } catch (dbError: any) {
-      if (dbError.message?.includes('serverless') || dbError.message?.includes('SQLite not available')) {
+    } catch (dbError) {
+      const dbErrorMessage = dbError instanceof Error ? dbError.message : String(dbError);
+      if (dbErrorMessage.includes('serverless') || dbErrorMessage.includes('SQLite not available')) {
         return NextResponse.json({ success: true, counted: false }); // Silent success in serverless
       }
       console.error('Database error:', dbError);
@@ -118,9 +119,10 @@ async function getInitializeCount(): Promise<number> {
 
     const result = db.prepare('SELECT COUNT(*) as count FROM initialize_clicks').get() as { count: number };
     return Math.max(result.count || 0, 0);
-  } catch (dbError: any) {
+  } catch (dbError) {
     // SQLite not available (e.g., in serverless) - return 0
-    if (dbError.message?.includes('serverless') || dbError.message?.includes('SQLite not available')) {
+    const dbErrorMessage = dbError instanceof Error ? dbError.message : String(dbError);
+    if (dbErrorMessage.includes('serverless') || dbErrorMessage.includes('SQLite not available')) {
       return 0;
     }
     console.error('Database error:', dbError);
