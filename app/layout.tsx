@@ -21,8 +21,28 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
+  // Lets Next.js resolve the opengraph-image/twitter-image routes (and any
+  // other relative metadata URLs) to absolute ones - same fallback pattern
+  // already used in app/api/openrouter/route.ts.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://roovert.com'),
   title: "Roovert: The Truth, Unfiltered",
   description: "Rigorously Pursuing Truth. An AI Engine of Truth.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Roovert",
+  },
+  openGraph: {
+    title: "Roovert: The Truth, Unfiltered",
+    description: "Rigorously Pursuing Truth. An AI Engine of Truth.",
+    siteName: "Roovert",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Roovert: The Truth, Unfiltered",
+    description: "Rigorously Pursuing Truth. An AI Engine of Truth.",
+  },
 };
 
 // viewport-fit=cover + safe-area-inset-* in globals.css lets the composer
