@@ -199,20 +199,29 @@ export async function POST(request: NextRequest) {
             selectedModels.forEach((selectedModel) => {
               const modelId = MODEL_MAP[selectedModel] || targetModelId;
               (async () => {
+                // The AI SDK does NOT throw provider/network errors through
+                // `textStream` - it only reports them via `onError`, so the
+                // for-await loop below just ends silently (zero chunks) on
+                // a failure like an invalid key or rate limit. Without this
+                // flag that reads as a normal empty response instead of the
+                // failure it actually was.
+                let streamError: unknown = null;
                 try {
                   const result = await streamText({
                     model: groq(modelId),
                     instructions: systemPrompt,
                     messages,
+                    onError: ({ error }) => { streamError = error; },
                   });
 
                   for await (const chunk of result.textStream) {
                     enqueue({ model: selectedModel, content: chunk, done: false });
                   }
 
+                  if (streamError) throw streamError;
                   enqueue({ model: selectedModel, content: '', done: true });
                 } catch (error) {
-                  console.error(`Multi-perspective streaming error (${selectedModel}):`, error);
+                  console.error(`Multi-perspective streaming error (${selectedModel}):`, streamError ?? error);
                   enqueue({ model: selectedModel, content: getUserFriendlyErrorMessage(), done: true });
                 } finally {
                   finishModel();
@@ -234,10 +243,16 @@ export async function POST(request: NextRequest) {
 
       // Single model mode (default or when image is present)
       // Use Vercel AI SDK to stream the response via Groq Provider
+      // The AI SDK reports provider/network failures via `onError`, not by
+      // throwing through `textStream` - without capturing it here, a failed
+      // request (bad key, rate limit, etc.) silently ends the loop below
+      // with zero chunks and looks identical to a normal empty response.
+      let streamError: unknown = null;
       const result = await streamText({
         model: groq(targetModelId),
         instructions: systemPrompt,
         messages,
+        onError: ({ error }) => { streamError = error; },
       });
 
       // Convert to Server-Sent Events format with content filtering and token limiting
@@ -278,12 +293,14 @@ export async function POST(request: NextRequest) {
               );
             }
 
+            if (streamError) throw streamError;
+
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`)
             );
             controller.close();
           } catch (error: any) {
-            console.error('Streaming error:', error);
+            console.error('Streaming error:', streamError ?? error);
             // Only try to send error if controller is still writable
             try {
               controller.enqueue(
