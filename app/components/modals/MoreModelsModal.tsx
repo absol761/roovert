@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Sparkles, X, Zap } from 'lucide-react';
 import { type Model } from '../../lib/models';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 const CATEGORIES = ['Standard', 'Advanced', 'Premium', 'OpenRouter'];
 
@@ -21,6 +22,7 @@ export function MoreModelsModal({
   onSelectModel: (id: string) => void;
   onInitialize: () => void;
 }) {
+  useModalDismiss(isOpen, onClose);
   if (!isOpen) return null;
 
   const modelsByCategory = CATEGORIES.map(cat => ({
@@ -32,6 +34,9 @@ export function MoreModelsModal({
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="more-models-modal-title"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -39,11 +44,11 @@ export function MoreModelsModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <h2 className="serif-display text-2xl flex items-center gap-2.5">
+          <h2 id="more-models-modal-title" className="serif-display text-2xl flex items-center gap-2.5">
             <Sparkles className="w-6 h-6 text-[var(--accent)]" />
             All Models
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
+          <button onClick={onClose} aria-label="Close" className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
             <X className="w-5 h-5" />
           </button>
         </div>

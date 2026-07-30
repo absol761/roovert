@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { X, ChevronDown, Waves, Square, MapPin } from 'lucide-react';
 import type { VisualizerMode } from './R3FVisualizer';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 const PALETTES: [string, string][] = [
   ['#4a90e2', '#7b68ee'], ['#ff6b35', '#00d4ff'], ['#ff4757', '#5352ed'],
@@ -79,10 +80,14 @@ export function VisualizerConfigPanel({
   selectedPalette,
   onSelectedPaletteChange,
 }: VisualizerConfigPanelProps) {
+  useModalDismiss(isOpen, onClose);
   if (!isOpen) return null;
 
   return (
     <motion.div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="visualizer-config-title"
       initial={{ x: 400, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 400, opacity: 0 }}
@@ -91,9 +96,10 @@ export function VisualizerConfigPanel({
     >
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium text-[var(--foreground)]">Visualizer Config</h2>
+          <h2 id="visualizer-config-title" className="text-lg font-medium text-[var(--foreground)]">Visualizer Config</h2>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="p-1.5 hover:bg-[var(--surface)] rounded transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
           >
             <X className="w-5 h-5" />

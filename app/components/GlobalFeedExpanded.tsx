@@ -51,6 +51,7 @@ export function GlobalFeedExpanded({ onClose }: { onClose: () => void }) {
           </h2>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
           >
             <X className="w-4 h-4" />

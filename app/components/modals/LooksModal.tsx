@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Palette, X } from 'lucide-react';
 import { LOOKS, LOOK_CATEGORIES } from '../../lib/looks';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 interface LooksModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface LooksModalProps {
 }
 
 export function LooksModal({ isOpen, onClose, currentLook, setLook }: LooksModalProps) {
+  useModalDismiss(isOpen, onClose);
   if (!isOpen) return null;
 
   const looksByCategory = LOOK_CATEGORIES.map(cat => ({
@@ -23,6 +25,9 @@ export function LooksModal({ isOpen, onClose, currentLook, setLook }: LooksModal
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="looks-modal-title"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -30,11 +35,11 @@ export function LooksModal({ isOpen, onClose, currentLook, setLook }: LooksModal
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <h2 className="serif-display text-2xl flex items-center gap-2.5">
+          <h2 id="looks-modal-title" className="serif-display text-2xl flex items-center gap-2.5">
             <Palette className="w-6 h-6 text-[var(--accent)]" />
             Looks
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
+          <button onClick={onClose} aria-label="Close" className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
             <X className="w-5 h-5" />
           </button>
         </div>

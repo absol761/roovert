@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Settings, X, Monitor, Eye, EyeOff, Zap, Download } from 'lucide-react';
 import { type Model } from '../../lib/models';
 import { LAYOUTS } from '../../lib/looks';
+import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export function SettingsModal({
   setNeuralNoiseEnabled,
   availableModels = [],
 }: SettingsModalProps) {
+  useModalDismiss(isOpen, onClose);
   if (!isOpen) return null;
 
   const handleReset = () => {
@@ -56,6 +58,9 @@ export function SettingsModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/70 backdrop-blur-sm" onClick={onClose} />
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-modal-title"
         initial={{ opacity: 0, scale: 0.97, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 8 }}
@@ -63,7 +68,7 @@ export function SettingsModal({
         className="relative w-full max-w-2xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden max-h-[85vh] flex flex-col text-[var(--foreground)]"
       >
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <h2 className="serif-display text-xl flex items-center gap-2.5 text-[var(--foreground)]">
+          <h2 id="settings-modal-title" className="serif-display text-xl flex items-center gap-2.5 text-[var(--foreground)]">
             <Settings className="w-5 h-5 text-[var(--accent)]" />
             Settings
           </h2>
@@ -74,7 +79,7 @@ export function SettingsModal({
             >
               Reset Defaults
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
+            <button onClick={onClose} aria-label="Close" className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
               <X className="w-5 h-5" />
             </button>
           </div>
