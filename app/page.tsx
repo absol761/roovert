@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, MessageSquarePlus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -29,6 +29,13 @@ const VisualizerConfigPanel = dynamic(
 );
 
 type ChatContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+
+// Where the conversation (history + whether we're in chat mode) is persisted
+// so a refresh/crash/accidental tab close doesn't lose it.
+const CONVERSATION_STORAGE_KEY = 'roovert_conversation';
+// Cap on how many trailing turns get persisted, so a very long conversation
+// can't blow past localStorage's ~5-10MB quota.
+const MAX_PERSISTED_TURNS = 50;
 
 export default function Page() {
   const { isMobile } = useMobile();
@@ -158,6 +165,81 @@ export default function Page() {
       }, 100);
     }
   }, [history.length, response, isChatMode]);
+
+  // Whether we've finished attempting to restore a saved conversation from
+  // localStorage. Gates the persist effect below so it doesn't fire (with
+  // the initial empty state) before hydration runs and clobber a saved
+  // conversation on the very first render.
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Hydrate from localStorage on mount. Deliberately done in an effect
+  // (client-only, runs after the initial render) rather than in a useState
+  // lazy initializer - localStorage doesn't exist during SSR, and reading it
+  // synchronously during render would make the server-rendered HTML (always
+  // empty/landing state) mismatch what the client renders on hydration. The
+  // tradeoff is a one-frame flash from empty to restored, which is fine here.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CONVERSATION_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.history)) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage on mount; can't run during SSR/render, so an effect is the only option
+          setHistory(parsed.history);
+        }
+        if (parsed && typeof parsed.isChatMode === 'boolean') {
+          setIsChatMode(parsed.isChatMode);
+        }
+      }
+    } catch {
+      // Corrupt/unparseable saved data - ignore it and start fresh instead
+      // of crashing the app.
+    } finally {
+      setIsHydrated(true);
+    }
+  }, []);
+
+  // Persist history + isChatMode to localStorage whenever they change, so a
+  // refresh or crash doesn't lose the conversation.
+  useEffect(() => {
+    if (!isHydrated) return; // avoid overwriting saved data before we've restored it
+    try {
+      if (history.length === 0 && !isChatMode) {
+        localStorage.removeItem(CONVERSATION_STORAGE_KEY);
+        return;
+      }
+      // Only keep the last MAX_PERSISTED_TURNS turns, and drop each turn's
+      // (often large, base64-encoded) `image` field before persisting -
+      // images are usually the biggest payload and the least essential
+      // thing to restore, so stripping them keeps us well under
+      // localStorage's ~5-10MB quota even for long or image-heavy chats.
+      const trimmed = history
+        .slice(-MAX_PERSISTED_TURNS)
+        .map(({ query, response, model, perspectives }) => ({ query, response, model, perspectives }));
+      localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({ history: trimmed, isChatMode }));
+    } catch {
+      // Quota exceeded or storage unavailable (e.g. private browsing) -
+      // persistence is best-effort and must never crash the app.
+    }
+  }, [history, isChatMode, isHydrated]);
+
+  // Clears the current conversation and returns to the landing view. Used by
+  // the explicit "New Chat" control and by the nav actions that end the
+  // current session - both previously only flipped isChatMode back to false
+  // while leaving the old history in memory (and in localStorage) underneath,
+  // so it would silently reappear on the next message or reload.
+  const startNewChat = () => {
+    setHistory([]);
+    setResponse(null);
+    setQuery('');
+    setSelectedImage(null);
+    setIsChatMode(false);
+    try {
+      localStorage.removeItem(CONVERSATION_STORAGE_KEY);
+    } catch {
+      // ignore - nothing to clean up if storage is unavailable
+    }
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -884,8 +966,9 @@ export default function Page() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-5">
               <button
-                onClick={() => setIsChatMode(false)}
+                onClick={startNewChat}
                 className="serif-display text-xl text-[var(--foreground)] hover:text-[var(--accent)] transition-colors duration-[var(--duration-fast)]"
+                title="Roovert - New Chat"
               >
                 Roovert
               </button>
@@ -1267,7 +1350,7 @@ while (true) {
                         <h3 className="font-light">{selectedModel.name}</h3>
                         <p>{selectedModel.description}</p>
                         <button
-                          onClick={() => setIsChatMode(false)}
+                          onClick={startNewChat}
                           className="mt-6 text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
                         >
                           <X className="w-3 h-3" /> End Session
@@ -1791,6 +1874,18 @@ while (true) {
                     title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
                   >
                     {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                  </button>
+
+                  {/* New Chat - clears the current conversation (and its
+                      persisted localStorage copy) and returns to the landing
+                      view. */}
+                  <button
+                    type="button"
+                    onClick={startNewChat}
+                    className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                    title="New Chat"
+                  >
+                    <MessageSquarePlus className="w-4 h-4" />
                   </button>
 
                   <label htmlFor="query-input-bottom" className="sr-only">
