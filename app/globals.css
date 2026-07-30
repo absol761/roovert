@@ -145,6 +145,13 @@
   --font-serif: var(--font-serif);
 }
 
+html {
+  /* Prevents the whole page from doing a blocking synchronous layout pass
+     while fonts/JS settle in - matches the instant-feeling first paint
+     claude.com has instead of a visible reflow. */
+  height: -webkit-fill-available;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -153,9 +160,18 @@ body {
   transition: background-color 0.5s ease, color 0.5s ease;
   position: relative;
   min-height: 100vh;
+  min-height: -webkit-fill-available;
   line-height: var(--leading-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* iOS: kill the gray tap-flash and the double-tap-to-zoom delay so
+     buttons feel like native controls instead of a mobile website. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  /* Respect the notch/home-indicator instead of letting content run
+     under it or leaving a dead unstyled bar beneath it. */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* Enhanced Focus States for Accessibility */
@@ -550,11 +566,19 @@ body {
   overscroll-behavior: contain;
 }
 
-/* Enhanced Button Interactions */
+/* Enhanced Button Interactions - specific properties only (not `all`) so
+   the browser can composite these on the GPU instead of re-checking every
+   animatable CSS property on every hover/press across the whole page. */
 button {
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: transform var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
   cursor: pointer;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:active {
@@ -1873,7 +1897,12 @@ textarea:focus {
 
 /* Smooth button interactions */
 button {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }

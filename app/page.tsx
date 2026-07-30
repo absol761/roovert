@@ -9,6 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useMobile } from './hooks/useMobile';
+import { useMicLevel } from './hooks/useMicLevel';
 import { LooksModal } from './components/modals/LooksModal';
 import { MoreModelsModal } from './components/modals/MoreModelsModal';
 import { SettingsModal } from './components/modals/SettingsModal';
@@ -91,6 +92,10 @@ export default function Page() {
   // reachable via the nav's Waves button, genuinely reacts to real audio via
   // the mic, and stays off by default since enabling it requests mic access.
   const [visualizerEnabled, setVisualizerEnabled] = useState(false);
+  // Single shared mic stream for both the nav's pulsing indicator and the
+  // 3D visualizer's particle motion - only requested while the visualizer
+  // is actually on.
+  const { level: micLevel, levelRef: micLevelRef } = useMicLevel(visualizerEnabled);
   const [visualizerConfigOpen, setVisualizerConfigOpen] = useState(false);
   const [visualizerMode, setVisualizerMode] = useState<'grid' | 'plane' | 'wave_form' | 'manhattan'>('wave_form');
   const [visualizerSpeed, setVisualizerSpeed] = useState(0.3);
@@ -666,6 +671,7 @@ export default function Page() {
           waveFreq={waveFreq}
           waveFormDouble={waveFormDouble}
           autoOrbit={autoOrbit}
+          audioLevelRef={micLevelRef}
         />
       )}
 
@@ -717,14 +723,19 @@ export default function Page() {
         }}
       />
 
-      {/* Animated Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[var(--accent)]/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[var(--accent)]/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
+      {/* Animated Background - opacity-only + GPU-composited so the
+          continuous pulse doesn't repaint every frame; smaller/lighter on
+          mobile where the blur radius is otherwise a real GPU cost. */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none [contain:strict]">
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 md:w-96 md:h-96 bg-[var(--accent)]/10 rounded-full blur-2xl md:blur-3xl animate-pulse [will-change:opacity] [transform:translateZ(0)]"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 md:w-96 md:h-96 bg-[var(--accent)]/5 rounded-full blur-2xl md:blur-3xl animate-pulse delay-1000 [will-change:opacity] [transform:translateZ(0)]"></div>
       </div>
 
       {/* Navigation */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-all duration-500 ${focusMode ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}>
+      <nav
+        className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-opacity duration-500 ${focusMode ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
         <div className="max-w-7xl mx-auto px-6 py-3.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-5">
@@ -757,13 +768,43 @@ export default function Page() {
               </button>
               <button
                 onClick={() => setVisualizerConfigOpen(true)}
-                className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all ${visualizerEnabled
+                aria-pressed={visualizerEnabled}
+                className={`relative overflow-visible flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all group ${visualizerEnabled
                   ? 'bg-[var(--accent)]/15 text-[var(--accent)]'
                   : 'hover:bg-[var(--surface-strong)] text-[var(--muted)] hover:text-[var(--foreground)]'
                   }`}
-                title="Audio-Reactive Visualizer (uses microphone)"
+                title={visualizerEnabled ? 'Listening — audio-reactive visualizer on' : 'Audio-Reactive Visualizer (uses microphone)'}
               >
-                <Waves className="w-4 h-4" />
+                {visualizerEnabled && (
+                  <>
+                    {/* Outer ring: eases outward with real mic level via spring
+                        physics, like a voice-mode "listening" indicator rather
+                        than a generic looping CSS animation. */}
+                    <motion.span
+                      aria-hidden="true"
+                      className="absolute inset-0 rounded-full border border-[var(--accent)]/50"
+                      animate={{ scale: 1 + micLevel * 0.85, opacity: 0.55 - micLevel * 0.25 }}
+                      transition={{ type: 'spring', stiffness: 140, damping: 15, mass: 0.5 }}
+                    />
+                    {/* Inner glow: fills in with level, giving the button real
+                        depth instead of a flat active-state color swap. */}
+                    <motion.span
+                      aria-hidden="true"
+                      className="absolute inset-1 rounded-full bg-[var(--accent)]/25 blur-[2px]"
+                      animate={{ scale: 1 + micLevel * 0.5, opacity: 0.4 + micLevel * 0.6 }}
+                      transition={{ type: 'spring', stiffness: 180, damping: 14, mass: 0.4 }}
+                    />
+                    {/* Slow idle breathing ring so the button still reads as
+                        "alive" during silence, not just when there's sound. */}
+                    <motion.span
+                      aria-hidden="true"
+                      className="absolute inset-0 rounded-full border border-[var(--accent)]/25"
+                      animate={{ scale: [1, 1.18, 1], opacity: [0.4, 0, 0.4] }}
+                      transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut' }}
+                    />
+                  </>
+                )}
+                <Waves className="w-4 h-4 relative z-10 group-hover:scale-110 transition-transform" />
               </button>
             </div>
 
@@ -1486,7 +1527,10 @@ while (true) {
 
       {/* Input Deck - Fixed at bottom for chat mode */}
       {isChatMode && (
-        <div className={`fixed bottom-0 left-0 right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] ${isMobile ? 'p-3' : 'p-4'}`}>
+        <div
+          className={`fixed bottom-0 left-0 right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] ${isMobile ? 'p-3' : 'p-4'}`}
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), var(--space-3, 0.75rem))' }}
+        >
           <div className={`max-w-7xl mx-auto ${isMobile ? 'px-2' : ''}`}>
             <AnimatePresence>
               {selectedImage && (

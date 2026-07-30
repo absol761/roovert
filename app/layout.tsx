@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
@@ -22,6 +22,17 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Roovert: The Truth, Unfiltered",
   description: "Rigorously Pursuing Truth. An AI Engine of Truth.",
+};
+
+// viewport-fit=cover + safe-area-inset-* in globals.css lets the composer
+// and nav sit flush with an iPhone's notch/home-indicator instead of
+// leaving dead letterboxed bars. themeColor matches the app's default
+// (Ember) background so Safari's chrome doesn't flash white on load.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#1c1917",
 };
 
 export default function RootLayout({

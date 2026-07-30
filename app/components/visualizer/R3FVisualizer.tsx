@@ -23,6 +23,10 @@ interface VisualizerProps {
   waveFreq?: number;
   waveFormDouble?: boolean;
   autoOrbit?: boolean;
+  // Sourced from the shared useMicLevel() hook in page.tsx so the nav's mic
+  // indicator and this visualizer react to the same mic stream instead of
+  // each opening (and prompting for) their own.
+  audioLevelRef?: React.RefObject<number>;
 }
 
 function hexToRgb(hex: string) {
@@ -32,60 +36,6 @@ function hexToRgb(hex: string) {
     g: parseInt(result[2], 16),
     b: parseInt(result[3], 16),
   } : { r: 255, g: 255, b: 255 };
-}
-
-// Real audio reactivity via the mic (browsers can't passively read "what's
-// playing on your speakers" - mic input picking up ambient sound/music is
-// the standard web-visualizer approach). Returns a ref that eases toward
-// 0..1 and stays at 0 if permission is denied/unavailable, in which case the
-// visualizer just runs its calm idle motion.
-function useMicAudioLevel() {
-  const audioLevelRef = useRef(0);
-
-  useEffect(() => {
-    let audioContext: AudioContext | null = null;
-    let stream: MediaStream | null = null;
-    let cancelled = false;
-
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ audio: true }).then((mediaStream) => {
-        if (cancelled) {
-          mediaStream.getTracks().forEach(t => t.stop());
-          return;
-        }
-        stream = mediaStream;
-        audioContext = new AudioContext();
-        const source = audioContext.createMediaStreamSource(mediaStream);
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 128;
-        analyser.smoothingTimeConstant = 0.8;
-        source.connect(analyser);
-
-        const data = new Uint8Array(analyser.frequencyBinCount);
-        const sample = () => {
-          if (cancelled) return;
-          analyser.getByteFrequencyData(data);
-          const avg = data.reduce((sum, v) => sum + v, 0) / data.length / 255;
-          // Exponential smoothing so it reacts to music without jittering
-          // on every single frame.
-          audioLevelRef.current += (avg - audioLevelRef.current) * 0.25;
-          requestAnimationFrame(sample);
-        };
-        sample();
-      }).catch(() => {
-        // Mic permission denied or unavailable - fall back to idle motion
-        // only, no crash, no console noise.
-      });
-    }
-
-    return () => {
-      cancelled = true;
-      stream?.getTracks().forEach(t => t.stop());
-      audioContext?.close().catch(() => { });
-    };
-  }, []);
-
-  return audioLevelRef;
 }
 
 interface ParticleFieldProps {
@@ -331,11 +281,10 @@ function ManhattanCity() {
 
 function Scene({
   mode, speed, color1, color2, density, maxAmplitude, waveFreq,
-  waveFormDouble, scaleY, invertY, autoOrbit,
-}: Required<VisualizerProps>) {
+  waveFormDouble, scaleY, invertY, autoOrbit, audioLevelRef,
+}: Required<Omit<VisualizerProps, 'audioLevelRef'>> & { audioLevelRef: React.RefObject<number> }) {
   const { camera } = useThree();
   const timeRef = useRef(0);
-  const audioLevelRef = useMicAudioLevel();
 
   useEffect(() => {
     if (!camera) return;
@@ -420,7 +369,12 @@ export default function R3FVisualizer({
   waveFreq = 2.0,
   waveFormDouble = false,
   autoOrbit = false,
+  audioLevelRef,
 }: VisualizerProps) {
+  // Falls back to a local zeroed ref if the caller doesn't pass one, so the
+  // component still renders (with calm idle motion, no audio reactivity)
+  // rather than crashing.
+  const fallbackRef = useRef(0);
   return (
     <div className="fixed inset-0 z-0 pointer-events-none opacity-60">
       <Canvas
@@ -432,6 +386,7 @@ export default function R3FVisualizer({
           mode={mode} speed={speed} color1={color1} color2={color2} density={density}
           invertY={invertY} scaleY={scaleY} maxAmplitude={maxAmplitude} waveFreq={waveFreq}
           waveFormDouble={waveFormDouble} autoOrbit={autoOrbit}
+          audioLevelRef={audioLevelRef ?? fallbackRef}
         />
       </Canvas>
     </div>
