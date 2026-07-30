@@ -161,8 +161,10 @@ function resolveIdentifier(request: { headers: { get: (key: string) => string | 
 }
 
 /**
- * Check rate limit for a request without consuming from the quota.
- * Returns result with allowed status and remaining requests.
+ * Check rate limit for a request WITHOUT consuming from the quota. Only
+ * safe for read-only status checks (e.g. "should we hide OpenRouter models
+ * in the UI") that don't gate an action - see checkAndConsumeRateLimit for
+ * anything that actually needs to enforce the limit.
  */
 export async function checkRateLimit(
   request: { headers: { get: (key: string) => string | null } },
@@ -185,18 +187,46 @@ export async function checkRateLimit(
 }
 
 /**
- * Increment rate limit counter for a request (consumes one unit of quota).
+ * Atomically increment-then-check a request's quota in one step. This is
+ * the only correct way to enforce a limit: checking and incrementing as
+ * two separate calls (the previous applyRateLimit + incrementRateLimit
+ * pattern every route used) has a TOCTOU race - N concurrent requests from
+ * the same IP can all pass the check before any of them has incremented,
+ * so a burst blows straight through the limit. Redis INCR (and the
+ * in-memory fallback's synchronous update) make this atomic per key.
  */
-export async function incrementRateLimit(
+async function checkAndConsumeRateLimit(
   request: { headers: { get: (key: string) => string | null } },
-  endpointType: keyof typeof DEFAULT_LIMITS = 'general',
+  endpointType: keyof typeof DEFAULT_LIMITS,
   customConfig?: Partial<RateLimitConfig>
-): Promise<void> {
+): Promise<RateLimitResult> {
   const config = { ...DEFAULT_LIMITS[endpointType], ...customConfig };
   const { identifier, identifierType } = resolveIdentifier(request);
   const key = storeKey(endpointType, config, identifierType, identifier);
 
-  await incrementCount(key, config.windowMs);
+  const { count, resetAt } = await incrementCount(key, config.windowMs);
+  const remaining = Math.max(0, config.maxRequests - count);
+
+  return {
+    allowed: count <= config.maxRequests,
+    remaining,
+    resetAt,
+    limit: config.maxRequests,
+  };
+}
+
+/**
+ * @deprecated No longer needed - applyRateLimit now atomically consumes
+ * the quota itself. Kept as a no-op so existing call sites (every API
+ * route calls this after applyRateLimit) don't need to change and don't
+ * silently double-count if this file is touched again later.
+ */
+export async function incrementRateLimit(
+  _request: { headers: { get: (key: string) => string | null } },
+  _endpointType: keyof typeof DEFAULT_LIMITS = 'general',
+  _customConfig?: Partial<RateLimitConfig>
+): Promise<void> {
+  // Intentionally a no-op - see checkAndConsumeRateLimit.
 }
 
 /**
@@ -237,7 +267,7 @@ export async function applyRateLimit(
   customConfig?: Partial<RateLimitConfig>
 ): Promise<Response | null> {
   const config = { ...DEFAULT_LIMITS[endpointType], ...customConfig };
-  const result = await checkRateLimit(request, endpointType, customConfig);
+  const result = await checkAndConsumeRateLimit(request, endpointType, customConfig);
 
   if (!result.allowed) {
     return createRateLimitResponse(result, config);
