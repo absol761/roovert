@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { checkRateLimit, incrementRateLimit, createRateLimitResponse } from './app/lib/security/rateLimit';
+import { applyRateLimit } from './app/lib/security/rateLimit';
 
 // Cheap first-pass rate limit at the edge, shared (via Redis) across all
 // serverless instances. Individual routes still apply their own
@@ -23,11 +23,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const result = await checkRateLimit(request, 'general', GENERAL_CONFIG);
-  if (!result.allowed) {
-    return createRateLimitResponse(result, { ...GENERAL_CONFIG, message: 'Rate limit exceeded. Please try again later.' });
+  // applyRateLimit atomically checks-and-consumes in one step (see
+  // rateLimit.ts) - a separate checkRateLimit-then-incrementRateLimit here
+  // would silently never enforce anything, since incrementRateLimit is now
+  // a no-op (the old two-step pattern was a TOCTOU race under concurrent
+  // requests; applyRateLimit is the only correct way to spend the quota).
+  const rateLimitResponse = await applyRateLimit(request, 'general', GENERAL_CONFIG);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
-  await incrementRateLimit(request, 'general', GENERAL_CONFIG);
 
   return NextResponse.next();
 }
