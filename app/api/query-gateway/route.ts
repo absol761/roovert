@@ -109,9 +109,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Security: Model selection - use validated model from allowlist only
+    // Security: Model selection - use validated model from allowlist only.
+    // 'multi-perspective' is a routing sentinel, not a real Groq model id -
+    // it's only meaningful via the parallel-mode branch below. If that
+    // branch isn't taken (e.g. an image is attached, which forces the
+    // single-model path), fall through to the default rather than calling
+    // groq('multi-perspective'), which isn't a valid model.
     let targetModelId = 'llama-3.3-70b-versatile';
-    if (model && MODEL_MAP[model]) {
+    if (model && model !== 'multi-perspective' && MODEL_MAP[model]) {
       targetModelId = MODEL_MAP[model];
     }
 

@@ -356,6 +356,17 @@ export default function Page() {
     });
   };
 
+  // iOS Safari (the dominant mobile browser on the one platform where this
+  // app has no alternative rendering engine) has no Fullscreen API support -
+  // document.fullscreenEnabled is false there. Without this check the button
+  // below rendered unconditionally and just silently did nothing when
+  // tapped, unlike every other unsupported-feature control in this file
+  // (dictation, image-gen) which hide themselves instead of looking broken.
+  const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
+  useEffect(() => {
+    setIsFullscreenSupported(typeof document !== 'undefined' && !!document.fullscreenEnabled);
+  }, []);
+
   const toggleFullscreen = async () => {
     try {
       if (!document.fullscreenElement) {
@@ -687,7 +698,7 @@ export default function Page() {
       };
       const perspectiveDone = new Set<string>();
 
-      const flagPossibleModelError = (content: string) => {
+      const flagPossibleModelError = (content: string, modelId: string = selectedModelId) => {
         if (
           content.includes('Provider Error') ||
           content.includes('rate limit') ||
@@ -697,11 +708,11 @@ export default function Page() {
           content.includes('Provider returned error')
         ) {
           // Mark model as unavailable temporarily (for 5 minutes)
-          setUnavailableModels(prev => new Set(prev).add(selectedModelId));
+          setUnavailableModels(prev => new Set(prev).add(modelId));
           setTimeout(() => {
             setUnavailableModels(prev => {
               const next = new Set(prev);
-              next.delete(selectedModelId);
+              next.delete(modelId);
               return next;
             });
           }, 5 * 60 * 1000); // 5 minutes
@@ -729,7 +740,7 @@ export default function Page() {
               if (data.model) {
                 if (typeof data.content === 'string' && data.content) {
                   perspectiveText[data.model] = (perspectiveText[data.model] || '') + data.content;
-                  flagPossibleModelError(data.content);
+                  flagPossibleModelError(data.content, data.model);
                 }
                 if (data.done) {
                   perspectiveDone.add(data.model);
@@ -1051,7 +1062,7 @@ export default function Page() {
 
       {/* Navigation */}
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-opacity duration-500 ${focusMode ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}
+        className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-opacity duration-500 ${focusMode && !isMobile ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="max-w-7xl mx-auto px-6 py-3.5">
@@ -1181,14 +1192,20 @@ export default function Page() {
               </button>
             </div>
 
+            {/* Global Feed must stay reachable below the md breakpoint too -
+                it previously lived inside the `hidden md:flex` group below
+                with Mission/Careers/LiveStats, which left mobile users with
+                no way to ever open it since this button was its only
+                trigger. */}
+            <button
+              onClick={() => setIsGlobalFeedOpen(true)}
+              className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-[var(--surface)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+              title="Global Feed"
+            >
+              <Globe className="w-4 h-4" />
+            </button>
+
             <div className="hidden md:flex items-center gap-7">
-              <button
-                onClick={() => setIsGlobalFeedOpen(true)}
-                className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-[var(--surface)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                title="Global Feed"
-              >
-                <Globe className="w-4 h-4" />
-              </button>
               {!isChatMode && (
                 <>
                   <a
@@ -1561,7 +1578,12 @@ while (true) {
                     </div>
                   )}
 
-                  <div className={`overflow-y-auto custom-scrollbar ${isMobile ? 'pr-2' : 'pr-4'}`} style={{ maxHeight: 'calc(100vh - 300px)', minHeight: '200px' }}>
+                  {/* dvh (not vh) so this doesn't mis-size as iOS/Android
+                      Safari and Chrome show/hide their address bar - 100vh
+                      is pinned to the largest possible viewport and doesn't
+                      shrink with the toolbar, so history could extend
+                      underneath the fixed composer bar at the bottom. */}
+                  <div className={`overflow-y-auto custom-scrollbar ${isMobile ? 'pr-2' : 'pr-4'}`} style={{ maxHeight: 'calc(100dvh - 300px)', minHeight: '200px' }}>
                     {/* Conversation History */}
                     <div className="space-y-6 mb-6">
                       {history
@@ -1643,7 +1665,7 @@ while (true) {
                                             setAbortController(controller);
 
                                             try {
-                                              const conversationHistory = history.slice(0, idx).map(h => {
+                                              const conversationHistory = history.slice(0, originalIdx).map(h => {
                                                 const content: ChatContent = h.image
                                                   ? [
                                                     { type: 'text', text: h.query },
@@ -1693,7 +1715,7 @@ while (true) {
                                                       setAbortController(null);
                                                       setHistory(prev => {
                                                         const newHistory = [...prev];
-                                                        newHistory[idx] = { ...newHistory[idx], response: fullResponse };
+                                                        newHistory[originalIdx] = { ...newHistory[originalIdx], response: fullResponse };
                                                         return newHistory;
                                                       });
                                                       setResponse(null);
@@ -2113,15 +2135,19 @@ while (true) {
                     </button>
                   )}
 
-                  {/* Fullscreen Toggle */}
-                  <button
-                    type="button"
-                    onClick={toggleFullscreen}
-                    className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                    title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
-                  >
-                    {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-                  </button>
+                  {/* Fullscreen Toggle - hidden (not disabled) when the
+                      Fullscreen API isn't available, e.g. iOS Safari, same
+                      convention as the dictation/image-gen controls above. */}
+                  {isFullscreenSupported && (
+                    <button
+                      type="button"
+                      onClick={toggleFullscreen}
+                      className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                      title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
+                    >
+                      {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                    </button>
+                  )}
 
                   {/* New Chat - clears the current conversation (and its
                       persisted localStorage copy) and returns to the landing
