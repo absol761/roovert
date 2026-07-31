@@ -14,6 +14,7 @@ export const MAX_LENGTHS = {
   VISITOR_ID: 200,
   FINGERPRINT: 500,
   IMAGE_BASE64: 10 * 1024 * 1024, // 10MB for base64 images
+  IMAGE_PROMPT: 1000, // Text-to-image prompts are short by nature
 };
 
 /**

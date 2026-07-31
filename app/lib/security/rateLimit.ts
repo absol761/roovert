@@ -76,6 +76,15 @@ const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
     maxRequests: 30, // 30 requests per hour
     message: 'Hugging Face rate limit exceeded. Please wait before making another request.',
   },
+  // Image generation is far more expensive per-request (a single
+  // diffusion run takes ~15s of GPU time on the provider side) than a
+  // chat completion, so it gets its own, much stricter bucket rather
+  // than sharing 'huggingface' with the chat models.
+  'huggingface-image': {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: 10, // 10 images per hour
+    message: 'Image generation rate limit exceeded. Please wait before generating another image.',
+  },
 };
 
 /**

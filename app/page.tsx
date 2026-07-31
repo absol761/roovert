@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -56,12 +56,17 @@ export default function Page() {
   const dictationFinalRef = useRef('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
-  const [history, setHistory] = useState<Array<{ query: string; response: string; model: string; image?: string; perspectives?: Array<{ model: string; content: string }> }>>([]);
+  const [history, setHistory] = useState<Array<{ query: string; response: string; model: string; image?: string; perspectives?: Array<{ model: string; content: string }>; generatedImage?: string }>>([]);
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [isChatMode, setIsChatMode] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  // Image generation mode - when on, the composer sends the prompt to
+  // /api/huggingface-image instead of a chat model, and the result is a
+  // generated image appended to history instead of streamed text.
+  const [isImageGenMode, setIsImageGenMode] = useState(false);
+  const [hideImageGen, setHideImageGen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [hideOpenRouterModels, setHideOpenRouterModels] = useState(false);
@@ -88,6 +93,7 @@ export default function Page() {
     const checkAll = () => {
       checkRateLimit('/api/openrouter', setHideOpenRouterModels);
       checkRateLimit('/api/huggingface', setHideHuggingFaceModels);
+      checkRateLimit('/api/huggingface-image', setHideImageGen);
     };
 
     checkAll();
@@ -547,6 +553,50 @@ export default function Page() {
     // Create abort controller for streaming
     const controller = new AbortController();
     setAbortController(controller);
+
+    // Image generation - a fully separate, non-streaming request/response
+    // shape (JSON in, base64 image out) rather than the SSE chat protocol
+    // every other model here uses, so it's handled as its own short-circuit
+    // path instead of being squeezed into the streaming logic below.
+    if (isImageGenMode) {
+      try {
+        const res = await fetch('/api/huggingface-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: trimmedQuery }),
+          signal: controller.signal,
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || typeof data.image !== 'string') {
+          setStatusNote(typeof data.error === 'string' ? data.error : 'Failed to generate image. Please try again.');
+          setIsProcessing(false);
+          setAbortController(null);
+          return;
+        }
+
+        setHistory(prev => [
+          ...prev,
+          { query: trimmedQuery, response: '', model: 'hf-image-gen', generatedImage: data.image },
+        ]);
+        setQuery('');
+        setIsProcessing(false);
+        setAbortController(null);
+        setTimeout(() => {
+          responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      } catch (caughtError) {
+        const error = caughtError instanceof Error ? caughtError : new Error(String(caughtError));
+        if (error.name !== 'AbortError') {
+          console.error('Image generation error:', error);
+          setStatusNote('Failed to generate image. Please try again.');
+        }
+        setIsProcessing(false);
+        setAbortController(null);
+      }
+      return;
+    }
 
     try {
       // Build conversation history in the format expected by the API
@@ -1568,7 +1618,9 @@ while (true) {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-2">
                                       <div className="label text-[var(--accent)]">
-                                        {filteredAvailableModels.find(m => m.id === entry.model)?.name || availableModels.find(m => m.id === entry.model)?.name || 'AI'}
+                                        {entry.generatedImage
+                                          ? 'Image Generation (HF)'
+                                          : filteredAvailableModels.find(m => m.id === entry.model)?.name || availableModels.find(m => m.id === entry.model)?.name || 'AI'}
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <button
@@ -1664,7 +1716,16 @@ while (true) {
                                         </button>
                                       </div>
                                     </div>
-                                    {entry.perspectives && entry.perspectives.length > 0 ? (
+                                    {entry.generatedImage ? (
+                                      <div className="rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)]">
+                                        {/* eslint-disable-next-line @next/next/no-img-element -- server-fetched base64 data URL, not a next/image-optimizable asset */}
+                                        <img
+                                          src={entry.generatedImage}
+                                          alt={entry.query}
+                                          className="max-w-full max-h-[512px] object-contain"
+                                        />
+                                      </div>
+                                    ) : entry.perspectives && entry.perspectives.length > 0 ? (
                                       <div className="grid md:grid-cols-2 gap-4">
                                         {entry.perspectives.map((p) => (
                                           <div
@@ -2025,12 +2086,32 @@ while (true) {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={isImageUploadDisabled}
+                    disabled={isImageUploadDisabled || isImageGenMode}
                     className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                    title={isImageUploadDisabled ? `Image upload disabled: ${imageUploadDisabledReason}` : 'Attach image'}
+                    title={isImageGenMode ? 'Switch off image generation to attach an image' : isImageUploadDisabled ? `Image upload disabled: ${imageUploadDisabledReason}` : 'Attach image'}
                   >
                     <Paperclip className="w-4 h-4" />
                   </button>
+
+                  {/* Generate Image - toggles the composer into text-to-image
+                      mode (Stable Diffusion 3 Medium via Hugging Face's
+                      Inference Providers), a separate capability from the
+                      chat models above rather than one more model-picker
+                      entry, since it produces an image rather than text. */}
+                  {!hideImageGen && (
+                    <button
+                      type="button"
+                      onClick={() => setIsImageGenMode(prev => !prev)}
+                      disabled={!!selectedImage}
+                      className={`p-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isImageGenMode
+                        ? 'text-[var(--accent)] bg-[var(--accent)]/10'
+                        : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-strong)]'
+                        }`}
+                      title={selectedImage ? 'Remove the attached image to generate one instead' : isImageGenMode ? 'Switch back to chat' : 'Generate an image from a text prompt'}
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                  )}
 
                   {/* Fullscreen Toggle */}
                   <button
@@ -2055,7 +2136,7 @@ while (true) {
                   </button>
 
                   <label htmlFor="query-input-bottom" className="sr-only">
-                    Ask {selectedModel.name} anything
+                    {isImageGenMode ? 'Describe an image to generate' : `Ask ${selectedModel.name} anything`}
                   </label>
                   <input
                     ref={inputRef}
@@ -2064,7 +2145,7 @@ while (true) {
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder={`Ask ${selectedModel.name} anything... `}
+                    placeholder={isImageGenMode ? 'Describe an image to generate... ' : `Ask ${selectedModel.name} anything... `}
                     className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
                     disabled={isProcessing}
                     autoComplete="off"
