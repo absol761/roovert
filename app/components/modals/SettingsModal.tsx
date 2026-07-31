@@ -24,6 +24,8 @@ interface SettingsModalProps {
   onExportChat: () => void;
   neuralNoiseEnabled: boolean;
   setNeuralNoiseEnabled: (value: boolean) => void;
+  showVisualizerButton: boolean;
+  setShowVisualizerButton: (value: boolean) => void;
   availableModels: Model[];
 }
 
@@ -39,6 +41,8 @@ export function SettingsModal({
   onExportChat,
   neuralNoiseEnabled,
   setNeuralNoiseEnabled,
+  showVisualizerButton,
+  setShowVisualizerButton,
   availableModels = [],
 }: SettingsModalProps) {
   useModalDismiss(isOpen, onClose);
@@ -52,6 +56,7 @@ export function SettingsModal({
     setSystemPrompt('');
     setModelId('ooverta');
     setNeuralNoiseEnabled(false);
+    setShowVisualizerButton(false);
   };
 
   return (
@@ -185,6 +190,24 @@ export function SettingsModal({
                     }`}
                 >
                   <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${neuralNoiseEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    Audio-Reactive Visualizer
+                    {showVisualizerButton && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20">ACTIVE</span>}
+                  </div>
+                  <div className="text-xs text-[var(--muted)]">Show the visualizer toggle in the navigation bar</div>
+                </div>
+                <button
+                  onClick={() => setShowVisualizerButton(!showVisualizerButton)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${showVisualizerButton ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
+                    }`}
+                >
+                  <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${showVisualizerButton ? 'translate-x-5' : 'translate-x-0'
                     }`} />
                 </button>
               </div>

@@ -7,7 +7,8 @@
 import { useRef, useState, useEffect } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, ChromaticAberration, Vignette } from '@react-three/postprocessing';
+import { BlendFunction } from 'postprocessing';
 import * as THREE from 'three';
 import { VoiceOrb } from './VoiceOrb';
 
@@ -414,7 +415,14 @@ function Scene({
             // whole point (the rim-lit fresnel glow needs it to actually
             // read as "glowing" rather than flat-shaded).
             <EffectComposer>
-              <Bloom luminanceThreshold={0.2} intensity={1.1} mipmapBlur />
+              <Bloom luminanceThreshold={0.2} intensity={1.3} mipmapBlur />
+              {/* Subtle RGB channel offset toward the frame edges - a cheap
+                  "lens" cue that makes the render feel shot through glass
+                  rather than a flat, un-post-processed canvas. */}
+              <ChromaticAberration offset={new THREE.Vector2(0.0012, 0.0012)} radialModulation modulationOffset={0.4} />
+              {/* Darkens the corners so the glowing orb reads as the clear
+                  focal point instead of competing with the flat background. */}
+              <Vignette eskil={false} offset={0.25} darkness={0.9} blendFunction={BlendFunction.NORMAL} />
             </EffectComposer>
           )}
         </>

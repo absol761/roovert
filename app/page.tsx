@@ -131,6 +131,12 @@ export default function Page() {
   // reachable via the nav's Waves button, genuinely reacts to real audio via
   // the mic, and stays off by default since enabling it requests mic access.
   const [visualizerEnabled, setVisualizerEnabled] = useState(false);
+  // Gates whether the nav's Waves button (the only entry point to the
+  // visualizer/config panel) renders at all. Off by default so the feature
+  // is fully hidden from the landing page until explicitly turned on in
+  // Settings; turning it back off also force-disables the visualizer itself
+  // so it can't keep running with its only control gone.
+  const [showVisualizerButton, setShowVisualizerButton] = useState(false);
   // Single shared mic stream for both the nav's pulsing indicator and the
   // 3D visualizer's particle motion - only requested while the visualizer
   // is actually on.
@@ -1085,6 +1091,7 @@ export default function Page() {
               >
                 <Paintbrush className="w-4 h-4" />
               </button>
+              {showVisualizerButton && (
               <button
                 onClick={() => {
                   // Single click both toggles the visualizer directly (this
@@ -1179,6 +1186,7 @@ export default function Page() {
                   <Waves className="w-4 h-4 relative z-10 group-hover:scale-110 transition-transform" />
                 )}
               </button>
+              )}
             </div>
 
             <div className="hidden md:flex items-center gap-7">
@@ -1232,6 +1240,16 @@ export default function Page() {
             onExportChat={handleExportChat}
             neuralNoiseEnabled={neuralNoiseEnabled}
             setNeuralNoiseEnabled={setNeuralNoiseEnabled}
+            showVisualizerButton={showVisualizerButton}
+            setShowVisualizerButton={(value) => {
+              setShowVisualizerButton(value);
+              if (!value) {
+                // The nav button is the visualizer's only on/off control -
+                // hiding it while the visualizer is still running would leave
+                // it stuck on with no way to turn it off.
+                setVisualizerEnabled(false);
+              }
+            }}
             availableModels={availableModels}
           />
         )}
