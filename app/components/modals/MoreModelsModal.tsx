@@ -5,7 +5,7 @@ import { Sparkles, X, Zap } from 'lucide-react';
 import { type Model } from '../../lib/models';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 
-const CATEGORIES = ['Standard', 'Advanced', 'Premium', 'OpenRouter'];
+const CATEGORIES = ['Standard', 'Advanced', 'Premium', 'OpenRouter', 'Hugging Face'];
 
 export function MoreModelsModal({
   isOpen,

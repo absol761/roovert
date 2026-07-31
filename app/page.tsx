@@ -17,7 +17,7 @@ import { SettingsModal } from './components/modals/SettingsModal';
 import { GlobalFeedExpanded } from './components/GlobalFeedExpanded';
 import { LiveStats } from './components/nav/LiveStats';
 import { NavClock } from './components/nav/NavClock';
-import { MODELS, OPENROUTER_MODELS } from './lib/models';
+import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from './lib/models';
 import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
 import type { VisualizerMode } from './components/visualizer/R3FVisualizer';
 // Plain 2D canvas, not three.js - cheap enough to not need the dynamic-import
@@ -64,31 +64,43 @@ export default function Page() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [hideOpenRouterModels, setHideOpenRouterModels] = useState(false);
+  const [hideHuggingFaceModels, setHideHuggingFaceModels] = useState(false);
 
-  // Check OpenRouter rate limit on mount and periodically
+  // Check OpenRouter/Hugging Face rate limits on mount and periodically -
+  // same pattern for both: each provider's GET endpoint reports whether this
+  // client has exhausted that provider's quota, so exhausted-provider models
+  // hide from the picker instead of failing on click.
   useEffect(() => {
-    const checkRateLimit = async () => {
+    const checkRateLimit = async (endpoint: string, setHidden: (hidden: boolean) => void) => {
       try {
-        const res = await fetch('/api/openrouter');
+        const res = await fetch(endpoint);
         if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
           return; // Skip if not JSON response
         }
         const data = await res.json();
-        setHideOpenRouterModels(data.shouldHide || false);
+        setHidden(data.shouldHide || false);
       } catch {
         // Silently handle errors - non-critical
       }
     };
 
-    checkRateLimit();
-    const interval = setInterval(checkRateLimit, 60000); // Check every minute
+    const checkAll = () => {
+      checkRateLimit('/api/openrouter', setHideOpenRouterModels);
+      checkRateLimit('/api/huggingface', setHideHuggingFaceModels);
+    };
+
+    checkAll();
+    const interval = setInterval(checkAll, 60000); // Check every minute
     return () => clearInterval(interval);
   }, []);
 
-  // Get available models (combine MODELS and OPENROUTER_MODELS, filter by rate limit)
+  // Get available models (combine MODELS, OPENROUTER_MODELS, and
+  // HUGGINGFACE_MODELS, filtering each provider's models out if that
+  // provider's rate limit is currently exhausted)
   const availableModels = [
     ...MODELS,
     ...(hideOpenRouterModels ? [] : OPENROUTER_MODELS),
+    ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
   ];
 
   const [selectedModelId, setSelectedModelId] = useState(availableModels[0]?.id || MODELS[0].id);
@@ -555,7 +567,12 @@ export default function Page() {
 
       // Determine if this is an OpenRouter model
       const isOpenRouterModel = OPENROUTER_MODELS.some(m => m.id === selectedModel.id);
-      const apiEndpoint = isOpenRouterModel ? '/api/openrouter' : '/api/query-gateway';
+      const isHuggingFaceModel = HUGGINGFACE_MODELS.some(m => m.id === selectedModel.id);
+      const apiEndpoint = isOpenRouterModel
+        ? '/api/openrouter'
+        : isHuggingFaceModel
+          ? '/api/huggingface'
+          : '/api/query-gateway';
 
       // Automatically enable parallel mode if Multi-Perspective is selected
       const isMultiPerspective = selectedModel.id === 'multi-perspective';

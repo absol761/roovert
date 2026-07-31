@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MODELS, OPENROUTER_MODELS } from '../../lib/models';
+import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from '../../lib/models';
 import { applyRateLimit } from '../../lib/security/rateLimit';
 
 /**
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const allModels = [...MODELS, ...OPENROUTER_MODELS];
+    const allModels = [...MODELS, ...OPENROUTER_MODELS, ...HUGGINGFACE_MODELS];
 
     const models = allModels.map((model) => ({
       id: model.id,

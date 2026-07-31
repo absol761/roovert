@@ -68,6 +68,14 @@ const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
     maxRequests: 45, // 45 requests per 24 hours
     message: 'OpenRouter rate limit exceeded. You\'ve used all 45 requests. The limit resets in 24 hours.',
   },
+  // Hugging Face-specific: separate bucket from the shared 'ai-query' limit,
+  // mirroring the 'openrouter' bucket above - a distinct external API with
+  // its own quota deserves its own ceiling rather than sharing Groq's.
+  'huggingface': {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: 30, // 30 requests per hour
+    message: 'Hugging Face rate limit exceeded. Please wait before making another request.',
+  },
 };
 
 /**

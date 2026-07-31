@@ -31,3 +31,22 @@ export const OPENROUTER_MODELS: Model[] = [
   { id: 'qwen-2.5-72b', name: 'Qwen 2.5 72B', apiId: 'qwen-2.5-72b', category: 'OpenRouter', description: "Alibaba's large open model." },
   { id: 'deepseek-chat', name: 'DeepSeek Chat', apiId: 'deepseek-chat', category: 'OpenRouter', description: "DeepSeek's general-purpose chat model." },
 ];
+
+// Hugging Face Models - served via HF's OpenAI-compatible router
+// (https://router.huggingface.co/v1/chat/completions). id/apiId must match
+// the keys in app/api/huggingface/route.ts's HUGGINGFACE_MODEL_MAP.
+// Deliberately curated to ungated repos only - gated models (many Llama/
+// Gemma checkpoints) return 403 until the user individually accepts that
+// specific model's license on huggingface.co, which would be a confusing
+// dead end for a model picker entry.
+// Display names are suffixed with "(HF)" - the flat inline model picker in
+// page.tsx lists every provider's models together with no grouping, and
+// "Qwen 2.5 72B" already exists as an OpenRouter entry above; an
+// undifferentiated duplicate name there would be genuinely confusing about
+// which backend actually serves the request.
+export const HUGGINGFACE_MODELS: Model[] = [
+  { id: 'hf-qwen-2.5-72b', name: 'Qwen 2.5 72B (HF)', apiId: 'qwen-2.5-72b', category: 'Hugging Face', description: "Alibaba's large open-weight instruct model, via Hugging Face." },
+  { id: 'hf-qwen-2.5-7b', name: 'Qwen 2.5 7B (HF)', apiId: 'qwen-2.5-7b', category: 'Hugging Face', description: 'Fast, lightweight open-weight instruct model.' },
+  { id: 'hf-deepseek-v3', name: 'DeepSeek V3 (HF)', apiId: 'deepseek-v3', category: 'Hugging Face', description: "DeepSeek's flagship model, via Hugging Face." },
+  { id: 'hf-phi-4', name: 'Phi-4 (HF)', apiId: 'phi-4', category: 'Hugging Face', description: "Microsoft's compact reasoning-focused model." },
+];
