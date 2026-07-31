@@ -49,4 +49,9 @@ export const HUGGINGFACE_MODELS: Model[] = [
   { id: 'hf-qwen-2.5-7b', name: 'Qwen 2.5 7B (HF)', apiId: 'qwen-2.5-7b', category: 'Hugging Face', description: 'Fast, lightweight open-weight instruct model.' },
   { id: 'hf-deepseek-v3', name: 'DeepSeek V3 (HF)', apiId: 'deepseek-v3', category: 'Hugging Face', description: "DeepSeek's flagship model, via Hugging Face." },
   { id: 'hf-phi-4', name: 'Phi-4 (HF)', apiId: 'phi-4', category: 'Hugging Face', description: "Microsoft's compact reasoning-focused model." },
+  // A reasoning model - emits internal "thinking" tokens (reasoning_content)
+  // before the real answer. app/api/huggingface/route.ts already only
+  // forwards `content` deltas, so this just shows a longer "thinking" pause
+  // in the UI before text streams in, rather than needing special handling.
+  { id: 'hf-kimi-k3', name: 'Kimi K3 (HF)', apiId: 'kimi-k3', category: 'Hugging Face', description: "Moonshot AI's reasoning-focused model, via Hugging Face." },
 ];
