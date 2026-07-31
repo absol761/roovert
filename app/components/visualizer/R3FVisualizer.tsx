@@ -7,9 +7,17 @@
 import { useRef, useState, useEffect } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import { VoiceOrb } from './VoiceOrb';
 
-export type VisualizerMode = 'grid' | 'plane' | 'wave_form' | 'manhattan';
+export type VisualizerMode = 'grid' | 'plane' | 'wave_form' | 'manhattan' | 'orb';
+
+interface AudioBands {
+  bass: number;
+  mid: number;
+  treble: number;
+}
 
 interface VisualizerProps {
   mode?: VisualizerMode;
@@ -23,10 +31,16 @@ interface VisualizerProps {
   waveFreq?: number;
   waveFormDouble?: boolean;
   autoOrbit?: boolean;
+  colorsFollowMusic?: boolean;
   // Sourced from the shared useMicLevel() hook in page.tsx so the nav's mic
   // indicator and this visualizer react to the same mic stream instead of
   // each opening (and prompting for) their own.
   audioLevelRef?: React.RefObject<number>;
+  // Per-band energy (bass/mid/treble) for richer reactivity than a single
+  // overall level, plus a decaying "burst" that spikes on loud transients
+  // (a clap, a hard consonant) for a one-shot flourish.
+  audioBandsRef?: React.RefObject<AudioBands>;
+  audioBurstRef?: React.RefObject<number>;
 }
 
 function hexToRgb(hex: string) {
@@ -49,13 +63,17 @@ interface ParticleFieldProps {
   maxAmplitude: number;
   scaleY: boolean;
   invertY: boolean;
+  colorsFollowMusic: boolean;
   timeRef: React.RefObject<number>;
   audioLevelRef: React.RefObject<number>;
+  audioBandsRef: React.RefObject<AudioBands>;
+  audioBurstRef: React.RefObject<number>;
 }
 
 function ParticleField({
   mode, density, color1, color2, speed, waveFreq, waveFormDouble,
-  maxAmplitude, scaleY, invertY, timeRef, audioLevelRef,
+  maxAmplitude, scaleY, invertY, colorsFollowMusic, timeRef, audioLevelRef,
+  audioBandsRef, audioBurstRef,
 }: ParticleFieldProps) {
   const particleCount = Math.floor(2000 * (0.5 + density));
   const pointsRef = useRef<THREE.Points>(null);
@@ -118,8 +136,13 @@ function ParticleField({
     const colors = geometry.attributes.color;
     // Idle baseline (quiet/no mic) is subtle; real audio energy scales the
     // motion up - this replaces the old constant-amplitude "breathing" that
-    // ran regardless of any sound.
-    const audioBoost = 0.2 + audioLevelRef.current * 2.2;
+    // ran regardless of any sound. Bass carries the "beat" feel better than
+    // the flat overall level, and a burst (loud transient) punches through
+    // on top for a one-shot flourish instead of everything moving uniformly.
+    const bands = audioBandsRef.current;
+    const burst = audioBurstRef.current;
+    const audioBoost = 0.2 + (audioLevelRef.current * 0.9 + bands.bass * 1.3) * 2.2 + burst * 1.4;
+    const treble = bands.treble;
 
     for (let i = 0; i < particleCount; i++) {
       const x = positions.getX(i);
@@ -191,10 +214,15 @@ function ParticleField({
       const color1RGB = hexToRgb(color1);
       const color2RGB = hexToRgb(color2);
       const posVariation = (Math.sin(currentX * 0.5) + Math.cos(currentZ * 0.5)) * 0.1;
-      const finalMix = Math.max(0, Math.min(1, waveIntensity + posVariation));
-      colors.setX(i, (color1RGB.r + (color2RGB.r - color1RGB.r) * finalMix) / 255);
-      colors.setY(i, (color1RGB.g + (color2RGB.g - color1RGB.g) * finalMix) / 255);
-      colors.setZ(i, (color1RGB.b + (color2RGB.b - color1RGB.b) * finalMix) / 255);
+      // With "colors follow music" on, brighter treble content pulls the mix
+      // toward color2 and a loud transient briefly overexposes everything -
+      // a flash rather than a static gradient.
+      const musicMix = colorsFollowMusic ? treble * 0.6 : 0;
+      const finalMix = Math.max(0, Math.min(1, waveIntensity + posVariation + musicMix));
+      const flash = colorsFollowMusic ? 1 + burst * 0.6 : 1;
+      colors.setX(i, Math.min(1, (color1RGB.r + (color2RGB.r - color1RGB.r) * finalMix) / 255 * flash));
+      colors.setY(i, Math.min(1, (color1RGB.g + (color2RGB.g - color1RGB.g) * finalMix) / 255 * flash));
+      colors.setZ(i, Math.min(1, (color1RGB.b + (color2RGB.b - color1RGB.b) * finalMix) / 255 * flash));
     }
     positions.needsUpdate = true;
     colors.needsUpdate = true;
@@ -279,10 +307,34 @@ function ManhattanCity() {
   );
 }
 
+type SceneProps = Required<Omit<VisualizerProps, 'audioLevelRef' | 'audioBandsRef' | 'audioBurstRef'>> & {
+  audioLevelRef: React.RefObject<number>;
+  audioBandsRef: React.RefObject<AudioBands>;
+  audioBurstRef: React.RefObject<number>;
+};
+
+// Point-light intensity that punches up on a loud transient and eases back
+// down - reads as a flash of stage lighting reacting to sound rather than a
+// flat, static-lit scene.
+function PulseLight({ position, color, baseIntensity, audioBurstRef }: {
+  position: [number, number, number];
+  color?: string;
+  baseIntensity: number;
+  audioBurstRef: React.RefObject<number>;
+}) {
+  const lightRef = useRef<THREE.PointLight>(null);
+  useFrame(() => {
+    if (!lightRef.current) return;
+    lightRef.current.intensity = baseIntensity + audioBurstRef.current * baseIntensity * 1.8;
+  });
+  return <pointLight ref={lightRef} position={position} intensity={baseIntensity} color={color} />;
+}
+
 function Scene({
   mode, speed, color1, color2, density, maxAmplitude, waveFreq,
-  waveFormDouble, scaleY, invertY, autoOrbit, audioLevelRef,
-}: Required<Omit<VisualizerProps, 'audioLevelRef'>> & { audioLevelRef: React.RefObject<number> }) {
+  waveFormDouble, scaleY, invertY, autoOrbit, colorsFollowMusic,
+  audioLevelRef, audioBandsRef, audioBurstRef,
+}: SceneProps) {
   const { camera } = useThree();
   const timeRef = useRef(0);
 
@@ -301,6 +353,9 @@ function Scene({
       camera.position.set(0, 8, 12);
       camera.lookAt(0, 0, 0);
       camera.rotation.set(-Math.PI / 3, 0, 0);
+    } else if (mode === 'orb') {
+      camera.position.set(0, 0, 6);
+      camera.lookAt(0, 0, 0);
     }
     // Only re-run when the mode actually changes - camera is stable across renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -328,20 +383,40 @@ function Scene({
       ) : (
         <>
           <ambientLight intensity={0.8} />
-          <pointLight position={[10, 10, 10]} intensity={1} color={color1} />
-          <pointLight position={[-10, -10, -10]} intensity={1} color={color2} />
+          <PulseLight position={[10, 10, 10]} baseIntensity={1} color={color1} audioBurstRef={audioBurstRef} />
+          <PulseLight position={[-10, -10, -10]} baseIntensity={1} color={color2} audioBurstRef={audioBurstRef} />
           <pointLight position={[0, 10, 0]} intensity={0.5} />
           <OrbitControls
             enablePan={false} enableZoom enableRotate
             minDistance={5} maxDistance={20}
             autoRotate={autoOrbit} rotateSpeed={0.5} zoomSpeed={0.8}
           />
-          <ParticleField
-            mode={mode} density={density} color1={color1} color2={color2}
-            speed={speed} waveFreq={waveFreq} waveFormDouble={waveFormDouble}
-            maxAmplitude={maxAmplitude} scaleY={scaleY} invertY={invertY}
-            timeRef={timeRef} audioLevelRef={audioLevelRef}
-          />
+          {mode === 'orb' ? (
+            <VoiceOrb
+              color1={color1} color2={color2} colorsFollowMusic={colorsFollowMusic}
+              speed={speed} timeRef={timeRef}
+              audioLevelRef={audioLevelRef} audioBandsRef={audioBandsRef}
+              audioBurstRef={audioBurstRef}
+            />
+          ) : (
+            <ParticleField
+              mode={mode} density={density} color1={color1} color2={color2}
+              speed={speed} waveFreq={waveFreq} waveFormDouble={waveFormDouble}
+              maxAmplitude={maxAmplitude} scaleY={scaleY} invertY={invertY}
+              colorsFollowMusic={colorsFollowMusic} timeRef={timeRef}
+              audioLevelRef={audioLevelRef} audioBandsRef={audioBandsRef}
+              audioBurstRef={audioBurstRef}
+            />
+          )}
+          {mode === 'orb' && (
+            // Bloom is scoped to orb mode only - on the particle clouds it
+            // looked muddy and cost more than it was worth; here it's the
+            // whole point (the rim-lit fresnel glow needs it to actually
+            // read as "glowing" rather than flat-shaded).
+            <EffectComposer>
+              <Bloom luminanceThreshold={0.2} intensity={1.1} mipmapBlur />
+            </EffectComposer>
+          )}
         </>
       )}
     </>
@@ -353,6 +428,7 @@ const CAMERA_POSITION: Record<VisualizerMode, [number, number, number]> = {
   grid: [0, 5, 8],
   wave_form: [0, 3, 10],
   manhattan: [0, 8, 12],
+  orb: [0, 0, 6],
 };
 
 // This is an ambient background layer, not an interactive one - it must
@@ -369,12 +445,17 @@ export default function R3FVisualizer({
   waveFreq = 2.0,
   waveFormDouble = false,
   autoOrbit = false,
+  colorsFollowMusic = false,
   audioLevelRef,
+  audioBandsRef,
+  audioBurstRef,
 }: VisualizerProps) {
-  // Falls back to a local zeroed ref if the caller doesn't pass one, so the
+  // Falls back to local zeroed refs if the caller doesn't pass them, so the
   // component still renders (with calm idle motion, no audio reactivity)
   // rather than crashing.
-  const fallbackRef = useRef(0);
+  const fallbackLevelRef = useRef(0);
+  const fallbackBandsRef = useRef<AudioBands>({ bass: 0, mid: 0, treble: 0 });
+  const fallbackBurstRef = useRef(0);
   return (
     <div className="fixed inset-0 z-0 pointer-events-none opacity-60">
       <Canvas
@@ -385,8 +466,10 @@ export default function R3FVisualizer({
         <Scene
           mode={mode} speed={speed} color1={color1} color2={color2} density={density}
           invertY={invertY} scaleY={scaleY} maxAmplitude={maxAmplitude} waveFreq={waveFreq}
-          waveFormDouble={waveFormDouble} autoOrbit={autoOrbit}
-          audioLevelRef={audioLevelRef ?? fallbackRef}
+          waveFormDouble={waveFormDouble} autoOrbit={autoOrbit} colorsFollowMusic={colorsFollowMusic}
+          audioLevelRef={audioLevelRef ?? fallbackLevelRef}
+          audioBandsRef={audioBandsRef ?? fallbackBandsRef}
+          audioBurstRef={audioBurstRef ?? fallbackBurstRef}
         />
       </Canvas>
     </div>

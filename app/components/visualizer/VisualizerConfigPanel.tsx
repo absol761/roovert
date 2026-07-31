@@ -1,8 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { X, ChevronDown, Waves, Square, MapPin } from 'lucide-react';
+import { X, ChevronDown, Waves, Square, MapPin, TriangleAlert, Sparkles } from 'lucide-react';
 import type { VisualizerMode } from './R3FVisualizer';
+import type { MicStatus } from '../../hooks/useMicLevel';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 
 const PALETTES: [string, string][] = [
@@ -15,6 +16,7 @@ const PALETTES: [string, string][] = [
 ];
 
 const MODE_OPTIONS: { value: VisualizerMode; label: string; icon: typeof Waves }[] = [
+  { value: 'orb', label: 'ORB', icon: Sparkles },
   { value: 'wave_form', label: 'WAVE_FORM', icon: Waves },
   { value: 'grid', label: 'GRID', icon: Square },
   { value: 'plane', label: 'PLANE', icon: Square },
@@ -26,6 +28,7 @@ interface VisualizerConfigPanelProps {
   onClose: () => void;
   enabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
+  micStatus?: MicStatus;
   mode: VisualizerMode;
   onModeChange: (mode: VisualizerMode) => void;
   onColor1Change: (color: string) => void;
@@ -56,6 +59,7 @@ export function VisualizerConfigPanel({
   onClose,
   enabled,
   onEnabledChange,
+  micStatus,
   mode,
   onModeChange,
   onColor1Change,
@@ -125,6 +129,17 @@ export function VisualizerConfigPanel({
             />
           </span>
         </button>
+
+        {enabled && (micStatus === 'denied' || micStatus === 'unsupported') && (
+          <div className="flex items-start gap-2 -mt-2 p-3 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 text-xs">
+            <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              {micStatus === 'denied'
+                ? 'Microphone access was blocked, so the visualizer is running on idle motion only. Allow the mic in your browser’s site settings, then toggle this off and on again.'
+                : 'This browser doesn’t support microphone input, so the visualizer is running on idle motion only.'}
+            </span>
+          </div>
+        )}
 
         <div>
           <label className="text-xs text-[var(--muted)] uppercase tracking-wider mb-2 block font-medium">MODE</label>

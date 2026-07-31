@@ -4,12 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, MessageSquarePlus } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { useMobile } from './hooks/useMobile';
 import { useMicLevel } from './hooks/useMicLevel';
+import { useSpeechToText } from './hooks/useSpeechToText';
 import { LooksModal } from './components/modals/LooksModal';
 import { MoreModelsModal } from './components/modals/MoreModelsModal';
 import { SettingsModal } from './components/modals/SettingsModal';
@@ -18,6 +19,10 @@ import { LiveStats } from './components/nav/LiveStats';
 import { NavClock } from './components/nav/NavClock';
 import { MODELS, OPENROUTER_MODELS } from './lib/models';
 import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
+import type { VisualizerMode } from './components/visualizer/R3FVisualizer';
+// Plain 2D canvas, not three.js - cheap enough to not need the dynamic-import
+// treatment the R3F visualizer components above get.
+import { MicFrequencyBars } from './components/visualizer/MicFrequencyBars';
 
 // Both pull in react-three-fiber/three/drei (a large 3D dependency) so they're
 // only ever fetched by the browser once the visualizer is actually opened,
@@ -40,6 +45,14 @@ const MAX_PERSISTED_TURNS = 50;
 export default function Page() {
   const { isMobile } = useMobile();
   const [query, setQuery] = useState('');
+  // Dictation into the composer via the browser's native Web Speech API -
+  // a separate concern from the ambient useMicLevel() visualizer stream
+  // above; see useSpeechToText.ts for why they don't share one mic session.
+  const { isSupported: isDictationSupported, isListening: isDictating, start: startDictation, stop: stopDictation, error: dictationError } = useSpeechToText();
+  // Text already in the composer when dictation starts, so interim/final
+  // speech is appended after it rather than overwriting what was typed.
+  const dictationPrefixRef = useRef('');
+  const dictationFinalRef = useRef('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
   const [history, setHistory] = useState<Array<{ query: string; response: string; model: string; image?: string; perspectives?: Array<{ model: string; content: string }> }>>([]);
@@ -102,9 +115,12 @@ export default function Page() {
   // Single shared mic stream for both the nav's pulsing indicator and the
   // 3D visualizer's particle motion - only requested while the visualizer
   // is actually on.
-  const { level: micLevel, levelRef: micLevelRef } = useMicLevel(visualizerEnabled);
+  const {
+    level: micLevel, burst: micBurst, levelRef: micLevelRef,
+    bandsRef: micBandsRef, burstRef: micBurstRef, status: micStatus,
+  } = useMicLevel(visualizerEnabled);
   const [visualizerConfigOpen, setVisualizerConfigOpen] = useState(false);
-  const [visualizerMode, setVisualizerMode] = useState<'grid' | 'plane' | 'wave_form' | 'manhattan'>('wave_form');
+  const [visualizerMode, setVisualizerMode] = useState<VisualizerMode>('orb');
   const [visualizerSpeed, setVisualizerSpeed] = useState(0.3);
   const [visualizerColor1, setVisualizerColor1] = useState('#4a90e2');
   const [visualizerColor2, setVisualizerColor2] = useState('#7b68ee');
@@ -897,7 +913,10 @@ export default function Page() {
           waveFreq={waveFreq}
           waveFormDouble={waveFormDouble}
           autoOrbit={autoOrbit}
+          colorsFollowMusic={colorsFollowMusic}
           audioLevelRef={micLevelRef}
+          audioBandsRef={micBandsRef}
+          audioBurstRef={micBurstRef}
         />
       )}
 
@@ -907,6 +926,7 @@ export default function Page() {
         onClose={() => setVisualizerConfigOpen(false)}
         enabled={visualizerEnabled}
         onEnabledChange={setVisualizerEnabled}
+        micStatus={micStatus}
         mode={visualizerMode}
         onModeChange={setVisualizerMode}
         onColor1Change={setVisualizerColor1}
@@ -930,7 +950,7 @@ export default function Page() {
         selectedPalette={selectedPalette}
         onSelectedPaletteChange={setSelectedPalette}
         onReset={() => {
-          setVisualizerMode('wave_form');
+          setVisualizerMode('orb');
           setVisualizerSpeed(0.3);
           setVisualizerColor1('#ff6b35');
           setVisualizerColor2('#00d4ff');
@@ -996,13 +1016,34 @@ export default function Page() {
               <button
                 onClick={() => setVisualizerConfigOpen(true)}
                 aria-pressed={visualizerEnabled}
-                className={`relative overflow-visible flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all group ${visualizerEnabled
-                  ? 'bg-[var(--accent)]/15 text-[var(--accent)]'
-                  : 'hover:bg-[var(--surface-strong)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                className={`relative overflow-visible flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all group ${micStatus === 'denied' || micStatus === 'unsupported'
+                  ? 'bg-red-500/10 text-red-400'
+                  : visualizerEnabled
+                    ? 'bg-[var(--accent)]/15 text-[var(--accent)]'
+                    : 'hover:bg-[var(--surface-strong)] text-[var(--muted)] hover:text-[var(--foreground)]'
                   }`}
-                title={visualizerEnabled ? 'Listening — audio-reactive visualizer on' : 'Audio-Reactive Visualizer (uses microphone)'}
+                title={
+                  micStatus === 'denied'
+                    ? 'Microphone blocked — allow it in your browser’s site settings, then click to retry'
+                    : micStatus === 'unsupported'
+                      ? 'Audio-Reactive Visualizer needs microphone support this browser doesn’t provide'
+                      : micStatus === 'requesting'
+                        ? 'Requesting microphone access…'
+                        : visualizerEnabled
+                          ? 'Listening — audio-reactive visualizer on'
+                          : 'Audio-Reactive Visualizer (uses microphone)'
+                }
               >
-                {visualizerEnabled && (
+                {/* Announces mic state changes to screen readers without a
+                    visible label cluttering this small nav button. */}
+                <span className="sr-only" role="status" aria-live="polite">
+                  {micStatus === 'requesting' && 'Requesting microphone access'}
+                  {micStatus === 'active' && 'Microphone connected, visualizer listening'}
+                  {micStatus === 'denied' && 'Microphone access denied'}
+                  {micStatus === 'unsupported' && 'Microphone not supported in this browser'}
+                </span>
+
+                {visualizerEnabled && micStatus === 'active' && (
                   <>
                     {/* Outer ring: eases outward with real mic level via spring
                         physics, like a voice-mode "listening" indicator rather
@@ -1021,6 +1062,15 @@ export default function Page() {
                       animate={{ scale: 1 + micLevel * 0.5, opacity: 0.4 + micLevel * 0.6 }}
                       transition={{ type: 'spring', stiffness: 180, damping: 14, mass: 0.4 }}
                     />
+                    {/* Transient flash: pops outward on a sudden loud sound (a
+                        clap, a laugh) instead of everything just tracking the
+                        smoothed average level - gives the button a reflex. */}
+                    <motion.span
+                      aria-hidden="true"
+                      className="absolute inset-0 rounded-full border-2 border-[var(--accent)]"
+                      animate={{ scale: 1 + micBurst * 1.1, opacity: micBurst * 0.7 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 20, mass: 0.3 }}
+                    />
                     {/* Slow idle breathing ring so the button still reads as
                         "alive" during silence, not just when there's sound. */}
                     <motion.span
@@ -1031,7 +1081,23 @@ export default function Page() {
                     />
                   </>
                 )}
-                <Waves className="w-4 h-4 relative z-10 group-hover:scale-110 transition-transform" />
+
+                {visualizerEnabled && micStatus === 'requesting' && (
+                  <motion.span
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-full border border-[var(--accent)]/40 border-t-[var(--accent)]"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
+                  />
+                )}
+
+                {micStatus === 'requesting' ? (
+                  <Loader2 className="w-4 h-4 relative z-10 animate-spin" />
+                ) : micStatus === 'denied' || micStatus === 'unsupported' ? (
+                  <MicOff className="w-4 h-4 relative z-10 group-hover:scale-110 transition-transform" />
+                ) : (
+                  <Waves className="w-4 h-4 relative z-10 group-hover:scale-110 transition-transform" />
+                )}
               </button>
             </div>
 
@@ -1683,7 +1749,15 @@ while (true) {
                                 </div>
                               ) : (
                                 <div className="prose prose-invert max-w-none">
-                                  {isProcessing ? (
+                                  {/* Before the first token arrives, show the
+                                      "thinking" indicator; once any text has
+                                      streamed in, render it immediately rather
+                                      than hiding it behind the loader until
+                                      the whole response finishes - matches
+                                      how token-by-token streaming actually
+                                      reads as live progress instead of a
+                                      frozen UI. */}
+                                  {isProcessing && !response ? (
                                     <div className="flex items-center gap-3">
                                       {bounceLoader}
                                       <button
@@ -1706,6 +1780,21 @@ while (true) {
                                       >
                                         {response}
                                       </ReactMarkdown>
+                                      {isProcessing && (
+                                        <div className="flex items-center gap-3 mt-3">
+                                          <span
+                                            aria-hidden="true"
+                                            className="inline-block w-2 h-4 bg-[var(--accent)] rounded-sm animate-pulse"
+                                          />
+                                          <button
+                                            onClick={handleStop}
+                                            className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                          >
+                                            <Square className="w-3 h-3" />
+                                            Stop
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   ) : null}
                                 </div>
@@ -1767,6 +1856,12 @@ while (true) {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {visualizerEnabled && (
+              <div className="mb-2 px-1">
+                <MicFrequencyBars bandsRef={micBandsRef} levelRef={micLevelRef} />
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="relative">
               <div className={`composer-bar glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] ${isMobile ? 'p-3' : 'p-4'} transition-all duration-300`}>
@@ -1845,6 +1940,47 @@ while (true) {
                         ))}
                       </select>
                     </div>
+                  )}
+
+                  {/* Dictation - real speech-to-text via the browser's native
+                      Web Speech API, not just the decorative visualizer mic.
+                      Hidden entirely (not disabled) when unsupported, per
+                      this codebase's "never show a broken-looking control"
+                      convention. */}
+                  {isDictationSupported && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isDictating) {
+                          stopDictation();
+                          return;
+                        }
+                        dictationPrefixRef.current = query ? `${query} ` : '';
+                        dictationFinalRef.current = '';
+                        startDictation(
+                          (interim) => setQuery(dictationPrefixRef.current + dictationFinalRef.current + interim),
+                          (final) => {
+                            dictationFinalRef.current += `${final} `;
+                            setQuery(dictationPrefixRef.current + dictationFinalRef.current);
+                          }
+                        );
+                      }}
+                      className={`relative p-2 rounded-lg transition-all duration-150 ${isDictating
+                        ? 'text-[var(--accent)] bg-[var(--accent)]/10'
+                        : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-strong)]'
+                        }`}
+                      title={dictationError ?? (isDictating ? 'Stop dictation' : 'Dictate your message')}
+                    >
+                      {isDictating && (
+                        <motion.span
+                          aria-hidden="true"
+                          className="absolute inset-0 rounded-lg bg-[var(--accent)]/20"
+                          animate={{ opacity: [0.3, 0.7, 0.3] }}
+                          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                        />
+                      )}
+                      <Mic className="w-4 h-4 relative z-10" />
+                    </button>
                   )}
 
                   {/* Attach Image */}

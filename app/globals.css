@@ -91,6 +91,14 @@
   --shadow-md: 0 6px 20px -8px rgba(0, 0, 0, 0.3), 0 2px 6px -2px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 20px 40px -14px rgba(0, 0, 0, 0.4), 0 6px 12px -4px rgba(0, 0, 0, 0.25);
   --shadow-glow: 0 0 0 1px var(--border), 0 6px 20px -6px var(--accent-glow);
+
+  /* Graduated corner-radius ladder - new components should reach for one of
+     these instead of a one-off pixel value so rounding stays consistent as
+     the UI grows. Existing components aren't retrofitted to this. */
+  --radius-tight: 6px;
+  --radius-card: 20px;
+  --radius-cta: 32px;
+  --radius-pill: 9999px;
 }
 
 /* Themes are applied client-side via a useEffect (JS), so the very first
