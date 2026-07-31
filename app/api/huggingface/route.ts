@@ -19,6 +19,9 @@ const HUGGINGFACE_MODEL_MAP: Record<string, string> = {
   'hf-deepseek-v3': 'deepseek-ai/DeepSeek-V3',
   'hf-phi-4': 'microsoft/phi-4',
   'hf-kimi-k3': 'moonshotai/Kimi-K3',
+  'hf-deepseek-r1': 'deepseek-ai/DeepSeek-R1',
+  'hf-gpt-oss-120b': 'openai/gpt-oss-120b',
+  'hf-qwen-3-235b': 'Qwen/Qwen3-235B-A22B-Instruct-2507',
 };
 
 // User-friendly error messages - NEVER expose internal API details

@@ -54,4 +54,9 @@ export const HUGGINGFACE_MODELS: Model[] = [
   // forwards `content` deltas, so this just shows a longer "thinking" pause
   // in the UI before text streams in, rather than needing special handling.
   { id: 'hf-kimi-k3', name: 'Kimi K3 (HF)', apiId: 'kimi-k3', category: 'Hugging Face', description: "Moonshot AI's reasoning-focused model, via Hugging Face." },
+  // Also a reasoning model (see Kimi K3 comment above for why no special
+  // handling is needed for the reasoning_content/content split).
+  { id: 'hf-deepseek-r1', name: 'DeepSeek R1 (HF)', apiId: 'deepseek-r1', category: 'Hugging Face', description: "DeepSeek's reasoning-focused model, via Hugging Face." },
+  { id: 'hf-gpt-oss-120b', name: 'GPT-OSS 120B (HF)', apiId: 'gpt-oss-120b', category: 'Hugging Face', description: "OpenAI's open-weight model, via Hugging Face." },
+  { id: 'hf-qwen-3-235b', name: 'Qwen 3 235B (HF)', apiId: 'qwen-3-235b', category: 'Hugging Face', description: "Alibaba's newest, larger-scale open-weight model, via Hugging Face." },
 ];
