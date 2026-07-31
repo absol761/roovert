@@ -15,6 +15,7 @@ import { LooksModal } from './components/modals/LooksModal';
 import { MoreModelsModal } from './components/modals/MoreModelsModal';
 import { SettingsModal } from './components/modals/SettingsModal';
 import { GlobalFeedExpanded } from './components/GlobalFeedExpanded';
+import { NeuralNoise } from './components/NeuralNoise';
 import { LiveStats } from './components/nav/LiveStats';
 import { NavClock } from './components/nav/NavClock';
 import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from './lib/models';
@@ -172,13 +173,12 @@ export default function Page() {
   // have individually finished streaming - drives the per-card loader.
   const [perspectiveDoneModels, setPerspectiveDoneModels] = useState<Set<string>>(new Set());
 
-  const [neuralNoiseEnabled, setNeuralNoiseEnabled] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('roovert_neural_noise_enabled');
-      return saved !== 'false'; // Default to true
-    }
-    return true;
-  });
+  // Default OFF - this used to render an always-on WebGL pointer-reactive
+  // background (NeuralNoise.tsx) that was deleted when the R3F visualizer
+  // was added, leaving this toggle in Settings doing nothing. Restored as an
+  // explicit opt-in rather than its old always-on default, since two ambient
+  // background effects competing by default would be visual clutter.
+  const [neuralNoiseEnabled, setNeuralNoiseEnabled] = useState(false);
   // Track unavailable models (models that have failed recently)
   const [unavailableModels, setUnavailableModels] = useState<Set<string>>(new Set());
 
@@ -914,7 +914,12 @@ export default function Page() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
-      {/* Neural Noise and Audio Visualizer removed - using R3F visualizer instead */}
+      {/* Neural Noise - opt-in ambient WebGL background (pointer-reactive),
+          independent of and layered beneath the R3F audio visualizer. Off by
+          default; see the neuralNoiseEnabled state declaration for why. */}
+      {neuralNoiseEnabled && (
+        <NeuralNoise isChatMode={isChatMode} currentLook={look} />
+      )}
 
       {/* R3F Visualizer */}
       {visualizerEnabled && (
@@ -1031,7 +1036,15 @@ export default function Page() {
                 <Paintbrush className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setVisualizerConfigOpen(true)}
+                onClick={() => {
+                  // Single click both toggles the visualizer directly (this
+                  // button visually reads as a toggle, so it needs to behave
+                  // like one - it previously only opened the settings panel,
+                  // leaving no obvious way to turn it back off) and opens the
+                  // settings panel so mode/color options stay reachable.
+                  setVisualizerEnabled(!visualizerEnabled);
+                  setVisualizerConfigOpen(true);
+                }}
                 aria-pressed={visualizerEnabled}
                 className={`relative overflow-visible flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all group ${micStatus === 'denied' || micStatus === 'unsupported'
                   ? 'bg-red-500/10 text-red-400'
@@ -1047,8 +1060,8 @@ export default function Page() {
                       : micStatus === 'requesting'
                         ? 'Requesting microphone access…'
                         : visualizerEnabled
-                          ? 'Listening — audio-reactive visualizer on'
-                          : 'Audio-Reactive Visualizer (uses microphone)'
+                          ? 'Listening — click to turn off'
+                          : 'Audio-Reactive Visualizer (uses microphone) — click to turn on'
                 }
               >
                 {/* Announces mic state changes to screen readers without a

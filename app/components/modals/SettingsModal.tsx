@@ -51,7 +51,7 @@ export function SettingsModal({
     setFocusMode(false);
     setSystemPrompt('');
     setModelId('ooverta');
-    setNeuralNoiseEnabled(true);
+    setNeuralNoiseEnabled(false);
   };
 
   return (
