@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   PanelLeft,
@@ -84,6 +83,12 @@ export interface SidebarRailProps {
   micStatus: 'idle' | 'requesting' | 'active' | 'denied' | 'unsupported';
   micLevel: number;
   micBurst: number;
+  // Controlled (lifted to page.tsx) rather than local state: the main
+  // content area's left padding needs to track this exact value too, so
+  // an expanded rail (200px) doesn't overlap/cover content that was only
+  // ever given clearance for the collapsed width (64px).
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
 }
 
 // Desktop-only slim icon rail, collapsed (icon-only) by default. Every
@@ -104,8 +109,9 @@ export function SidebarRail({
   micStatus,
   micLevel,
   micBurst,
+  expanded,
+  onExpandedChange,
 }: SidebarRailProps) {
-  const [expanded, setExpanded] = useState(false);
 
   const topActions: RailAction[] = [
     {
@@ -169,7 +175,7 @@ export function SidebarRail({
               type="button"
               variant="ghost"
               size="icon"
-              onClick={() => setExpanded((prev) => !prev)}
+              onClick={() => onExpandedChange(!expanded)}
               className="text-[var(--muted)] hover:text-[var(--foreground)]"
               aria-pressed={expanded}
             >

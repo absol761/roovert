@@ -262,18 +262,25 @@ export default function Page() {
   // HUGGINGFACE_MODELS, filtering each provider's models out if that
   // provider's rate limit is currently exhausted)
   const availableModels = [
+    ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
     ...MODELS,
     ...(hideOpenRouterModels ? [] : OPENROUTER_MODELS),
-    ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
   ];
 
-  const [selectedModelId, setSelectedModelId] = useState(availableModels[0]?.id || MODELS[0].id);
+  // Deliberately MODELS[0] (not availableModels[0]) - the default selected
+  // model shouldn't change just because the picker's display order does.
+  const [selectedModelId, setSelectedModelId] = useState(MODELS[0]?.id || 'ooverta');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
   const [isGlobalFeedOpen, setIsGlobalFeedOpen] = useState(false);
   // Cmd/Ctrl+K quick-actions palette and its "?" shortcuts-help overlay -
   // both are plain client-side modals with no state beyond open/closed.
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  // Lifted out of SidebarRail (rather than local state there) so <main>'s
+  // left padding can track the rail's actual width - the rail animates
+  // between 64px (collapsed) and 200px (expanded), and only lifting this
+  // up lets the content area avoid being covered by the wider state.
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [look, setLook] = useState('midnight');
   const [layout, setLayout] = useState('standard');
@@ -1625,6 +1632,8 @@ export default function Page() {
         className={`transition-opacity duration-[var(--duration-base)] ${focusMode && !isMobile ? 'opacity-0 hover:opacity-100 [&_*]:pointer-events-none hover:[&_*]:pointer-events-auto' : 'opacity-100'}`}
       >
         <SidebarRail
+          expanded={isSidebarExpanded}
+          onExpandedChange={setIsSidebarExpanded}
           isChatMode={isChatMode}
           onNewChat={startNewChat}
           onOpenHistory={() => setIsHistoryOpen(true)}
@@ -1771,7 +1780,10 @@ export default function Page() {
       {/* Interactive Particle Background for Deep Space Look */}
 
       {/* Main Content Area */}
-      <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 md:pl-24 pt-20 pb-20 overflow-y-auto overflow-x-hidden">
+      <main
+        id="main-content"
+        className={`theme-shell relative z-10 flex-1 flex flex-col px-6 pt-20 pb-20 overflow-y-auto overflow-x-hidden transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[232px]' : 'md:pl-24'}`}
+      >
 
         {/* Global Feed - Expandable Section */}
         <AnimatePresence>
@@ -2508,7 +2520,7 @@ while (true) {
       {/* Input Deck - Fixed at bottom for chat mode */}
       {isChatMode && (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] ${isMobile ? 'p-3' : 'p-4'}`}
+          className={`fixed bottom-0 left-0 right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] transition-[padding-left] duration-300 ${isMobile ? 'p-3' : 'p-4'} ${isSidebarExpanded ? 'md:pl-[232px]' : 'md:pl-24'}`}
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), var(--space-3, 0.75rem))' }}
         >
           <div className={`max-w-7xl mx-auto ${isMobile ? 'px-2' : ''}`}>
@@ -2609,8 +2621,20 @@ while (true) {
                     model picker + secondary actions + mic + send on the
                     right, matching the reference composer's low bottom
                     toolbar instead of one crowded single row. */}
-                <div className={`flex items-center justify-between gap-2 pt-2 ${isMobile ? 'flex-wrap' : ''}`}>
-                  <div className="flex items-center gap-1">
+                {/* Always flex-wrap (not just on isMobile, a device/touch
+                    check, not a viewport-width one) - at tablet-ish widths
+                    the unwrapped row's right-hand controls (model picker,
+                    mic, send) genuinely don't fit and were overflowing past
+                    both the composer bar and the viewport edge. Wide
+                    desktop still renders as one line since there's room. */}
+                <div className="flex items-center justify-between gap-2 pt-2 flex-wrap">
+                  {/* flex-wrap: with Multi-Perspective active, this group
+                      also carries the "Combine" model selectors below, which
+                      don't fit alongside the 5 toolbar icons on narrow
+                      screens - previously overflowed straight off the
+                      viewport edge (both <select>s completely inaccessible
+                      on mobile) rather than dropping to their own line. */}
+                  <div className="flex items-center gap-1 flex-wrap">
                     {/* Attach Image */}
                     <input
                       ref={fileInputRef}
@@ -2699,7 +2723,7 @@ while (true) {
 
                     {/* Multi-Perspective Model Selectors - Only shown when Multi-Perspective is selected */}
                     {selectedModelId === 'multi-perspective' && (
-                      <div className="flex items-center gap-2 border-l border-[var(--border)] pl-2 ml-1">
+                      <div className="flex items-center gap-2 flex-wrap border-l border-[var(--border)] pl-2 ml-1">
                         <span className="text-xs text-[var(--muted)] whitespace-nowrap hidden sm:inline">Combine:</span>
                         <select
                           value={parallelModel1}
