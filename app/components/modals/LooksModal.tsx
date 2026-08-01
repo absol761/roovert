@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Palette, X } from 'lucide-react';
 import { LOOKS, LOOK_CATEGORIES } from '../../lib/looks';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { MODAL_TRANSITION, EASE_OUT } from '../../lib/motion';
 
 interface LooksModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export function LooksModal({ isOpen, onClose, currentLook, setLook }: LooksModal
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
+        transition={MODAL_TRANSITION}
         className="relative w-full max-w-5xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -50,7 +52,7 @@ export function LooksModal({ isOpen, onClose, currentLook, setLook }: LooksModal
               key={category}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
+              transition={{ duration: 0.3, ease: EASE_OUT }}
             >
               <h3 className="label mb-4 pb-2 border-b border-[var(--border)]">
                 {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -63,7 +65,7 @@ export function LooksModal({ isOpen, onClose, currentLook, setLook }: LooksModal
                     data-look-preview={look.id}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.2, delay: idx * 0.03, ease: 'easeOut' }}
+                    transition={{ duration: 0.2, delay: idx * 0.03, ease: EASE_OUT }}
                     whileTap={{ scale: 0.98 }}
                     className={`look-preview-button card-hover p-4 rounded-xl border text-left relative overflow-hidden ${currentLook === look.id
                       ? 'border-[var(--accent)] bg-[var(--accent)]/10 ring-2 ring-[var(--accent)]/20'

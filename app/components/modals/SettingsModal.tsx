@@ -5,6 +5,7 @@ import { Settings, X, Monitor, Eye, EyeOff, Zap, Download } from 'lucide-react';
 import { type Model } from '../../lib/models';
 import { LAYOUTS } from '../../lib/looks';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { MODAL_TRANSITION } from '../../lib/motion';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -64,7 +65,7 @@ export function SettingsModal({
         initial={{ opacity: 0, scale: 0.97, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 8 }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        transition={MODAL_TRANSITION}
         className="relative w-full max-w-2xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden max-h-[85vh] flex flex-col text-[var(--foreground)]"
       >
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">

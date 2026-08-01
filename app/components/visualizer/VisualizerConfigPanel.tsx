@@ -5,6 +5,7 @@ import { X, ChevronDown, Waves, Square, MapPin, TriangleAlert, Sparkles } from '
 import type { VisualizerMode } from './R3FVisualizer';
 import type { MicStatus } from '../../hooks/useMicLevel';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { EASE_OUT } from '../../lib/motion';
 
 const PALETTES: [string, string][] = [
   ['#4a90e2', '#7b68ee'], ['#ff6b35', '#00d4ff'], ['#ff4757', '#5352ed'],
@@ -95,7 +96,7 @@ export function VisualizerConfigPanel({
       initial={{ x: 400, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 400, opacity: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
+      transition={{ duration: 0.3, ease: EASE_OUT }}
       className="fixed right-0 top-0 bottom-0 z-50 w-80 bg-[var(--hud-bg)]/98 backdrop-blur-xl border-l border-[var(--border)] shadow-2xl overflow-y-auto"
     >
       <div className="p-6 space-y-6">
