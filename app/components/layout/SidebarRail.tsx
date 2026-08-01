@@ -153,7 +153,16 @@ export function SidebarRail({
       aria-label="Primary navigation"
     >
       <div className={cn('flex items-center', expanded ? 'justify-between px-1' : 'justify-center')}>
-        {expanded && <span className="serif-display text-sm text-[var(--foreground)] px-1">Roovert</span>}
+        {expanded && (
+          <button
+            type="button"
+            onClick={onNewChat}
+            className="serif-display text-sm text-[var(--foreground)] hover:text-[var(--accent)] transition-colors px-1"
+            title="Roovert - New Chat"
+          >
+            Roovert
+          </button>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

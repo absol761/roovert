@@ -272,11 +272,16 @@ select:focus-visible {
   box-shadow: var(--focus-ring);
 }
 
-/* Skip to main content link for screen readers */
+/* Skip to main content link for screen readers. Positioned off-screen
+   horizontally (not via a fixed negative top offset) so it can never bleed a
+   sliver into the viewport regardless of its actual rendered height - a
+   fixed `top: -40px` previously left a few px of this element's accent-color
+   background visible at the very top of every page on narrower viewports,
+   since the link's real height (padding-driven) exceeded 40px. */
 .skip-to-main {
   position: absolute;
-  top: -40px;
-  left: 0;
+  top: 0;
+  left: -9999px;
   background: var(--accent);
   color: var(--background);
   padding: var(--space-2) var(--space-4);
@@ -286,7 +291,7 @@ select:focus-visible {
 }
 
 .skip-to-main:focus {
-  top: 0;
+  left: 0;
 }
 
 body::before {
