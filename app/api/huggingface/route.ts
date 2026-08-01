@@ -65,6 +65,17 @@ export async function POST(request: NextRequest) {
       return rateLimitResponse;
     }
 
+    // Security: Hugging Face-specific rate limit (separate, stricter bucket
+    // from the shared 'ai-query' limit). Must use applyRateLimit, which
+    // atomically checks-and-consumes - the previous code only ever called
+    // the now no-op incrementRateLimit('huggingface') after a successful
+    // request, so this bucket was never actually consumed and the limit
+    // never triggered.
+    const hfRateLimitResponse = await applyRateLimit(request, 'huggingface');
+    if (hfRateLimitResponse) {
+      return hfRateLimitResponse;
+    }
+
     // Security: Validate request body size before parsing
     const contentLength = request.headers.get('content-length');
     const bodySizeErrors = validateBodySize(contentLength, 10 * 1024 * 1024); // 10MB max

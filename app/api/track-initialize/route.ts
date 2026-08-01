@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import { getDatabase } from '@/app/lib/db';
 import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
 import { Redis } from '@upstash/redis';
@@ -21,8 +22,10 @@ const COOLDOWN_SECONDS = 300;
 function getUserIdentifier(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown';
-  // Hash the IP for privacy
-  return `user_cooldown:${ip}`;
+  // Hash the IP for privacy - the raw IP must never be used as (or embedded
+  // in) the Redis key.
+  const hashedIp = createHash('sha256').update(ip).digest('hex');
+  return `user_cooldown:${hashedIp}`;
 }
 
 /**

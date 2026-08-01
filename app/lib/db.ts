@@ -7,8 +7,12 @@ import { mkdirSync, existsSync } from 'fs';
 let db: Database.Database | null = null;
 
 export function getDatabase(): Database.Database {
-  // On Vercel/serverless, SQLite won't work - return null or throw gracefully
-  if (process.env.VERCEL || !existsSync(join(process.cwd(), 'data'))) {
+  // On Vercel/serverless, SQLite won't work - return null or throw gracefully.
+  // Note: we must NOT also bail out here just because the `data` directory
+  // doesn't exist yet - that directory is created on demand below, and a
+  // fresh local checkout would otherwise throw on every call before ever
+  // getting the chance to create it.
+  if (process.env.VERCEL) {
     throw new Error('SQLite not available in serverless environment');
   }
   
