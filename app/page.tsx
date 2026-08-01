@@ -67,6 +67,10 @@ export default function Page() {
   const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
   const [messageFeedback, setMessageFeedback] = useState<Record<number, 'up' | 'down'>>({});
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  // Whether a file is currently being dragged over the composer - drives the
+  // drop-zone highlight; separate from selectedImage so the overlay never
+  // lingers after a drop completes.
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   // Image generation mode - when on, the composer sends the prompt to
   // /api/huggingface-image instead of a chat model, and the result is a
   // generated image appended to history instead of streamed text.
@@ -536,17 +540,17 @@ export default function Page() {
     });
   };
 
-  // Image upload handler
-  const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  // Shared image-attach pipeline: validates a File the same way regardless of
+  // how it arrived (click-to-attach, paste, or drag-and-drop) and, if valid,
+  // compresses it and sets it as the attached image. Returns true if the
+  // file was accepted so callers (e.g. paste/drop handlers) know whether to
+  // suppress their default browser behavior.
+  const attachImageFile = async (file: File): Promise<boolean> => {
     // Prevent upload if disabled (model unavailable or API key missing)
     if (isImageUploadDisabled) {
-      event.target.value = ''; // Clear the input
       setStatusNote(`Image upload is disabled: ${imageUploadDisabledReason}. Please select an available model.`);
       setTimeout(() => setStatusNote(null), 5000);
-      return;
+      return false;
     }
 
     // Security: Validate file extension (MIME type can be spoofed)
@@ -554,20 +558,20 @@ export default function Page() {
     const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
     if (!allowedExtensions.includes(fileExtension)) {
       alert('Invalid file type. Please select a JPG, PNG, GIF, or WebP image.');
-      return;
+      return false;
     }
 
     // Validate file type (MIME type check)
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file');
-      return;
+      return false;
     }
 
     // Validate file size (max 20MB before compression)
     const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
     if (file.size > MAX_FILE_SIZE) {
       alert('Image size must be less than 20MB. Large images will be automatically compressed.');
-      return;
+      return false;
     }
 
     try {
@@ -585,6 +589,65 @@ export default function Page() {
       };
       reader.readAsDataURL(file);
     }
+    return true;
+  };
+
+  // Image upload handler (click-to-attach via the hidden file input)
+  const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const accepted = await attachImageFile(file);
+    if (!accepted) {
+      event.target.value = ''; // Clear the input so re-selecting the same file re-fires onChange
+    }
+  };
+
+  // Paste-to-attach: only intercepts when the clipboard actually contains an
+  // image file, so normal text paste is completely unaffected.
+  const handleComposerPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    if (isImageGenMode) return;
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    const imageItem = Array.from(items).find(item => item.kind === 'file' && item.type.startsWith('image/'));
+    if (!imageItem) return;
+
+    const file = imageItem.getAsFile();
+    if (!file) return;
+
+    event.preventDefault();
+    void attachImageFile(file);
+  };
+
+  // Drag-and-drop: desktop-only by nature. Tracks drag state so the drop
+  // zone highlight only shows while a file is actively being dragged over
+  // the composer.
+  const handleComposerDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    if (isImageGenMode || isImageUploadDisabled) return;
+    if (!event.dataTransfer?.types.includes('Files')) return;
+    event.preventDefault();
+    setIsDraggingImage(true);
+  };
+
+  const handleComposerDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    // Ignore leave events bubbling from child elements while still inside the composer
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setIsDraggingImage(false);
+  };
+
+  const handleComposerDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    setIsDraggingImage(false);
+    // Prevent the browser's default "navigate to dropped file" behavior for
+    // any file drop, even ones we ultimately reject as non-image.
+    if (event.dataTransfer?.types.includes('Files')) {
+      event.preventDefault();
+    }
+    if (isImageGenMode) return;
+    const file = event.dataTransfer?.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+
+    void attachImageFile(file);
   };
 
   const handleRemoveImage = () => {
@@ -2038,7 +2101,26 @@ while (true) {
             )}
 
             <form onSubmit={handleSubmit} className="relative">
-              <div className={`composer-bar glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] ${isMobile ? 'p-3' : 'p-4'} transition-all duration-300`}>
+              <div
+                className={`composer-bar glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border transition-all duration-300 ${isDraggingImage ? 'border-[var(--accent)]' : 'border-[var(--border)]'} ${isMobile ? 'p-3' : 'p-4'}`}
+                onDragOver={handleComposerDragOver}
+                onDragLeave={handleComposerDragLeave}
+                onDrop={handleComposerDrop}
+              >
+                {/* Drop-zone overlay - only visible while actively dragging an image over the composer */}
+                <AnimatePresence>
+                  {isDraggingImage && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-[inherit] border-2 border-dashed border-[var(--accent)] bg-[var(--accent)]/10"
+                    >
+                      <span className="text-sm font-medium text-[var(--accent)]">Drop image to attach</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-4'}`}>
                   {isProcessing && (
                     <button
@@ -2228,6 +2310,7 @@ while (true) {
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
+                    onPaste={handleComposerPaste}
                     placeholder={isImageGenMode ? 'Describe an image to generate... ' : `Ask ${selectedModel.name} anything... `}
                     className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
                     disabled={isProcessing}
