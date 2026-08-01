@@ -85,6 +85,21 @@ const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
     maxRequests: 10, // 10 images per hour
     message: 'Image generation rate limit exceeded. Please wait before generating another image.',
   },
+  // Creating a share link writes content that gets publicly republished, so
+  // it's throttled more tightly than general write endpoints.
+  'share': {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: 20, // 20 new share links per hour
+    message: 'Too many share links created. Please wait before creating another.',
+  },
+  // Reading a share link is public and unauthenticated by design, so it
+  // needs its own, more lenient bucket to prevent scraping without
+  // punishing legitimate viewers of a popular link.
+  'share-read': {
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 60, // 60 reads per minute
+    message: 'Too many requests. Please slow down.',
+  },
 };
 
 /**
