@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -212,17 +212,51 @@ export default function Page() {
   // Track unavailable models (models that have failed recently)
   const [unavailableModels, setUnavailableModels] = useState<Set<string>>(new Set());
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const responseEndRef = useRef<HTMLDivElement>(null);
+  const historyScrollRef = useRef<HTMLDivElement>(null);
+  // Whether the history pane is scrolled at (or near) the bottom. Streaming
+  // updates only auto-scroll while this stays true, so a user who scrolls up
+  // to reread earlier content while a response is streaming in isn't yanked
+  // back down on every chunk - only an explicit send re-pins to the bottom.
+  const isPinnedToBottomRef = useRef(true);
+  const NEAR_BOTTOM_THRESHOLD_PX = 120;
+
+  const handleHistoryScroll = () => {
+    const el = historyScrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isPinnedToBottomRef.current = distanceFromBottom <= NEAR_BOTTOM_THRESHOLD_PX;
+  };
+
+  // Scrolls the anchor at the end of the history pane into view, but only if
+  // the user is already near the bottom (or `force` is set, e.g. right after
+  // sending a new message).
+  const scrollToBottom = (force = false) => {
+    if (!force && !isPinnedToBottomRef.current) return;
+    setTimeout(() => {
+      responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
 
   // Auto-scroll to bottom when history or response changes
   useEffect(() => {
     if (isChatMode && (history.length > 0 || response)) {
-      setTimeout(() => {
-        responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      scrollToBottom();
     }
   }, [history.length, response, isChatMode]);
+
+  // Composer auto-grow: the textarea grows with content up to a cap, then
+  // scrolls internally. Measured with the scrollHeight-reset trick and
+  // applied synchronously (useLayoutEffect) so the resize lands in the same
+  // paint as the keystroke instead of flashing the old height first.
+  const COMPOSER_MAX_HEIGHT_PX = 240;
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT_PX)}px`;
+  }, [query]);
 
   // Whether we've finished attempting to restore a saved conversation from
   // localStorage. Gates the persist effect below so it doesn't fire (with
@@ -622,7 +656,7 @@ export default function Page() {
 
   // Paste-to-attach: only intercepts when the clipboard actually contains an
   // image file, so normal text paste is completely unaffected.
-  const handleComposerPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+  const handleComposerPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     if (isImageGenMode) return;
     const items = event.clipboardData?.items;
     if (!items) return;
@@ -688,6 +722,9 @@ export default function Page() {
     setPerspectiveResponses(null);
     setPerspectiveDoneModels(new Set());
     setStatusNote(null);
+    // Sending always re-pins the view to the bottom, even if the user had
+    // scrolled up to reread earlier messages.
+    isPinnedToBottomRef.current = true;
 
     // Create abort controller for streaming
     const controller = new AbortController();
@@ -722,9 +759,7 @@ export default function Page() {
         setQuery('');
         setIsProcessing(false);
         setAbortController(null);
-        setTimeout(() => {
-          responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+        scrollToBottom(true);
       } catch (caughtError) {
         const error = caughtError instanceof Error ? caughtError : new Error(String(caughtError));
         if (error.name !== 'AbortError') {
@@ -876,9 +911,7 @@ export default function Page() {
                 }
                 setPerspectiveResponses({ ...perspectiveText });
 
-                setTimeout(() => {
-                  responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
+                scrollToBottom();
                 continue;
               }
 
@@ -907,9 +940,7 @@ export default function Page() {
                 if (fileInputRef.current) {
                   fileInputRef.current.value = '';
                 }
-                setTimeout(() => {
-                  responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
+                scrollToBottom();
                 return;
               }
               continue;
@@ -920,10 +951,8 @@ export default function Page() {
               setResponse(fullResponse);
               flagPossibleModelError(data.content);
 
-              // Auto-scroll to bottom
-              setTimeout(() => {
-                responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }, 100);
+              // Auto-scroll to bottom (only if the user hasn't scrolled up)
+              scrollToBottom();
             }
             if (data.done) {
               setIsProcessing(false);
@@ -944,9 +973,7 @@ export default function Page() {
                 fileInputRef.current.value = '';
               }
               // Auto-scroll to bottom after adding to history
-              setTimeout(() => {
-                responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }, 100);
+              scrollToBottom();
               return;
             }
           } catch {
@@ -1041,8 +1068,11 @@ export default function Page() {
   // Shared react-markdown `code` renderer (copy-to-clipboard code blocks) -
   // reused by every ReactMarkdown instance on this page (history entries,
   // the live single-model response, and each Multi-Perspective card) so the
-  // block isn't copy-pasted per call site.
-  const markdownComponents = {
+  // block isn't copy-pasted per call site. Memoized on `copiedCodeBlock` (the
+  // only thing it actually depends on) so streaming updates elsewhere in
+  // this component - which re-render the whole page - don't hand every
+  // ReactMarkdown instance a brand-new `components` object on every token.
+  const markdownComponents = useMemo(() => ({
     code: ({ className, children, ...props }: React.HTMLAttributes<HTMLElement>) => {
       const match = /language-(\w+)/.exec(className || '');
       const code = String(children).replace(/\n$/, '');
@@ -1087,17 +1117,19 @@ export default function Page() {
         </code>
       );
     },
-  };
+  }), [copiedCodeBlock]);
 
-  // Small 3-dot bounce loader, reused for both the single-model "processing"
-  // state and each Multi-Perspective card while that model is still
-  // streaming. A plain element (not a component defined at render-time) so
-  // it's safe to reuse across multiple spots in the JSX below.
-  const bounceLoader = (
+  // Small 3-dot "thinking" indicator, reused for both the single-model
+  // "processing" state and each Multi-Perspective card while that model is
+  // still streaming. Dots fade in a gentle stagger (opacity only) rather
+  // than bounce, for a calmer, more understated feel. A plain element (not
+  // a component defined at render-time) so it's safe to reuse across
+  // multiple spots in the JSX below.
+  const thinkingIndicator = (
     <div className="flex space-x-1 h-6 items-center">
-      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce"></div>
+      <div className="thinking-dot w-2 h-2 bg-[var(--foreground)]/40 rounded-full [animation-delay:-0.32s]"></div>
+      <div className="thinking-dot w-2 h-2 bg-[var(--foreground)]/40 rounded-full [animation-delay:-0.16s]"></div>
+      <div className="thinking-dot w-2 h-2 bg-[var(--foreground)]/40 rounded-full"></div>
     </div>
   );
 
@@ -1725,7 +1757,12 @@ while (true) {
                       is pinned to the largest possible viewport and doesn't
                       shrink with the toolbar, so history could extend
                       underneath the fixed composer bar at the bottom. */}
-                  <div className={`overflow-y-auto custom-scrollbar ${isMobile ? 'pr-2' : 'pr-4'}`} style={{ maxHeight: 'calc(100dvh - 300px)', minHeight: '200px' }}>
+                  <div
+                    ref={historyScrollRef}
+                    onScroll={handleHistoryScroll}
+                    className={`overflow-y-auto custom-scrollbar ${isMobile ? 'pr-2' : 'pr-4'}`}
+                    style={{ maxHeight: 'calc(100dvh - 300px)', minHeight: '200px' }}
+                  >
                     {/* Conversation History */}
                     <div className="space-y-6 mb-6">
                       {history
@@ -2009,7 +2046,7 @@ while (true) {
                                         </div>
                                         {!isDone && (
                                           <div className="mb-2">
-                                            {bounceLoader}
+                                            {thinkingIndicator}
                                           </div>
                                         )}
                                         {content && (
@@ -2047,7 +2084,7 @@ while (true) {
                                       frozen UI. */}
                                   {isProcessing && !response ? (
                                     <div className="flex items-center gap-3">
-                                      {bounceLoader}
+                                      {thinkingIndicator}
                                       <button
                                         onClick={handleStop}
                                         className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -2172,7 +2209,7 @@ while (true) {
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-4'}`}>
+                <div className={`flex items-end ${isMobile ? 'gap-2' : 'gap-4'}`}>
                   {isProcessing && (
                     <button
                       type="button"
@@ -2358,16 +2395,30 @@ while (true) {
                   <label htmlFor="query-input-bottom" className="sr-only">
                     {isImageGenMode ? 'Describe an image to generate' : `Ask ${selectedModel.name} anything`}
                   </label>
-                  <input
+                  <textarea
                     ref={inputRef}
                     id="query-input-bottom"
                     name="query"
-                    type="text"
+                    rows={1}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onPaste={handleComposerPaste}
+                    onKeyDown={(e) => {
+                      // Enter sends, Shift+Enter inserts a newline - matches
+                      // the multi-line composer convention. Ignore Enter
+                      // while an IME composition is in progress (e.g.
+                      // confirming Japanese/Chinese input) so it doesn't
+                      // submit prematurely.
+                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        if (!isProcessing && query.trim()) {
+                          handleSubmit(e);
+                        }
+                      }
+                    }}
                     placeholder={isImageGenMode ? 'Describe an image to generate... ' : `Ask ${selectedModel.name} anything... `}
-                    className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
+                    className="composer-textarea flex-1 bg-transparent border-none outline-none resize-none custom-scrollbar text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light leading-normal py-2"
+                    style={{ maxHeight: COMPOSER_MAX_HEIGHT_PX }}
                     disabled={isProcessing}
                     autoComplete="off"
                     autoCorrect="off"
