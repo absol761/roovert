@@ -6,7 +6,7 @@
 // shape, a fresnel rim glow, and non-rigid noise-driven displacement instead
 // of a uniform scale-with-volume pulse.
 
-import { useRef } from 'react';
+import { useRef, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -114,13 +114,30 @@ uniform float uFrequency;
 varying vec3 vNormal;
 varying vec3 vViewPosition;
 
+// 3-octave fractal Brownian motion - a single snoise() call reads as a
+// smooth, faceted-looking blob; layering progressively finer/fainter octaves
+// on top gives the surface genuine fine-grained turbulence (the "not low
+// poly" surface detail) without raising the underlying icosahedron's
+// triangle count at all.
+float fbm(vec3 p) {
+  float value = 0.0;
+  float amplitude = 0.5;
+  float freq = 1.0;
+  for (int i = 0; i < 3; i++) {
+    value += amplitude * snoise(p * freq);
+    freq *= 2.1;
+    amplitude *= 0.5;
+  }
+  return value;
+}
+
 void main() {
   vNormal = normalize(normalMatrix * normal);
 
-  float noise = snoise(position * uFrequency + uTime);
+  float noise = fbm(position * uFrequency + uTime);
   // Bass pushes the whole surface out and in with the beat; burst adds a
   // sharper, briefer spike on top for transients (claps, hard consonants).
-  float displacement = noise * (0.15 + uBass * 0.5 + uBurst * 0.6);
+  float displacement = noise * (0.22 + uBass * 0.55 + uBurst * 0.65);
   vec3 displaced = position + normal * displacement;
 
   vec4 mvPosition = modelViewMatrix * vec4(displaced, 1.0);
@@ -143,18 +160,171 @@ void main() {
   float fresnel = pow(1.0 - max(dot(normalize(vNormal), viewDir), 0.0), 2.2);
 
   float musicMix = uColorsFollowMusic * clamp(uMid * 0.5 + uTreble * 0.7, 0.0, 1.0);
-  float mixAmount = clamp(fresnel * 0.7 + musicMix * 0.3, 0.0, 1.0);
+  // View-angle-driven color shift (a cheap stand-in for iridescence/thin-film
+  // interference) on top of the existing fresnel mix, so the surface reads
+  // as an animated energy field rather than a flat two-tone gradient.
+  float iridescence = sin(fresnel * 6.28318 + vViewPosition.x * 0.4) * 0.15;
+  float mixAmount = clamp(fresnel * 0.7 + musicMix * 0.3 + iridescence, 0.0, 1.0);
   vec3 color = mix(uColor1, uColor2, mixAmount);
 
   // Rim glow: brighten sharply toward the silhouette edge for the
   // "glowing orb" read; core stays a dim tint of color1 so bloom has
   // something bright to catch mainly at the edges.
   vec3 core = uColor1 * 0.25;
-  vec3 finalColor = mix(core, color * 1.8, fresnel);
+  vec3 finalColor = mix(core, color * 2.1, fresnel);
 
   gl_FragColor = vec4(finalColor, 1.0);
 }
 `;
+
+// Soft radial-gradient dot, generated once on the GPU-bound canvas rather
+// than shipped as an image asset - used as the halo particles' sprite so
+// they read as glowing points of light instead of flat hard-edged squares
+// (the default look of an un-textured three.js PointsMaterial).
+function useGlowSprite(): THREE.Texture {
+  return useMemo(() => {
+    const size = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.4, 'rgba(255,255,255,0.6)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+  }, []);
+}
+
+interface HaloParticle {
+  theta: number;
+  phi: number;
+  radius: number;
+  phase: number;
+  speed: number;
+}
+
+// A swirling shell of light around the orb - the single biggest lever for
+// "cooler, not flat," since it gives the scene depth and motion beyond one
+// static mesh. Each particle orbits at its own radius/phase rather than
+// rigidly rotating as a block, so the halo reads as organic energy rather
+// than a spinning ring.
+function OrbHalo({
+  color1, color2, colorsFollowMusic, timeRef, audioBandsRef, audioBurstRef,
+}: {
+  color1: string;
+  color2: string;
+  colorsFollowMusic: boolean;
+  timeRef: React.RefObject<number>;
+  audioBandsRef: React.RefObject<AudioBands>;
+  audioBurstRef: React.RefObject<number>;
+}) {
+  const count = 420;
+  const pointsRef = useRef<THREE.Points>(null);
+  const sprite = useGlowSprite();
+  const [particles] = useState<HaloParticle[]>(() => {
+    const result: HaloParticle[] = [];
+    for (let i = 0; i < count; i++) {
+      // Fibonacci sphere distribution for even coverage, then a random
+      // per-particle radius/phase/speed so the shell has real thickness and
+      // desynchronized motion instead of every particle pulsing in lockstep.
+      const theta = Math.acos(1 - 2 * (i + 0.5) / count);
+      const phi = Math.PI * (1 + Math.sqrt(5)) * i;
+      result.push({
+        theta, phi,
+        radius: 2.1 + Math.random() * 0.6,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.4 + Math.random() * 0.6,
+      });
+    }
+    return result;
+  });
+
+  const { positions, colors, sizes } = useMemo(() => ({
+    positions: new Float32Array(count * 3),
+    colors: new Float32Array(count * 3),
+    sizes: new Float32Array(count),
+  }), []);
+
+  useFrame(() => {
+    const points = pointsRef.current;
+    if (!points) return;
+    const geometry = points.geometry;
+    const bands = audioBandsRef.current;
+    const burst = audioBurstRef.current;
+    const t = timeRef.current;
+    const c1 = hexToRgbVec(color1);
+    const c2 = hexToRgbVec(color2);
+    const audioPulse = bands.bass * 0.5 + burst * 0.6;
+
+    for (let i = 0; i < count; i++) {
+      const p = particles[i];
+      // Slow independent orbit (drifting phi) plus a radial breathing
+      // pulse tied to bass/burst, so the shell visibly reacts to sound
+      // instead of just spinning at a constant rate.
+      const orbitPhi = p.phi + t * 0.05 * p.speed;
+      const pulse = Math.sin(t * p.speed + p.phase) * 0.15;
+      const r = p.radius + pulse + audioPulse * 0.35;
+      const x = r * Math.cos(orbitPhi) * Math.sin(p.theta);
+      const y = r * Math.sin(orbitPhi) * Math.sin(p.theta);
+      const z = r * Math.cos(p.theta);
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = z;
+
+      const mix = colorsFollowMusic ? bands.treble : (Math.sin(p.phase + t * 0.3) * 0.5 + 0.5);
+      colors[i * 3] = c1[0] + (c2[0] - c1[0]) * mix;
+      colors[i * 3 + 1] = c1[1] + (c2[1] - c1[1]) * mix;
+      colors[i * 3 + 2] = c1[2] + (c2[2] - c1[2]) * mix;
+
+      sizes[i] = (0.06 + audioPulse * 0.05) * (0.6 + Math.sin(p.phase + t * p.speed) * 0.4);
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry />
+      <pointsMaterial
+        vertexColors
+        map={sprite}
+        size={0.12}
+        transparent
+        opacity={0.85}
+        sizeAttenuation
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+}
+
+// A larger, backside-lit shell around the core orb - gives the glow a sense
+// of volume (light escaping through a translucent skin) instead of the
+// bloom post-effect alone, which just blurs the core's silhouette.
+function GlowShell({ color, audioBurstRef }: { color: string; audioBurstRef: React.RefObject<number> }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  useFrame((_state, delta) => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    mesh.rotation.y -= delta * 0.08;
+    const material = mesh.material as THREE.MeshBasicMaterial;
+    material.opacity = 0.12 + audioBurstRef.current * 0.18;
+  });
+  return (
+    <mesh ref={meshRef}>
+      <icosahedronGeometry args={[2.05, 3]} />
+      <meshBasicMaterial color={color} transparent opacity={0.12} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} />
+    </mesh>
+  );
+}
 
 export function VoiceOrb({
   color1, color2, colorsFollowMusic, speed, timeRef,
@@ -196,28 +366,35 @@ export function VoiceOrb({
   });
 
   return (
-    <mesh ref={meshRef}>
-      {/* icosahedronGeometry's 2nd arg is a subdivision level, not a segment
-          count - triangle count grows as 20*4^detail, so this must stay
-          small (detail 6 is already ~80k triangles, plenty smooth for a
-          fresnel-lit orb at this screen size). */}
-      <icosahedronGeometry args={[1.6, 6]} />
-      <shaderMaterial
-        ref={materialRef}
-        vertexShader={VERTEX_SHADER}
-        fragmentShader={FRAGMENT_SHADER}
-        uniforms={{
-          uTime: { value: 0 },
-          uBass: { value: 0 },
-          uBurst: { value: 0 },
-          uFrequency: { value: 1.4 },
-          uColor1: { value: new THREE.Color(...hexToRgbVec(color1)) },
-          uColor2: { value: new THREE.Color(...hexToRgbVec(color2)) },
-          uMid: { value: 0 },
-          uTreble: { value: 0 },
-          uColorsFollowMusic: { value: colorsFollowMusic ? 1 : 0 },
-        }}
+    <group>
+      <mesh ref={meshRef}>
+        {/* icosahedronGeometry's 2nd arg is a subdivision level, not a segment
+            count - triangle count grows as 20*4^detail, so this must stay
+            small (detail 6 is already ~80k triangles, plenty smooth for a
+            fresnel-lit orb at this screen size). */}
+        <icosahedronGeometry args={[1.6, 6]} />
+        <shaderMaterial
+          ref={materialRef}
+          vertexShader={VERTEX_SHADER}
+          fragmentShader={FRAGMENT_SHADER}
+          uniforms={{
+            uTime: { value: 0 },
+            uBass: { value: 0 },
+            uBurst: { value: 0 },
+            uFrequency: { value: 1.4 },
+            uColor1: { value: new THREE.Color(...hexToRgbVec(color1)) },
+            uColor2: { value: new THREE.Color(...hexToRgbVec(color2)) },
+            uMid: { value: 0 },
+            uTreble: { value: 0 },
+            uColorsFollowMusic: { value: colorsFollowMusic ? 1 : 0 },
+          }}
+        />
+      </mesh>
+      <GlowShell color={color1} audioBurstRef={audioBurstRef} />
+      <OrbHalo
+        color1={color1} color2={color2} colorsFollowMusic={colorsFollowMusic}
+        timeRef={timeRef} audioBandsRef={audioBandsRef} audioBurstRef={audioBurstRef}
       />
-    </mesh>
+    </group>
   );
 }

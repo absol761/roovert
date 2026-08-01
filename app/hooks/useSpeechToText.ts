@@ -71,10 +71,18 @@ export function useSpeechToText() {
     && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
   // Stop cleanly on unmount so a lingering recognition session doesn't keep
-  // the mic indicator lit after the component using it is gone.
+  // the mic indicator lit after the component using it is gone. Handlers are
+  // detached first - stop() doesn't fire its events synchronously, so
+  // without this a late onresult/onend can still run after unmount and call
+  // back into onInterim/onFinal/setIsListening for a component that's gone.
   useEffect(() => {
     return () => {
-      recognitionRef.current?.stop();
+      const recognition = recognitionRef.current;
+      if (!recognition) return;
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      recognition.stop();
     };
   }, []);
 
@@ -116,6 +124,10 @@ export function useSpeechToText() {
     };
 
     recognition.onerror = (event) => {
+      // Ignore events from an instance that's already been superseded (see
+      // onend below) - calling the shared stop() here would otherwise tear
+      // down whatever newer session is currently in recognitionRef.
+      if (recognitionRef.current !== recognition) return;
       // 'no-speech' fires constantly in normal pause-while-thinking use, so
       // it shouldn't stop the session or show as a scary error.
       if (event.error === 'no-speech') return;
@@ -124,6 +136,12 @@ export function useSpeechToText() {
     };
 
     recognition.onend = () => {
+      // A stale session's 'end' event can arrive after a newer session has
+      // already replaced it in the ref (e.g. stop() + start() while the old
+      // instance is still asynchronously winding down) - only clear state if
+      // this handler's own instance is still the current one, so it doesn't
+      // clobber a session that's actually still listening.
+      if (recognitionRef.current !== recognition) return;
       recognitionRef.current = null;
       setIsListening(false);
     };

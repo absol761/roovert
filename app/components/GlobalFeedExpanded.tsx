@@ -17,6 +17,8 @@ export function GlobalFeedExpanded({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isCancelled = false;
+
     fetch('/api/news')
       .then(res => {
         if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
@@ -25,14 +27,20 @@ export function GlobalFeedExpanded({ onClose }: { onClose: () => void }) {
         return res.json();
       })
       .then(data => {
+        if (isCancelled) return;
         setNews(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((error) => {
+        if (isCancelled) return;
         console.warn('News fetch error (non-critical):', error);
         setNews([]);
         setLoading(false);
       });
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   return (
@@ -79,7 +87,7 @@ export function GlobalFeedExpanded({ onClose }: { onClose: () => void }) {
                   </h3>
                   {story.by && (
                     <p className="text-xs text-[var(--muted)]">
-                      by {story.by} {story.score && `• ${story.score} points`}
+                      by {story.by} {typeof story.score === 'number' && story.score > 0 && `• ${story.score} points`}
                     </p>
                   )}
                 </a>

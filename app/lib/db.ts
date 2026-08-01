@@ -7,8 +7,12 @@ import { mkdirSync, existsSync } from 'fs';
 let db: Database.Database | null = null;
 
 export function getDatabase(): Database.Database {
-  // On Vercel/serverless, SQLite won't work - return null or throw gracefully
-  if (process.env.VERCEL || !existsSync(join(process.cwd(), 'data'))) {
+  // On Vercel/serverless, SQLite won't work - return null or throw gracefully.
+  // Note: we must NOT also bail out here just because the `data` directory
+  // doesn't exist yet - that directory is created on demand below, and a
+  // fresh local checkout would otherwise throw on every call before ever
+  // getting the chance to create it.
+  if (process.env.VERCEL) {
     throw new Error('SQLite not available in serverless environment');
   }
   
@@ -37,6 +41,19 @@ export function getDatabase(): Database.Database {
         CREATE INDEX IF NOT EXISTS idx_visitor_hash ON unique_visitors(visitor_hash);
         CREATE INDEX IF NOT EXISTS idx_first_seen ON unique_visitors(first_seen);
         CREATE INDEX IF NOT EXISTS idx_last_seen ON unique_visitors(last_seen);
+
+        -- Message feedback (thumbs up/down). Intentionally does not store any
+        -- message content or visitor identifier - only what's needed to see
+        -- which models get thumbs-down so behavior can be investigated.
+        CREATE TABLE IF NOT EXISTS message_feedback (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          rating TEXT NOT NULL,
+          model_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_feedback_model ON message_feedback(model_id);
+        CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON message_feedback(created_at);
       `);
     } catch (error) {
       console.error('Database initialization error:', error);
