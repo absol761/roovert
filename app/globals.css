@@ -165,7 +165,7 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   overflow-x: hidden;
-  transition: background-color 0.5s ease, color 0.5s ease;
+  transition: background-color var(--duration-slow) var(--ease-out), color var(--duration-slow) var(--ease-out);
   position: relative;
   min-height: 100vh;
   min-height: -webkit-fill-available;
@@ -278,6 +278,13 @@ body::before {
 .composer-bar:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow), var(--shadow-md);
+}
+
+/* Composer textarea - height is set from JS (measured via scrollHeight) as
+   the user types; this transition just smooths the visual step between
+   heights so growing/shrinking reads as fluid rather than a jump cut. */
+.composer-textarea {
+  transition: height var(--duration-fast) var(--ease-out);
 }
 
 .theme-content {
@@ -626,6 +633,26 @@ textarea:focus {
 
 .loading {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* "Thinking" indicator - three dots fading in a gentle stagger rather than
+   bouncing. Opacity-only (no transform/position change) so it stays calm and
+   GPU-composited, closer to how Claude's own "thinking" state reads. */
+@keyframes thinking-dot {
+
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+
+  40% {
+    opacity: 1;
+  }
+}
+
+.thinking-dot {
+  animation: thinking-dot 1.4s ease-in-out infinite;
 }
 
 /* Skeleton Loading */
@@ -1751,7 +1778,19 @@ textarea:focus {
 
 /* Markdown Content Styling */
 .markdown-content {
-  line-height: 1.8;
+  /* Sole source of truth for line-height on rendered assistant prose - the
+     containing element used to also carry Tailwind's `leading-relaxed`
+     (1.625), which fought this declaration for the same property at equal
+     specificity. Settled on 1.75, matching Claude.ai's reading rhythm. */
+  line-height: 1.75;
+}
+
+.markdown-content > *:first-child {
+  /* Now that message cards no longer add their own top padding above the
+     response text (chrome removed so the reply reads as plain prose), the
+     first heading/paragraph needs its own top margin zeroed out or the
+     response starts with a stray gap under the "AI Response" label. */
+  margin-top: 0;
 }
 
 .markdown-content p {
@@ -1761,7 +1800,9 @@ textarea:focus {
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3,
-.markdown-content h4 {
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
   font-weight: 600;
