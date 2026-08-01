@@ -1738,13 +1738,16 @@ while (true) {
                           const originalIdx = history.indexOf(entry);
                           return (
                             <div key={originalIdx} className="space-y-4">
-                              {/* User Message */}
+                              {/* User Message - a lighter surface tint (no
+                                  blur/shadow chrome) so it reads as a quiet
+                                  aside rather than competing with the
+                                  assistant's plain-prose response below. */}
                               <motion.div
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6"
+                                className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl px-6 py-5"
                               >
-                                <div className="flex items-start gap-4">
+                                <div className="flex items-start gap-4 max-w-[70ch]">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
                                     <Zap className="w-5 h-5 text-[var(--accent)]" />
                                   </div>
@@ -1769,11 +1772,14 @@ while (true) {
                                 </div>
                               </motion.div>
 
-                              {/* AI Response */}
+                              {/* AI Response - deliberately no card chrome
+                                  (no border/blur/shadow): the assistant's
+                                  reply flows as plain prose, like Claude.ai,
+                                  instead of sitting in a bordered bubble. */}
                               <motion.div
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6"
+                                className="px-6 py-2"
                               >
                                 <div className="flex items-start gap-4">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
@@ -1921,7 +1927,7 @@ while (true) {
                                             <div className="label text-[var(--accent)] mb-2">
                                               {availableModels.find(m => m.id === p.model)?.name || p.model}
                                             </div>
-                                            <div className="text-[var(--foreground)] text-base leading-relaxed font-light markdown-content">
+                                            <div className="text-[var(--foreground)] text-base font-light markdown-content">
                                               <ReactMarkdown
                                                 remarkPlugins={[remarkGfm]}
                                                 rehypePlugins={[rehypeHighlight]}
@@ -1936,7 +1942,7 @@ while (true) {
                                         ))}
                                       </div>
                                     ) : (
-                                      <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
+                                      <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
                                         <ReactMarkdown
                                           remarkPlugins={[remarkGfm]}
                                           rehypePlugins={[rehypeHighlight]}
@@ -1964,7 +1970,7 @@ while (true) {
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.9 }}
-                          className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 mb-6"
+                          className="px-6 py-2 mb-6"
                         >
                           <div className="flex items-start gap-4">
                             <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
@@ -2007,7 +2013,7 @@ while (true) {
                                           </div>
                                         )}
                                         {content && (
-                                          <div className="text-[var(--foreground)] text-base leading-relaxed font-light markdown-content">
+                                          <div className="text-[var(--foreground)] text-base font-light markdown-content">
                                             <ReactMarkdown
                                               remarkPlugins={[remarkGfm]}
                                               rehypePlugins={[rehypeHighlight]}
@@ -2025,7 +2031,12 @@ while (true) {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="prose prose-invert max-w-none">
+                                // Note: this previously carried Tailwind Typography's
+                                // `prose prose-invert max-w-none` classes, but that
+                                // plugin isn't installed in this project - they were
+                                // dead no-op classes. The actual markdown styling
+                                // comes from the `markdown-content` class below.
+                                <div>
                                   {/* Before the first token arrives, show the
                                       "thinking" indicator; once any text has
                                       streamed in, render it immediately rather
@@ -2046,7 +2057,7 @@ while (true) {
                                       </button>
                                     </div>
                                   ) : response ? (
-                                    <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
+                                    <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
                                       <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         rehypePlugins={[rehypeHighlight]}
