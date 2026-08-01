@@ -47,6 +47,46 @@ const MAX_PERSISTED_TURNS = 50;
 // persisted so it survives a reload, same as the conversation above.
 const RESPONSE_STYLE_STORAGE_KEY = 'roovert_response_style';
 
+// Extended-thinking disclosure for reasoning-capable models (DeepSeek R1,
+// Kimi K3). Collapsed/muted by default like the rest of the app's
+// modal/panel disclosures; forced open via `isStreaming` while reasoning is
+// arriving and no real answer text exists yet, so the user sees something
+// happening instead of a dead silence during the "thinking" phase.
+function ReasoningSection({
+  text,
+  isStreaming,
+  expanded,
+  onToggle,
+}: {
+  text: string;
+  isStreaming: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const isOpen = isStreaming || expanded;
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+        aria-expanded={isOpen}
+      >
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform flex-shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
+        <span>{isStreaming ? 'Thinking…' : 'Thoughts'}</span>
+        {isStreaming && (
+          <span aria-hidden="true" className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse ml-1" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="px-3 pb-3 pt-2 border-t border-[var(--border)] text-xs text-[var(--muted)] leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">
+          {text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Page() {
   const { isMobile } = useMobile();
   const [query, setQuery] = useState('');
@@ -60,7 +100,19 @@ export default function Page() {
   const dictationFinalRef = useRef('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
-  const [history, setHistory] = useState<Array<{ query: string; response: string; model: string; image?: string; perspectives?: Array<{ model: string; content: string }>; generatedImage?: string }>>([]);
+  // Extended-thinking text streamed live for reasoning-capable models
+  // (DeepSeek R1, Kimi K3) before the real answer starts arriving. Cleared
+  // once the turn is added to history (where it's persisted per-entry
+  // instead, see `reasoning` on the history item below).
+  const [reasoning, setReasoning] = useState<string | null>(null);
+  // Manual expand override for the live in-progress turn's reasoning
+  // section, used once the real answer has started (before that, it's
+  // forced open regardless of this flag - see ReasoningSection).
+  const [liveReasoningExpanded, setLiveReasoningExpanded] = useState(false);
+  const [history, setHistory] = useState<Array<{ query: string; response: string; model: string; image?: string; perspectives?: Array<{ model: string; content: string }>; generatedImage?: string; reasoning?: string }>>([]);
+  // Manual expand/collapse override for a past turn's reasoning section,
+  // keyed by history index. Absent = default behavior (collapsed).
+  const [expandedReasoning, setExpandedReasoning] = useState<Record<number, boolean>>({});
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [isChatMode, setIsChatMode] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
@@ -719,6 +771,8 @@ export default function Page() {
     setIsChatMode(true);
     setIsProcessing(true);
     setResponse('');
+    setReasoning(null);
+    setLiveReasoningExpanded(false);
     setPerspectiveResponses(null);
     setPerspectiveDoneModels(new Set());
     setStatusNote(null);
@@ -852,6 +906,7 @@ export default function Page() {
       }
 
       let fullResponse = '';
+      let fullReasoning = '';
       // Multi-perspective bookkeeping: local mirror of perspectiveResponses
       // (state updates are async, so we need a synchronous accumulator) plus
       // which models have individually reported `done`.
@@ -946,6 +1001,15 @@ export default function Page() {
               continue;
             }
 
+            if (typeof data.reasoning === 'string' && data.reasoning) {
+              fullReasoning += data.reasoning;
+              setReasoning(fullReasoning);
+
+              // Auto-scroll to bottom
+              setTimeout(() => {
+                responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }
             if (data.content) {
               fullResponse += data.content;
               setResponse(fullResponse);
@@ -963,10 +1027,12 @@ export default function Page() {
                   query: trimmedQuery,
                   response: fullResponse,
                   model: selectedModelId,
-                  image: selectedImage || undefined
+                  image: selectedImage || undefined,
+                  reasoning: fullReasoning || undefined,
                 },
               ]);
               setResponse(null); // Clear current response after adding to history
+              setReasoning(null);
               setQuery('');
               setSelectedImage(null); // Clear image after sending
               if (fileInputRef.current) {
@@ -1945,6 +2011,16 @@ while (true) {
                                         </button>
                                       </div>
                                     </div>
+                                    {entry.reasoning && (
+                                      <div className="mb-3">
+                                        <ReasoningSection
+                                          text={entry.reasoning}
+                                          isStreaming={false}
+                                          expanded={!!expandedReasoning[originalIdx]}
+                                          onToggle={() => setExpandedReasoning(prev => ({ ...prev, [originalIdx]: !prev[originalIdx] }))}
+                                        />
+                                      </div>
+                                    )}
                                     {entry.generatedImage ? (
                                       <div className="rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)]">
                                         {/* eslint-disable-next-line @next/next/no-img-element -- server-fetched base64 data URL, not a next/image-optimizable asset */}
@@ -2073,7 +2149,15 @@ while (true) {
                                 // plugin isn't installed in this project - they were
                                 // dead no-op classes. The actual markdown styling
                                 // comes from the `markdown-content` class below.
-                                <div>
+                                <div className="space-y-3">
+                                  {reasoning && (
+                                    <ReasoningSection
+                                      text={reasoning}
+                                      isStreaming={isProcessing && !response}
+                                      expanded={liveReasoningExpanded}
+                                      onToggle={() => setLiveReasoningExpanded(v => !v)}
+                                    />
+                                  )}
                                   {/* Before the first token arrives, show the
                                       "thinking" indicator; once any text has
                                       streamed in, render it immediately rather
@@ -2084,7 +2168,11 @@ while (true) {
                                       frozen UI. */}
                                   {isProcessing && !response ? (
                                     <div className="flex items-center gap-3">
-                                      {thinkingIndicator}
+                                      {/* The reasoning box's own pulsing dot
+                                          already signals activity while
+                                          extended thinking is streaming, so
+                                          the thinking indicator is redundant. */}
+                                      {!reasoning && thinkingIndicator}
                                       <button
                                         onClick={handleStop}
                                         className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
