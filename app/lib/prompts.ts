@@ -49,9 +49,43 @@ export function filterResponse(response: string): { filtered: string; wasFiltere
 }
 
 /**
- * Get system prompt with Roovert context
+ * Response style presets - short, non-gimmicky instructions that adjust how
+ * the model answers without the user having to write a custom prompt. Kept
+ * separate from the custom system prompt so the two can be combined freely.
  */
-export function getSystemPrompt(customPrompt?: string): string {
+export type ResponseStyle = 'normal' | 'concise' | 'explanatory' | 'formal';
+
+export const RESPONSE_STYLES: Array<{ id: ResponseStyle; label: string }> = [
+  { id: 'normal', label: 'Normal' },
+  { id: 'concise', label: 'Concise' },
+  { id: 'explanatory', label: 'Explanatory' },
+  { id: 'formal', label: 'Formal' },
+];
+
+// 'normal' intentionally has no entry - it's the default model behavior, so
+// no modifier instruction is prepended for it.
+const STYLE_INSTRUCTIONS: Partial<Record<ResponseStyle, string>> = {
+  concise: 'Keep responses brief and to the point, avoiding unnecessary elaboration.',
+  explanatory: 'Explain your reasoning and provide context, as if teaching the topic.',
+  formal: 'Use a formal, professional tone.',
+};
+
+/**
+ * Look up the instruction text for a response style. Returns undefined for
+ * 'normal' (or an unrecognized value) since no modifier should be applied.
+ */
+export function getStyleInstruction(style?: ResponseStyle): string | undefined {
+  if (!style) return undefined;
+  return STYLE_INSTRUCTIONS[style];
+}
+
+/**
+ * Get system prompt with Roovert context, optionally prefixed with a short
+ * response-style instruction. `customPrompt` and `styleModifier` are
+ * independent and compose naturally - a saved custom prompt and a response
+ * style can both be active on the same request.
+ */
+export function getSystemPrompt(customPrompt?: string, styleModifier?: string): string {
   const basePrompt = customPrompt || `You are a helpful, intelligent, and precise AI assistant on Roovert, an advanced AI platform.
 
 IMPORTANT CONTEXT:
@@ -71,5 +105,5 @@ CONTENT GUIDELINES:
 
 Answer the user's questions clearly, accurately, and in a helpful manner.`;
 
-  return basePrompt;
+  return styleModifier ? `${styleModifier}\n\n${basePrompt}` : basePrompt;
 }

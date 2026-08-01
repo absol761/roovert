@@ -20,6 +20,7 @@ import { LiveStats } from './components/nav/LiveStats';
 import { NavClock } from './components/nav/NavClock';
 import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from './lib/models';
 import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
+import { getSystemPrompt, getStyleInstruction, type ResponseStyle } from './lib/prompts';
 import type { VisualizerMode } from './components/visualizer/R3FVisualizer';
 // Plain 2D canvas, not three.js - cheap enough to not need the dynamic-import
 // treatment the R3F visualizer components above get.
@@ -42,6 +43,9 @@ const CONVERSATION_STORAGE_KEY = 'roovert_conversation';
 // Cap on how many trailing turns get persisted, so a very long conversation
 // can't blow past localStorage's ~5-10MB quota.
 const MAX_PERSISTED_TURNS = 50;
+// Where the response style pick (Normal/Concise/Explanatory/Formal) is
+// persisted so it survives a reload, same as the conversation above.
+const RESPONSE_STYLE_STORAGE_KEY = 'roovert_response_style';
 
 export default function Page() {
   const { isMobile } = useMobile();
@@ -120,6 +124,15 @@ export default function Page() {
   const [dataSaver, setDataSaver] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
+  // Response style modifier (Normal/Concise/Explanatory/Formal) - composes
+  // with, rather than replaces, the custom system prompt above. Lazily read
+  // from localStorage since this only ever runs client-side (useState
+  // initializers don't execute during SSR).
+  const [responseStyle, setResponseStyle] = useState<ResponseStyle>(() => {
+    if (typeof window === 'undefined') return 'normal';
+    const saved = window.localStorage.getItem(RESPONSE_STYLE_STORAGE_KEY);
+    return saved === 'concise' || saved === 'explanatory' || saved === 'formal' ? saved : 'normal';
+  });
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -256,6 +269,26 @@ export default function Page() {
       // persistence is best-effort and must never crash the app.
     }
   }, [history, isChatMode, isHydrated]);
+
+  // Persist the response style choice whenever it changes.
+  useEffect(() => {
+    try {
+      localStorage.setItem(RESPONSE_STYLE_STORAGE_KEY, responseStyle);
+    } catch {
+      // Storage unavailable (e.g. private browsing) - persistence is
+      // best-effort and must never crash the app.
+    }
+  }, [responseStyle]);
+
+  // Combines the custom system prompt with the active response style's
+  // instruction (if any) into the single string sent to the backend.
+  // Returns undefined when neither is set, so the API route falls back to
+  // its own default base prompt exactly as before this feature existed.
+  const buildEffectiveSystemPrompt = () => {
+    const styleInstruction = getStyleInstruction(responseStyle);
+    if (!systemPrompt && !styleInstruction) return undefined;
+    return getSystemPrompt(systemPrompt || undefined, styleInstruction);
+  };
 
   // Clears the current conversation and returns to the landing view. Used by
   // the explicit "New Chat" control and by the nav actions that end the
@@ -648,7 +681,7 @@ export default function Page() {
           query: trimmedQuery,
           image: selectedImage || undefined,
           model: selectedModel.id, // Send model ID, not API ID (backend maps it)
-          systemPrompt: systemPrompt || undefined,
+          systemPrompt: buildEffectiveSystemPrompt(),
           conversationHistory: conversationHistory,
           runParallel: actualRunParallel,
           outputLength: outputLength,
@@ -1229,6 +1262,8 @@ export default function Page() {
             setFocusMode={setFocusMode}
             systemPrompt={systemPrompt}
             setSystemPrompt={setSystemPrompt}
+            responseStyle={responseStyle}
+            setResponseStyle={setResponseStyle}
             onExportChat={handleExportChat}
             neuralNoiseEnabled={neuralNoiseEnabled}
             setNeuralNoiseEnabled={setNeuralNoiseEnabled}
@@ -1663,7 +1698,7 @@ while (true) {
                                                   query: entry.query,
                                                   image: entry.image || undefined,
                                                   model: selectedModelId,
-                                                  systemPrompt: systemPrompt || undefined,
+                                                  systemPrompt: buildEffectiveSystemPrompt(),
                                                   conversationHistory: conversationHistory
                                                 }),
                                                 signal: controller.signal,
