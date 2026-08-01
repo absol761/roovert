@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -45,12 +45,15 @@ type HistoryTurn = {
   image?: string;
   perspectives?: Array<{ model: string; content: string }>;
   generatedImage?: string;
+  // Extended-thinking text for reasoning-capable models (DeepSeek R1, Kimi
+  // K3), persisted per-turn once streaming finishes.
+  reasoning?: string;
 };
 
 // What actually gets persisted per turn - `image`/`generatedImage` are
 // dropped (see MAX_PERSISTED_TURNS comment below), so a stored turn is a
 // strict subset of the in-memory one.
-type PersistedHistoryTurn = Pick<HistoryTurn, 'query' | 'response' | 'model' | 'perspectives'>;
+type PersistedHistoryTurn = Pick<HistoryTurn, 'query' | 'response' | 'model' | 'perspectives' | 'reasoning'>;
 
 interface Conversation {
   id: string;
@@ -123,6 +126,46 @@ function persistConversations(conversations: Conversation[], activeConversationI
   }
 }
 
+// Extended-thinking disclosure for reasoning-capable models (DeepSeek R1,
+// Kimi K3). Collapsed/muted by default like the rest of the app's
+// modal/panel disclosures; forced open via `isStreaming` while reasoning is
+// arriving and no real answer text exists yet, so the user sees something
+// happening instead of a dead silence during the "thinking" phase.
+function ReasoningSection({
+  text,
+  isStreaming,
+  expanded,
+  onToggle,
+}: {
+  text: string;
+  isStreaming: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const isOpen = isStreaming || expanded;
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+        aria-expanded={isOpen}
+      >
+        <ChevronDown className={`w-3.5 h-3.5 transition-transform flex-shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
+        <span>{isStreaming ? 'Thinking…' : 'Thoughts'}</span>
+        {isStreaming && (
+          <span aria-hidden="true" className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse ml-1" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="px-3 pb-3 pt-2 border-t border-[var(--border)] text-xs text-[var(--muted)] leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">
+          {text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Page() {
   const { isMobile } = useMobile();
   const [query, setQuery] = useState('');
@@ -136,7 +179,19 @@ export default function Page() {
   const dictationFinalRef = useRef('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
+  // Extended-thinking text streamed live for reasoning-capable models
+  // (DeepSeek R1, Kimi K3) before the real answer starts arriving. Cleared
+  // once the turn is added to history (where it's persisted per-entry
+  // instead, see `reasoning` on the history item below).
+  const [reasoning, setReasoning] = useState<string | null>(null);
+  // Manual expand override for the live in-progress turn's reasoning
+  // section, used once the real answer has started (before that, it's
+  // forced open regardless of this flag - see ReasoningSection).
+  const [liveReasoningExpanded, setLiveReasoningExpanded] = useState(false);
   const [history, setHistory] = useState<HistoryTurn[]>([]);
+  // Manual expand/collapse override for a past turn's reasoning section,
+  // keyed by history index. Absent = default behavior (collapsed).
+  const [expandedReasoning, setExpandedReasoning] = useState<Record<number, boolean>>({});
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [isChatMode, setIsChatMode] = useState(false);
   // The full conversation list (for the history panel) and which one
@@ -295,17 +350,51 @@ export default function Page() {
   // Track unavailable models (models that have failed recently)
   const [unavailableModels, setUnavailableModels] = useState<Set<string>>(new Set());
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const responseEndRef = useRef<HTMLDivElement>(null);
+  const historyScrollRef = useRef<HTMLDivElement>(null);
+  // Whether the history pane is scrolled at (or near) the bottom. Streaming
+  // updates only auto-scroll while this stays true, so a user who scrolls up
+  // to reread earlier content while a response is streaming in isn't yanked
+  // back down on every chunk - only an explicit send re-pins to the bottom.
+  const isPinnedToBottomRef = useRef(true);
+  const NEAR_BOTTOM_THRESHOLD_PX = 120;
+
+  const handleHistoryScroll = () => {
+    const el = historyScrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isPinnedToBottomRef.current = distanceFromBottom <= NEAR_BOTTOM_THRESHOLD_PX;
+  };
+
+  // Scrolls the anchor at the end of the history pane into view, but only if
+  // the user is already near the bottom (or `force` is set, e.g. right after
+  // sending a new message).
+  const scrollToBottom = (force = false) => {
+    if (!force && !isPinnedToBottomRef.current) return;
+    setTimeout(() => {
+      responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
 
   // Auto-scroll to bottom when history or response changes
   useEffect(() => {
     if (isChatMode && (history.length > 0 || response)) {
-      setTimeout(() => {
-        responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      scrollToBottom();
     }
   }, [history.length, response, isChatMode]);
+
+  // Composer auto-grow: the textarea grows with content up to a cap, then
+  // scrolls internally. Measured with the scrollHeight-reset trick and
+  // applied synchronously (useLayoutEffect) so the resize lands in the same
+  // paint as the keystroke instead of flashing the old height first.
+  const COMPOSER_MAX_HEIGHT_PX = 240;
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT_PX)}px`;
+  }, [query]);
 
   // Whether we've finished attempting to restore a saved conversation from
   // localStorage. Gates the persist effect below so it doesn't fire (with
@@ -405,7 +494,7 @@ export default function Page() {
     // ~5-10MB quota even for long or image-heavy chats.
     const trimmedHistory: PersistedHistoryTurn[] = history
       .slice(-MAX_PERSISTED_TURNS)
-      .map(({ query, response, model, perspectives }) => ({ query, response, model, perspectives }));
+      .map(({ query, response, model, perspectives, reasoning }) => ({ query, response, model, perspectives, reasoning }));
     const now = Date.now();
     const title = existing?.titleIsCustom
       ? existing.title
@@ -826,7 +915,7 @@ export default function Page() {
 
   // Paste-to-attach: only intercepts when the clipboard actually contains an
   // image file, so normal text paste is completely unaffected.
-  const handleComposerPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+  const handleComposerPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     if (isImageGenMode) return;
     const items = event.clipboardData?.items;
     if (!items) return;
@@ -889,9 +978,14 @@ export default function Page() {
     setIsChatMode(true);
     setIsProcessing(true);
     setResponse('');
+    setReasoning(null);
+    setLiveReasoningExpanded(false);
     setPerspectiveResponses(null);
     setPerspectiveDoneModels(new Set());
     setStatusNote(null);
+    // Sending always re-pins the view to the bottom, even if the user had
+    // scrolled up to reread earlier messages.
+    isPinnedToBottomRef.current = true;
 
     // Create abort controller for streaming
     const controller = new AbortController();
@@ -926,9 +1020,7 @@ export default function Page() {
         setQuery('');
         setIsProcessing(false);
         setAbortController(null);
-        setTimeout(() => {
-          responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
+        scrollToBottom(true);
       } catch (caughtError) {
         const error = caughtError instanceof Error ? caughtError : new Error(String(caughtError));
         if (error.name !== 'AbortError') {
@@ -1021,6 +1113,7 @@ export default function Page() {
       }
 
       let fullResponse = '';
+      let fullReasoning = '';
       // Multi-perspective bookkeeping: local mirror of perspectiveResponses
       // (state updates are async, so we need a synchronous accumulator) plus
       // which models have individually reported `done`.
@@ -1080,9 +1173,7 @@ export default function Page() {
                 }
                 setPerspectiveResponses({ ...perspectiveText });
 
-                setTimeout(() => {
-                  responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
+                scrollToBottom();
                 continue;
               }
 
@@ -1111,23 +1202,28 @@ export default function Page() {
                 if (fileInputRef.current) {
                   fileInputRef.current.value = '';
                 }
-                setTimeout(() => {
-                  responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
+                scrollToBottom();
                 return;
               }
               continue;
             }
 
-            if (data.content) {
-              fullResponse += data.content;
-              setResponse(fullResponse);
-              flagPossibleModelError(data.content);
+            if (typeof data.reasoning === 'string' && data.reasoning) {
+              fullReasoning += data.reasoning;
+              setReasoning(fullReasoning);
 
               // Auto-scroll to bottom
               setTimeout(() => {
                 responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
               }, 100);
+            }
+            if (data.content) {
+              fullResponse += data.content;
+              setResponse(fullResponse);
+              flagPossibleModelError(data.content);
+
+              // Auto-scroll to bottom (only if the user hasn't scrolled up)
+              scrollToBottom();
             }
             if (data.done) {
               setIsProcessing(false);
@@ -1138,19 +1234,19 @@ export default function Page() {
                   query: trimmedQuery,
                   response: fullResponse,
                   model: selectedModelId,
-                  image: selectedImage || undefined
+                  image: selectedImage || undefined,
+                  reasoning: fullReasoning || undefined,
                 },
               ]);
               setResponse(null); // Clear current response after adding to history
+              setReasoning(null);
               setQuery('');
               setSelectedImage(null); // Clear image after sending
               if (fileInputRef.current) {
                 fileInputRef.current.value = '';
               }
               // Auto-scroll to bottom after adding to history
-              setTimeout(() => {
-                responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }, 100);
+              scrollToBottom();
               return;
             }
           } catch {
@@ -1245,8 +1341,11 @@ export default function Page() {
   // Shared react-markdown `code` renderer (copy-to-clipboard code blocks) -
   // reused by every ReactMarkdown instance on this page (history entries,
   // the live single-model response, and each Multi-Perspective card) so the
-  // block isn't copy-pasted per call site.
-  const markdownComponents = {
+  // block isn't copy-pasted per call site. Memoized on `copiedCodeBlock` (the
+  // only thing it actually depends on) so streaming updates elsewhere in
+  // this component - which re-render the whole page - don't hand every
+  // ReactMarkdown instance a brand-new `components` object on every token.
+  const markdownComponents = useMemo(() => ({
     code: ({ className, children, ...props }: React.HTMLAttributes<HTMLElement>) => {
       const match = /language-(\w+)/.exec(className || '');
       const code = String(children).replace(/\n$/, '');
@@ -1291,17 +1390,19 @@ export default function Page() {
         </code>
       );
     },
-  };
+  }), [copiedCodeBlock]);
 
-  // Small 3-dot bounce loader, reused for both the single-model "processing"
-  // state and each Multi-Perspective card while that model is still
-  // streaming. A plain element (not a component defined at render-time) so
-  // it's safe to reuse across multiple spots in the JSX below.
-  const bounceLoader = (
+  // Small 3-dot "thinking" indicator, reused for both the single-model
+  // "processing" state and each Multi-Perspective card while that model is
+  // still streaming. Dots fade in a gentle stagger (opacity only) rather
+  // than bounce, for a calmer, more understated feel. A plain element (not
+  // a component defined at render-time) so it's safe to reuse across
+  // multiple spots in the JSX below.
+  const thinkingIndicator = (
     <div className="flex space-x-1 h-6 items-center">
-      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-      <div className="w-2 h-2 bg-[var(--foreground)]/40 rounded-full animate-bounce"></div>
+      <div className="thinking-dot w-2 h-2 bg-[var(--foreground)]/40 rounded-full [animation-delay:-0.32s]"></div>
+      <div className="thinking-dot w-2 h-2 bg-[var(--foreground)]/40 rounded-full [animation-delay:-0.16s]"></div>
+      <div className="thinking-dot w-2 h-2 bg-[var(--foreground)]/40 rounded-full"></div>
     </div>
   );
 
@@ -1394,7 +1495,7 @@ export default function Page() {
 
       {/* Navigation */}
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-opacity duration-500 ${focusMode && !isMobile ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}
+        className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-opacity duration-[var(--duration-base)] ${focusMode && !isMobile ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="max-w-7xl mx-auto px-6 py-3.5">
@@ -1953,7 +2054,12 @@ while (true) {
                       is pinned to the largest possible viewport and doesn't
                       shrink with the toolbar, so history could extend
                       underneath the fixed composer bar at the bottom. */}
-                  <div className={`overflow-y-auto custom-scrollbar ${isMobile ? 'pr-2' : 'pr-4'}`} style={{ maxHeight: 'calc(100dvh - 300px)', minHeight: '200px' }}>
+                  <div
+                    ref={historyScrollRef}
+                    onScroll={handleHistoryScroll}
+                    className={`overflow-y-auto custom-scrollbar ${isMobile ? 'pr-2' : 'pr-4'}`}
+                    style={{ maxHeight: 'calc(100dvh - 300px)', minHeight: '200px' }}
+                  >
                     {/* Conversation History */}
                     <div className="space-y-6 mb-6">
                       {history
@@ -1966,13 +2072,16 @@ while (true) {
                           const originalIdx = history.indexOf(entry);
                           return (
                             <div key={originalIdx} className="space-y-4">
-                              {/* User Message */}
+                              {/* User Message - a lighter surface tint (no
+                                  blur/shadow chrome) so it reads as a quiet
+                                  aside rather than competing with the
+                                  assistant's plain-prose response below. */}
                               <motion.div
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6"
+                                className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl px-6 py-5"
                               >
-                                <div className="flex items-start gap-4">
+                                <div className="flex items-start gap-4 max-w-[70ch]">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
                                     <Zap className="w-5 h-5 text-[var(--accent)]" />
                                   </div>
@@ -1997,11 +2106,14 @@ while (true) {
                                 </div>
                               </motion.div>
 
-                              {/* AI Response */}
+                              {/* AI Response - deliberately no card chrome
+                                  (no border/blur/shadow): the assistant's
+                                  reply flows as plain prose, like Claude.ai,
+                                  instead of sitting in a bordered bubble. */}
                               <motion.div
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-6"
+                                className="px-6 py-2"
                               >
                                 <div className="flex items-start gap-4">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
@@ -2130,6 +2242,16 @@ while (true) {
                                         </button>
                                       </div>
                                     </div>
+                                    {entry.reasoning && (
+                                      <div className="mb-3">
+                                        <ReasoningSection
+                                          text={entry.reasoning}
+                                          isStreaming={false}
+                                          expanded={!!expandedReasoning[originalIdx]}
+                                          onToggle={() => setExpandedReasoning(prev => ({ ...prev, [originalIdx]: !prev[originalIdx] }))}
+                                        />
+                                      </div>
+                                    )}
                                     {entry.generatedImage ? (
                                       <div className="rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)]">
                                         {/* eslint-disable-next-line @next/next/no-img-element -- server-fetched base64 data URL, not a next/image-optimizable asset */}
@@ -2149,7 +2271,7 @@ while (true) {
                                             <div className="label text-[var(--accent)] mb-2">
                                               {availableModels.find(m => m.id === p.model)?.name || p.model}
                                             </div>
-                                            <div className="text-[var(--foreground)] text-base leading-relaxed font-light markdown-content">
+                                            <div className="text-[var(--foreground)] text-base font-light markdown-content">
                                               <ReactMarkdown
                                                 remarkPlugins={[remarkGfm]}
                                                 rehypePlugins={[rehypeHighlight]}
@@ -2164,7 +2286,7 @@ while (true) {
                                         ))}
                                       </div>
                                     ) : (
-                                      <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
+                                      <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
                                         <ReactMarkdown
                                           remarkPlugins={[remarkGfm]}
                                           rehypePlugins={[rehypeHighlight]}
@@ -2192,7 +2314,7 @@ while (true) {
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.9 }}
-                          className="glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-8 mb-6"
+                          className="px-6 py-2 mb-6"
                         >
                           <div className="flex items-start gap-4">
                             <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
@@ -2231,11 +2353,11 @@ while (true) {
                                         </div>
                                         {!isDone && (
                                           <div className="mb-2">
-                                            {bounceLoader}
+                                            {thinkingIndicator}
                                           </div>
                                         )}
                                         {content && (
-                                          <div className="text-[var(--foreground)] text-base leading-relaxed font-light markdown-content">
+                                          <div className="text-[var(--foreground)] text-base font-light markdown-content">
                                             <ReactMarkdown
                                               remarkPlugins={[remarkGfm]}
                                               rehypePlugins={[rehypeHighlight]}
@@ -2253,7 +2375,20 @@ while (true) {
                                   </div>
                                 </div>
                               ) : (
-                                <div className="prose prose-invert max-w-none">
+                                // Note: this previously carried Tailwind Typography's
+                                // `prose prose-invert max-w-none` classes, but that
+                                // plugin isn't installed in this project - they were
+                                // dead no-op classes. The actual markdown styling
+                                // comes from the `markdown-content` class below.
+                                <div className="space-y-3">
+                                  {reasoning && (
+                                    <ReasoningSection
+                                      text={reasoning}
+                                      isStreaming={isProcessing && !response}
+                                      expanded={liveReasoningExpanded}
+                                      onToggle={() => setLiveReasoningExpanded(v => !v)}
+                                    />
+                                  )}
                                   {/* Before the first token arrives, show the
                                       "thinking" indicator; once any text has
                                       streamed in, render it immediately rather
@@ -2264,7 +2399,11 @@ while (true) {
                                       frozen UI. */}
                                   {isProcessing && !response ? (
                                     <div className="flex items-center gap-3">
-                                      {bounceLoader}
+                                      {/* The reasoning box's own pulsing dot
+                                          already signals activity while
+                                          extended thinking is streaming, so
+                                          the thinking indicator is redundant. */}
+                                      {!reasoning && thinkingIndicator}
                                       <button
                                         onClick={handleStop}
                                         className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -2274,7 +2413,7 @@ while (true) {
                                       </button>
                                     </div>
                                   ) : response ? (
-                                    <div className="text-[var(--foreground)] text-lg leading-relaxed font-light markdown-content">
+                                    <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
                                       <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         rehypePlugins={[rehypeHighlight]}
@@ -2389,7 +2528,7 @@ while (true) {
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-4'}`}>
+                <div className={`flex items-end ${isMobile ? 'gap-2' : 'gap-4'}`}>
                   {isProcessing && (
                     <button
                       type="button"
@@ -2586,16 +2725,30 @@ while (true) {
                   <label htmlFor="query-input-bottom" className="sr-only">
                     {isImageGenMode ? 'Describe an image to generate' : `Ask ${selectedModel.name} anything`}
                   </label>
-                  <input
+                  <textarea
                     ref={inputRef}
                     id="query-input-bottom"
                     name="query"
-                    type="text"
+                    rows={1}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onPaste={handleComposerPaste}
+                    onKeyDown={(e) => {
+                      // Enter sends, Shift+Enter inserts a newline - matches
+                      // the multi-line composer convention. Ignore Enter
+                      // while an IME composition is in progress (e.g.
+                      // confirming Japanese/Chinese input) so it doesn't
+                      // submit prematurely.
+                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        if (!isProcessing && query.trim()) {
+                          handleSubmit(e);
+                        }
+                      }
+                    }}
                     placeholder={isImageGenMode ? 'Describe an image to generate... ' : `Ask ${selectedModel.name} anything... `}
-                    className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
+                    className="composer-textarea flex-1 bg-transparent border-none outline-none resize-none custom-scrollbar text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light leading-normal py-2"
+                    style={{ maxHeight: COMPOSER_MAX_HEIGHT_PX }}
                     disabled={isProcessing}
                     autoComplete="off"
                     autoCorrect="off"
