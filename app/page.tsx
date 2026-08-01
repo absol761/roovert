@@ -1444,7 +1444,7 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
               transition={{ duration: 0.5 }}
-              className="flex flex-col items-center text-center max-w-5xl mx-auto space-y-10 pt-12 pb-16"
+              className="flex flex-col items-center text-center max-w-3xl mx-auto space-y-8 pt-20 pb-16 min-h-[60vh] justify-center"
             >
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
@@ -1460,58 +1460,104 @@ export default function Page() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.12 }}
-                className="serif-display text-6xl sm:text-7xl md:text-8xl leading-[1.02] text-balance text-[var(--foreground)]"
+                className="serif-display text-4xl sm:text-5xl md:text-6xl leading-[1.05] text-balance text-[var(--foreground)]"
               >
-                <span className="block">Multi-Perspective</span>
-                <span className="block text-[var(--accent)]">AI Models</span>
+                What should we{' '}
+                <span className="text-[var(--accent)]">get into</span>?
               </motion.h1>
 
               <motion.p
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-lg md:text-xl text-[var(--muted)] max-w-2xl mx-auto leading-relaxed text-balance"
+                className="text-base md:text-lg text-[var(--muted)] max-w-xl mx-auto leading-relaxed text-balance"
               >
-                Advanced intelligence designed to challenge consensus. Powered by{' '}
+                Powered by{' '}
                 <span className="text-[var(--foreground)]">
                   {selectedModelId === 'multi-perspective' ? 'multiple models at once' : selectedModel.name}
                 </span>.
               </motion.p>
 
-              <motion.div
+              {/* Landing composer - a visually distinct instance from the
+                  fixed in-chat composer below (separate markup, no shared
+                  state beyond `query`/`handleSubmit`), placed prominently
+                  in the middle of the empty state the way Claude's new-chat
+                  screen leads with the composer rather than a CTA button. */}
+              <motion.form
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.28 }}
-                className="flex flex-wrap items-center justify-center gap-3 pt-2"
+                transition={{ duration: 0.5, delay: 0.26 }}
+                onSubmit={handleSubmit}
+                className="w-full max-w-xl pt-2"
+              >
+                <div className={`composer-bar glass-panel flex items-center gap-2 bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] ${isMobile ? 'p-2 pl-5' : 'p-2.5 pl-6'}`}>
+                  <label htmlFor="landing-query-input" className="sr-only">
+                    {`Ask ${selectedModel.name} anything`}
+                  </label>
+                  <input
+                    id="landing-query-input"
+                    name="query"
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="What's on your mind?"
+                    className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-base md:text-lg placeholder:text-[var(--foreground)]/35 font-light"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
+                    aria-label="Query input"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!query.trim()}
+                    className="flex items-center justify-center w-10 h-10 flex-shrink-0 bg-[var(--accent)] hover:opacity-90 hover:scale-105 active:scale-95 rounded-xl disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed transition-all duration-[var(--duration-fast)] shadow-[0_4px_20px_-4px_var(--accent-glow)]"
+                    title="Send"
+                  >
+                    <Send className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              </motion.form>
+
+              {/* Secondary entry points - deliberately quiet text links, not
+                  competing buttons, now that the composer above is the
+                  primary way in. `handleInitialize` (with its initialize
+                  tracking call) and the Looks modal trigger are unchanged. */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.32 }}
+                className="flex items-center gap-4 text-sm text-[var(--muted)]"
               >
                 <button
                   onClick={handleInitialize}
-                  className="px-8 py-3.5 bg-[var(--accent)] text-white text-base font-medium rounded-full transition-all duration-[var(--duration-base)] hover:opacity-90 active:scale-[0.98] shadow-[var(--shadow-md)] flex items-center gap-2"
+                  className="hover:text-[var(--foreground)] transition-colors inline-flex items-center gap-1.5"
                 >
-                  Start a conversation <ArrowRight className="w-4 h-4" />
+                  Start blank <ArrowRight className="w-3.5 h-3.5" />
                 </button>
+                <span className="text-[var(--border)]" aria-hidden="true">•</span>
                 <button
                   onClick={() => setIsLooksOpen(true)}
-                  className="px-6 py-3.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] border border-[var(--border)] hover:border-[var(--accent)]/40 rounded-full transition-all duration-[var(--duration-base)] flex items-center gap-2"
+                  className="hover:text-[var(--foreground)] transition-colors inline-flex items-center gap-1.5"
                 >
-                  <Paintbrush className="w-4 h-4" /> Explore Looks
+                  <Paintbrush className="w-3.5 h-3.5" /> Explore looks
                 </button>
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.35 }}
-                className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-3 w-full max-w-2xl pt-4`}
+                transition={{ duration: 0.5, delay: 0.4 }}
+                className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-2.5 w-full max-w-xl pt-6`}
               >
                 {QUICK_PROMPTS.map((prompt, idx) => (
                   <motion.button
                     key={idx}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.4 + idx * 0.05 }}
+                    transition={{ duration: 0.3, delay: 0.45 + idx * 0.05 }}
                     onClick={() => injectPrompt(prompt)}
-                    className="card-hover bg-[var(--surface)] border border-[var(--border)] rounded-xl px-5 py-4 text-sm text-left text-[var(--muted)] hover:text-[var(--foreground)] leading-relaxed"
+                    className="card-hover bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-strong)] rounded-2xl px-4 py-3.5 text-sm text-left text-[var(--muted)] hover:text-[var(--foreground)] leading-relaxed"
                   >
                     {prompt}
                   </motion.button>
