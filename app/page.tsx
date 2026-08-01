@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon, ThumbsUp, ThumbsDown, Command, Download, Focus, Keyboard, Cpu } from 'lucide-react';
 import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { useMicLevel } from './hooks/useMicLevel';
@@ -12,6 +12,8 @@ import { useSpeechToText } from './hooks/useSpeechToText';
 import { LooksModal } from './components/modals/LooksModal';
 import { MoreModelsModal } from './components/modals/MoreModelsModal';
 import { SettingsModal } from './components/modals/SettingsModal';
+import { CommandPaletteModal, type CommandAction } from './components/modals/CommandPaletteModal';
+import { ShortcutsHelpModal } from './components/modals/ShortcutsHelpModal';
 import { GlobalFeedExpanded } from './components/GlobalFeedExpanded';
 import { NeuralNoise } from './components/NeuralNoise';
 import { LiveStats } from './components/nav/LiveStats';
@@ -175,6 +177,10 @@ export default function Page() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
   const [isGlobalFeedOpen, setIsGlobalFeedOpen] = useState(false);
+  // Cmd/Ctrl+K quick-actions palette and its "?" shortcuts-help overlay -
+  // both are plain client-side modals with no state beyond open/closed.
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [look, setLook] = useState('midnight');
   const [layout, setLayout] = useState('standard');
   const [fontSize, setFontSize] = useState('normal');
@@ -1152,6 +1158,17 @@ export default function Page() {
 
   // Keyboard shortcuts
   useEffect(() => {
+    // Whether the key event originated in a text input/textarea/contentEditable
+    // element - guards single-character shortcuts (like "?") so they don't
+    // hijack normal typing. Modifier-combo shortcuts (Cmd+K etc.) don't need
+    // this: holding Cmd/Ctrl means no character is actually being typed.
+    const isTypingTarget = (target: EventTarget | null) => {
+      const el = target as HTMLElement | null;
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Cmd/Ctrl + Enter to submit
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -1159,19 +1176,46 @@ export default function Page() {
         if (!isProcessing && query.trim()) {
           handleSubmit(e);
         }
+        return;
       }
       // Escape to stop
       if (e.key === 'Escape' && isProcessing) {
         handleStop();
+        return;
+      }
+      // Cmd/Ctrl + K - open the quick-actions command palette
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(true);
+        return;
+      }
+      // Cmd/Ctrl + Shift + O - start a new chat (matches Claude.ai; avoids
+      // Cmd+N, which browsers/OSes reserve for "new window")
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        startNewChat();
+        return;
+      }
+      // Cmd/Ctrl + , - open settings (standard app-preferences convention)
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setIsSettingsOpen(true);
+        return;
+      }
+      // ? - open the shortcuts help overlay, but only outside of text input
+      // (so typing a literal "?" in the composer or a search box works normally)
+      if (e.key === '?' && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        setIsShortcutsHelpOpen(true);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-    // handleSubmit/handleStop intentionally omitted: they're recreated every
-    // render (not memoized) and this effect already re-subscribes on every
-    // query/isProcessing change, so including them would add churn with no
-    // behavioral difference.
+    // handleSubmit/handleStop/startNewChat intentionally omitted: they're
+    // recreated every render (not memoized) and this effect already
+    // re-subscribes on every query/isProcessing change, so including them
+    // would add churn with no behavioral difference.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, isProcessing]);
 
@@ -1192,6 +1236,74 @@ export default function Page() {
       <div className="thinking-dot w-2 h-2 bg-[var(--foreground)]/40 rounded-full"></div>
     </div>
   );
+
+  // Command palette actions - each wired directly to a handler/setter that
+  // already exists above rather than inventing new behavior, so the palette
+  // is just another entry point into things the UI can already do.
+  const commandActions: CommandAction[] = [
+    {
+      id: 'new-chat',
+      label: 'New Chat',
+      category: 'Actions',
+      icon: <MessageSquarePlus className="w-4 h-4" />,
+      keywords: 'clear reset conversation',
+      onSelect: startNewChat,
+    },
+    {
+      id: 'open-settings',
+      label: 'Open Settings',
+      category: 'Actions',
+      icon: <Settings className="w-4 h-4" />,
+      onSelect: () => setIsSettingsOpen(true),
+    },
+    {
+      id: 'change-theme',
+      label: 'Change Theme / Look',
+      category: 'Actions',
+      icon: <Paintbrush className="w-4 h-4" />,
+      keywords: 'looks appearance style',
+      onSelect: () => setIsLooksOpen(true),
+    },
+    {
+      id: 'open-global-feed',
+      label: 'Open Global Feed',
+      category: 'Actions',
+      icon: <Globe className="w-4 h-4" />,
+      onSelect: () => setIsGlobalFeedOpen(true),
+    },
+    {
+      id: 'export-chat',
+      label: 'Export Conversation',
+      category: 'Actions',
+      icon: <Download className="w-4 h-4" />,
+      keywords: 'download save transcript',
+      onSelect: handleExportChat,
+    },
+    {
+      id: 'toggle-focus-mode',
+      label: focusMode ? 'Turn Off Focus Mode' : 'Turn On Focus Mode',
+      category: 'Actions',
+      icon: <Focus className="w-4 h-4" />,
+      keywords: 'distraction free zen',
+      onSelect: () => setFocusMode(prev => !prev),
+    },
+    {
+      id: 'shortcuts-help',
+      label: 'Show Keyboard Shortcuts',
+      category: 'Actions',
+      icon: <Keyboard className="w-4 h-4" />,
+      keywords: 'help hotkeys',
+      onSelect: () => setIsShortcutsHelpOpen(true),
+    },
+    ...filteredAvailableModels.map((m): CommandAction => ({
+      id: `model-${m.id}`,
+      label: m.id === selectedModelId ? `${m.name} (current)` : `Switch to ${m.name}`,
+      category: 'Models',
+      icon: <Cpu className="w-4 h-4" />,
+      keywords: m.category,
+      onSelect: () => setSelectedModelId(m.id),
+    })),
+  ];
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
@@ -1305,6 +1417,20 @@ export default function Page() {
               <div className="hidden sm:block">
                 <NavClock />
               </div>
+              {/* Command palette discoverability hint - desktop-only (the
+                  palette is a keyboard-driven feature with no equivalent
+                  touch gesture), so it's gated on useMobile() rather than
+                  just a CSS breakpoint. */}
+              {!isMobile && (
+                <button
+                  onClick={() => setIsCommandPaletteOpen(true)}
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+                  title="Quick Actions"
+                >
+                  <Command className="w-3.5 h-3.5" />
+                  <span>K for quick actions</span>
+                </button>
+              )}
             </div>
 
             {/* Theme + Visualizer controls - Center */}
@@ -1504,6 +1630,27 @@ export default function Page() {
         )}
       </AnimatePresence>
 
+      {/* Command Palette - Cmd/Ctrl+K quick actions */}
+      <AnimatePresence>
+        {isCommandPaletteOpen && (
+          <CommandPaletteModal
+            isOpen={isCommandPaletteOpen}
+            onClose={() => setIsCommandPaletteOpen(false)}
+            actions={commandActions}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Shortcuts Help - "?" overlay listing all available shortcuts */}
+      <AnimatePresence>
+        {isShortcutsHelpOpen && (
+          <ShortcutsHelpModal
+            isOpen={isShortcutsHelpOpen}
+            onClose={() => setIsShortcutsHelpOpen(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* More Models Modal */}
       <AnimatePresence>
         {isMoreModelsOpen && (
@@ -1539,7 +1686,7 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
               transition={{ duration: 0.5 }}
-              className="flex flex-col items-center text-center max-w-5xl mx-auto space-y-10 pt-12 pb-16"
+              className="flex flex-col items-center text-center max-w-3xl mx-auto space-y-8 pt-20 pb-16 min-h-[60vh] justify-center"
             >
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
@@ -1555,58 +1702,104 @@ export default function Page() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.12 }}
-                className="serif-display text-6xl sm:text-7xl md:text-8xl leading-[1.02] text-balance text-[var(--foreground)]"
+                className="serif-display text-4xl sm:text-5xl md:text-6xl leading-[1.05] text-balance text-[var(--foreground)]"
               >
-                <span className="block">Multi-Perspective</span>
-                <span className="block text-[var(--accent)]">AI Models</span>
+                What should we{' '}
+                <span className="text-[var(--accent)]">get into</span>?
               </motion.h1>
 
               <motion.p
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-lg md:text-xl text-[var(--muted)] max-w-2xl mx-auto leading-relaxed text-balance"
+                className="text-base md:text-lg text-[var(--muted)] max-w-xl mx-auto leading-relaxed text-balance"
               >
-                Advanced intelligence designed to challenge consensus. Powered by{' '}
+                Powered by{' '}
                 <span className="text-[var(--foreground)]">
                   {selectedModelId === 'multi-perspective' ? 'multiple models at once' : selectedModel.name}
                 </span>.
               </motion.p>
 
-              <motion.div
+              {/* Landing composer - a visually distinct instance from the
+                  fixed in-chat composer below (separate markup, no shared
+                  state beyond `query`/`handleSubmit`), placed prominently
+                  in the middle of the empty state the way Claude's new-chat
+                  screen leads with the composer rather than a CTA button. */}
+              <motion.form
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.28 }}
-                className="flex flex-wrap items-center justify-center gap-3 pt-2"
+                transition={{ duration: 0.5, delay: 0.26 }}
+                onSubmit={handleSubmit}
+                className="w-full max-w-xl pt-2"
+              >
+                <div className={`composer-bar glass-panel flex items-center gap-2 bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] ${isMobile ? 'p-2 pl-5' : 'p-2.5 pl-6'}`}>
+                  <label htmlFor="landing-query-input" className="sr-only">
+                    {`Ask ${selectedModel.name} anything`}
+                  </label>
+                  <input
+                    id="landing-query-input"
+                    name="query"
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="What's on your mind?"
+                    className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-base md:text-lg placeholder:text-[var(--foreground)]/35 font-light"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
+                    aria-label="Query input"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!query.trim()}
+                    className="flex items-center justify-center w-10 h-10 flex-shrink-0 bg-[var(--accent)] hover:opacity-90 hover:scale-105 active:scale-95 rounded-xl disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed transition-all duration-[var(--duration-fast)] shadow-[0_4px_20px_-4px_var(--accent-glow)]"
+                    title="Send"
+                  >
+                    <Send className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              </motion.form>
+
+              {/* Secondary entry points - deliberately quiet text links, not
+                  competing buttons, now that the composer above is the
+                  primary way in. `handleInitialize` (with its initialize
+                  tracking call) and the Looks modal trigger are unchanged. */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5, delay: 0.32 }}
+                className="flex items-center gap-4 text-sm text-[var(--muted)]"
               >
                 <button
                   onClick={handleInitialize}
-                  className="px-8 py-3.5 bg-[var(--accent)] text-white text-base font-medium rounded-full transition-all duration-[var(--duration-base)] hover:opacity-90 active:scale-[0.98] shadow-[var(--shadow-md)] flex items-center gap-2"
+                  className="hover:text-[var(--foreground)] transition-colors inline-flex items-center gap-1.5"
                 >
-                  Start a conversation <ArrowRight className="w-4 h-4" />
+                  Start blank <ArrowRight className="w-3.5 h-3.5" />
                 </button>
+                <span className="text-[var(--border)]" aria-hidden="true">•</span>
                 <button
                   onClick={() => setIsLooksOpen(true)}
-                  className="px-6 py-3.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] border border-[var(--border)] hover:border-[var(--accent)]/40 rounded-full transition-all duration-[var(--duration-base)] flex items-center gap-2"
+                  className="hover:text-[var(--foreground)] transition-colors inline-flex items-center gap-1.5"
                 >
-                  <Paintbrush className="w-4 h-4" /> Explore Looks
+                  <Paintbrush className="w-3.5 h-3.5" /> Explore looks
                 </button>
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.35 }}
-                className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-3 w-full max-w-2xl pt-4`}
+                transition={{ duration: 0.5, delay: 0.4 }}
+                className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-2.5 w-full max-w-xl pt-6`}
               >
                 {QUICK_PROMPTS.map((prompt, idx) => (
                   <motion.button
                     key={idx}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.4 + idx * 0.05 }}
+                    transition={{ duration: 0.3, delay: 0.45 + idx * 0.05 }}
                     onClick={() => injectPrompt(prompt)}
-                    className="card-hover bg-[var(--surface)] border border-[var(--border)] rounded-xl px-5 py-4 text-sm text-left text-[var(--muted)] hover:text-[var(--foreground)] leading-relaxed"
+                    className="card-hover bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-strong)] rounded-2xl px-4 py-3.5 text-sm text-left text-[var(--muted)] hover:text-[var(--foreground)] leading-relaxed"
                   >
                     {prompt}
                   </motion.button>
