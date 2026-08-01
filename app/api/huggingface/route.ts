@@ -24,6 +24,61 @@ const HUGGINGFACE_MODEL_MAP: Record<string, string> = {
   'hf-qwen-3-235b': 'Qwen/Qwen3-235B-A22B-Instruct-2507',
 };
 
+// Extended-thinking parsing: reasoning-capable models on HF's router don't
+// all shape their chain-of-thought the same way. Confirmed live against the
+// router on 2026-08-01:
+//   - Kimi K3 (moonshotai/Kimi-K3) uses a separate OpenAI o1-style
+//     `delta.reasoning_content` field, cleanly split from `delta.content`.
+//   - DeepSeek R1 (deepseek-ai/DeepSeek-R1, served via the
+//     "deepseek-r1-turbo" backend) has NO `reasoning_content` field at all -
+//     it inlines its reasoning directly in `delta.content`, wrapped in
+//     literal `<think>...</think>` tags alongside the eventual answer.
+// The parser below normalizes both shapes into the same typed chunk stream
+// so the SSE payload sent to the client is consistent regardless of which
+// wire format the underlying model used.
+type ThinkChunk = { type: 'reasoning' | 'content'; text: string };
+type ThinkState = { insideThink: boolean; pending: string };
+
+const THINK_OPEN = '<think>';
+const THINK_CLOSE = '</think>';
+
+// Splits a raw content delta into reasoning/content chunks based on
+// <think> tags, carrying state across calls since a tag can be split
+// across successive stream deltas (e.g. "<thi" then "nk>"). Pure function -
+// returns new chunks/state rather than mutating the passed-in state.
+function extractThinkChunks(text: string, state: ThinkState): { chunks: ThinkChunk[]; state: ThinkState } {
+  let buffer = state.pending + text;
+  let insideThink = state.insideThink;
+  const chunks: ThinkChunk[] = [];
+
+  while (true) {
+    const marker = insideThink ? THINK_CLOSE : THINK_OPEN;
+    const markerIndex = buffer.indexOf(marker);
+    if (markerIndex === -1) break;
+
+    const before = buffer.slice(0, markerIndex);
+    if (before) chunks.push({ type: insideThink ? 'reasoning' : 'content', text: before });
+    insideThink = !insideThink;
+    buffer = buffer.slice(markerIndex + marker.length);
+  }
+
+  // No more full markers in the buffer - check whether its tail could be
+  // the start of one split across the next delta, and hold it back if so.
+  const marker = insideThink ? THINK_CLOSE : THINK_OPEN;
+  let pending = '';
+  for (let len = Math.min(marker.length - 1, buffer.length); len > 0; len--) {
+    const tail = buffer.slice(buffer.length - len);
+    if (marker.startsWith(tail)) {
+      pending = tail;
+      break;
+    }
+  }
+  const safe = pending ? buffer.slice(0, buffer.length - pending.length) : buffer;
+  if (safe) chunks.push({ type: insideThink ? 'reasoning' : 'content', text: safe });
+
+  return { chunks, state: { insideThink, pending } };
+}
+
 // User-friendly error messages - NEVER expose internal API details
 function getUserFriendlyErrorMessage(errorType: 'unavailable' | 'rate_limit' | 'gated' | 'permissions' | 'timeout' | 'generic'): string {
   const messages: Record<string, string> = {
@@ -221,6 +276,8 @@ export async function POST(request: NextRequest) {
           const encoder = new TextEncoder();
           const decoder = new TextDecoder();
           let fullResponse = '';
+          let fullReasoning = '';
+          let thinkState: ThinkState = { insideThink: false, pending: '' };
 
           try {
             const reader = hfResponse.body?.getReader();
@@ -243,12 +300,36 @@ export async function POST(request: NextRequest) {
 
                 try {
                   const json = JSON.parse(trimmed.slice(6));
-                  const content = json.choices?.[0]?.delta?.content;
-                  if (content) {
-                    fullResponse += content;
+                  const delta = json.choices?.[0]?.delta;
+
+                  // Kimi K3 shape: reasoning arrives pre-split in its own field.
+                  const reasoningContent = delta?.reasoning_content;
+                  if (typeof reasoningContent === 'string' && reasoningContent) {
+                    fullReasoning += reasoningContent;
                     controller.enqueue(
-                      encoder.encode(`data: ${JSON.stringify({ content, done: false })}\n\n`)
+                      encoder.encode(`data: ${JSON.stringify({ reasoning: reasoningContent, done: false })}\n\n`)
                     );
+                  }
+
+                  // DeepSeek R1 shape (and default passthrough for every other
+                  // model): plain content, possibly inlining <think> tags.
+                  const content = delta?.content;
+                  if (content) {
+                    const result = extractThinkChunks(content, thinkState);
+                    thinkState = result.state;
+                    for (const chunk of result.chunks) {
+                      if (chunk.type === 'reasoning') {
+                        fullReasoning += chunk.text;
+                        controller.enqueue(
+                          encoder.encode(`data: ${JSON.stringify({ reasoning: chunk.text, done: false })}\n\n`)
+                        );
+                      } else {
+                        fullResponse += chunk.text;
+                        controller.enqueue(
+                          encoder.encode(`data: ${JSON.stringify({ content: chunk.text, done: false })}\n\n`)
+                        );
+                      }
+                    }
                   }
                 } catch (parseError) {
                   // Skip malformed JSON
@@ -256,7 +337,31 @@ export async function POST(request: NextRequest) {
               }
             }
 
-            // Final content moderation check
+            // Flush any trailing partial-tag text that never resolved (e.g.
+            // stream ended without a closing </think>) so nothing is lost.
+            if (thinkState.pending) {
+              if (thinkState.insideThink) {
+                fullReasoning += thinkState.pending;
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ reasoning: thinkState.pending, done: false })}\n\n`)
+                );
+              } else {
+                fullResponse += thinkState.pending;
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ content: thinkState.pending, done: false })}\n\n`)
+                );
+              }
+            }
+
+            // Final content moderation check - reasoning is now rendered to
+            // the user too, so it goes through the same filter as the answer.
+            const { filtered: filteredReasoning, wasFiltered: reasoningWasFiltered } = filterResponse(fullReasoning);
+            if (reasoningWasFiltered) {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ reasoning: '\n\n' + filteredReasoning, done: false })}\n\n`)
+              );
+            }
+
             const { filtered, wasFiltered } = filterResponse(fullResponse);
             if (wasFiltered) {
               controller.enqueue(
