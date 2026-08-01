@@ -37,6 +37,19 @@ export function getDatabase(): Database.Database {
         CREATE INDEX IF NOT EXISTS idx_visitor_hash ON unique_visitors(visitor_hash);
         CREATE INDEX IF NOT EXISTS idx_first_seen ON unique_visitors(first_seen);
         CREATE INDEX IF NOT EXISTS idx_last_seen ON unique_visitors(last_seen);
+
+        -- Message feedback (thumbs up/down). Intentionally does not store any
+        -- message content or visitor identifier - only what's needed to see
+        -- which models get thumbs-down so behavior can be investigated.
+        CREATE TABLE IF NOT EXISTS message_feedback (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          rating TEXT NOT NULL,
+          model_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_feedback_model ON message_feedback(model_id);
+        CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON message_feedback(created_at);
       `);
     } catch (error) {
       console.error('Database initialization error:', error);
