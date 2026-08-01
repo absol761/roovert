@@ -3,8 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Command, Download, Focus, Keyboard, Cpu } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu } from 'lucide-react';
 import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { useMicLevel } from './hooks/useMicLevel';
@@ -17,8 +16,17 @@ import { CommandPaletteModal, type CommandAction } from './components/modals/Com
 import { ShortcutsHelpModal } from './components/modals/ShortcutsHelpModal';
 import { GlobalFeedExpanded } from './components/GlobalFeedExpanded';
 import { NeuralNoise } from './components/NeuralNoise';
-import { LiveStats } from './components/nav/LiveStats';
-import { NavClock } from './components/nav/NavClock';
+import { SidebarRail } from './components/layout/SidebarRail';
+import { MobileNav } from './components/layout/MobileNav';
+import { TopStrip } from './components/layout/TopStrip';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from './lib/models';
 import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
 import { getSystemPrompt, getStyleInstruction, type ResponseStyle } from './lib/prompts';
@@ -1607,197 +1615,53 @@ export default function Page() {
         <div className="absolute bottom-1/4 right-1/4 w-64 h-64 md:w-96 md:h-96 bg-[var(--accent)]/5 rounded-full blur-2xl md:blur-3xl animate-pulse delay-1000 [will-change:opacity] [transform:translateZ(0)]"></div>
       </div>
 
-      {/* Navigation */}
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-opacity duration-[var(--duration-base)] ${focusMode && !isMobile ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      {/* Navigation - a slim desktop icon rail (SidebarRail) replacing the
+          old top nav bar, a hamburger-triggered slide-over covering the
+          same actions on mobile (MobileNav), and a small top-right strip
+          for the handful of widgets that don't read as icons (clock,
+          visitor count, Mission/Careers links). focusMode's old
+          hover-to-reveal behavior is preserved on the two chrome layers. */}
+      <div
+        className={`transition-opacity duration-[var(--duration-base)] ${focusMode && !isMobile ? 'opacity-0 hover:opacity-100 [&_*]:pointer-events-none hover:[&_*]:pointer-events-auto' : 'opacity-100'}`}
       >
-        <div className="max-w-7xl mx-auto px-6 py-3.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-5">
-              <button
-                onClick={startNewChat}
-                className="serif-display text-xl text-[var(--foreground)] hover:text-[var(--accent)] transition-colors duration-[var(--duration-fast)]"
-                title="Roovert - New Chat"
-              >
-                Roovert
-              </button>
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-              >
-                <Settings className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Settings</span>
-              </button>
-              <button
-                onClick={() => setIsHistoryOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-                title="Chat History"
-              >
-                <History className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">History</span>
-              </button>
-              <div className="hidden sm:block">
-                <NavClock />
-              </div>
-              {/* Command palette discoverability hint - desktop-only (the
-                  palette is a keyboard-driven feature with no equivalent
-                  touch gesture), so it's gated on useMobile() rather than
-                  just a CSS breakpoint. */}
-              {!isMobile && (
-                <button
-                  onClick={() => setIsCommandPaletteOpen(true)}
-                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-                  title="Quick Actions"
-                >
-                  <Command className="w-3.5 h-3.5" />
-                  <span>K for quick actions</span>
-                </button>
-              )}
-            </div>
-
-            {/* Theme + Visualizer controls - Center */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-1 sm:gap-1.5 p-1 rounded-full bg-[var(--surface)] border border-[var(--border)]">
-              <button
-                onClick={() => setIsLooksOpen(true)}
-                className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full hover:bg-[var(--surface-strong)] transition-all text-[var(--muted)] hover:text-[var(--foreground)]"
-                title="Change Theme"
-              >
-                <Paintbrush className="w-4 h-4" />
-              </button>
-              {showVisualizerButton && (
-              <button
-                onClick={() => {
-                  // Single click both toggles the visualizer directly (this
-                  // button visually reads as a toggle, so it needs to behave
-                  // like one - it previously only opened the settings panel,
-                  // leaving no obvious way to turn it back off) and opens the
-                  // settings panel so mode/color options stay reachable.
-                  setVisualizerEnabled(!visualizerEnabled);
-                  setVisualizerConfigOpen(true);
-                }}
-                aria-pressed={visualizerEnabled}
-                className={`relative overflow-visible flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full transition-all group ${micStatus === 'denied' || micStatus === 'unsupported'
-                  ? 'bg-red-500/10 text-red-400'
-                  : visualizerEnabled
-                    ? 'bg-[var(--accent)]/15 text-[var(--accent)]'
-                    : 'hover:bg-[var(--surface-strong)] text-[var(--muted)] hover:text-[var(--foreground)]'
-                  }`}
-                title={
-                  micStatus === 'denied'
-                    ? 'Microphone blocked — allow it in your browser’s site settings, then click to retry'
-                    : micStatus === 'unsupported'
-                      ? 'Audio-Reactive Visualizer needs microphone support this browser doesn’t provide'
-                      : micStatus === 'requesting'
-                        ? 'Requesting microphone access…'
-                        : visualizerEnabled
-                          ? 'Listening — click to turn off'
-                          : 'Audio-Reactive Visualizer (uses microphone) — click to turn on'
-                }
-              >
-                {/* Announces mic state changes to screen readers without a
-                    visible label cluttering this small nav button. */}
-                <span className="sr-only" role="status" aria-live="polite">
-                  {micStatus === 'requesting' && 'Requesting microphone access'}
-                  {micStatus === 'active' && 'Microphone connected, visualizer listening'}
-                  {micStatus === 'denied' && 'Microphone access denied'}
-                  {micStatus === 'unsupported' && 'Microphone not supported in this browser'}
-                </span>
-
-                {visualizerEnabled && micStatus === 'active' && (
-                  <>
-                    {/* Outer ring: eases outward with real mic level via spring
-                        physics, like a voice-mode "listening" indicator rather
-                        than a generic looping CSS animation. */}
-                    <motion.span
-                      aria-hidden="true"
-                      className="absolute inset-0 rounded-full border border-[var(--accent)]/50"
-                      animate={{ scale: 1 + micLevel * 0.85, opacity: 0.55 - micLevel * 0.25 }}
-                      transition={{ type: 'spring', stiffness: 140, damping: 15, mass: 0.5 }}
-                    />
-                    {/* Inner glow: fills in with level, giving the button real
-                        depth instead of a flat active-state color swap. */}
-                    <motion.span
-                      aria-hidden="true"
-                      className="absolute inset-1 rounded-full bg-[var(--accent)]/25 blur-[2px]"
-                      animate={{ scale: 1 + micLevel * 0.5, opacity: 0.4 + micLevel * 0.6 }}
-                      transition={{ type: 'spring', stiffness: 180, damping: 14, mass: 0.4 }}
-                    />
-                    {/* Transient flash: pops outward on a sudden loud sound (a
-                        clap, a laugh) instead of everything just tracking the
-                        smoothed average level - gives the button a reflex. */}
-                    <motion.span
-                      aria-hidden="true"
-                      className="absolute inset-0 rounded-full border-2 border-[var(--accent)]"
-                      animate={{ scale: 1 + micBurst * 1.1, opacity: micBurst * 0.7 }}
-                      transition={{ type: 'spring', stiffness: 300, damping: 20, mass: 0.3 }}
-                    />
-                    {/* Slow idle breathing ring so the button still reads as
-                        "alive" during silence, not just when there's sound. */}
-                    <motion.span
-                      aria-hidden="true"
-                      className="absolute inset-0 rounded-full border border-[var(--accent)]/25"
-                      animate={{ scale: [1, 1.18, 1], opacity: [0.4, 0, 0.4] }}
-                      transition={{ duration: 2.4, repeat: Infinity, ease: 'easeOut' }}
-                    />
-                  </>
-                )}
-
-                {visualizerEnabled && micStatus === 'requesting' && (
-                  <motion.span
-                    aria-hidden="true"
-                    className="absolute inset-0 rounded-full border border-[var(--accent)]/40 border-t-[var(--accent)]"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 0.9, repeat: Infinity, ease: 'linear' }}
-                  />
-                )}
-
-                {micStatus === 'requesting' ? (
-                  <Loader2 className="w-4 h-4 relative z-10 animate-spin" />
-                ) : micStatus === 'denied' || micStatus === 'unsupported' ? (
-                  <MicOff className="w-4 h-4 relative z-10 group-hover:scale-110 transition-transform" />
-                ) : (
-                  <Waves className="w-4 h-4 relative z-10 group-hover:scale-110 transition-transform" />
-                )}
-              </button>
-              )}
-            </div>
-
-            {/* Global Feed must stay reachable below the md breakpoint too -
-                it previously lived inside the `hidden md:flex` group below
-                with Mission/Careers/LiveStats, which left mobile users with
-                no way to ever open it since this button was its only
-                trigger. */}
-            <button
-              onClick={() => setIsGlobalFeedOpen(true)}
-              className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-[var(--surface)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-              title="Global Feed"
-            >
-              <Globe className="w-4 h-4" />
-            </button>
-
-            <div className="hidden md:flex items-center gap-7">
-              {!isChatMode && (
-                <>
-                  <a
-                    href="#mission"
-                    className="text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-                  >
-                    Mission
-                  </a>
-                  <Link
-                    href="/careers"
-                    className="text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-                  >
-                    Careers
-                  </Link>
-                  {!focusMode && <LiveStats />}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
+        <SidebarRail
+          isChatMode={isChatMode}
+          onNewChat={startNewChat}
+          onOpenHistory={() => setIsHistoryOpen(true)}
+          onOpenGlobalFeed={() => setIsGlobalFeedOpen(true)}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          onOpenLooks={() => setIsLooksOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          showVisualizerButton={showVisualizerButton}
+          visualizerEnabled={visualizerEnabled}
+          onToggleVisualizer={() => {
+            // Single click both toggles the visualizer directly (this
+            // control visually reads as a toggle, so it needs to behave
+            // like one) and opens the settings panel so mode/color options
+            // stay reachable - same behavior the old nav button had.
+            setVisualizerEnabled(!visualizerEnabled);
+            setVisualizerConfigOpen(true);
+          }}
+          micStatus={micStatus}
+          micLevel={micLevel}
+          micBurst={micBurst}
+        />
+        <MobileNav
+          isChatMode={isChatMode}
+          onNewChat={startNewChat}
+          onOpenHistory={() => setIsHistoryOpen(true)}
+          onOpenGlobalFeed={() => setIsGlobalFeedOpen(true)}
+          onOpenLooks={() => setIsLooksOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          showVisualizerButton={showVisualizerButton}
+          visualizerEnabled={visualizerEnabled}
+          onToggleVisualizer={() => {
+            setVisualizerEnabled(!visualizerEnabled);
+            setVisualizerConfigOpen(true);
+          }}
+        />
+        <TopStrip isChatMode={isChatMode} focusMode={focusMode} isMobile={isMobile} />
+      </div>
 
       {/* Settings Modal */}
       <AnimatePresence>
@@ -1907,7 +1771,7 @@ export default function Page() {
       {/* Interactive Particle Background for Deep Space Look */}
 
       {/* Main Content Area */}
-      <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 pt-32 pb-20 overflow-y-auto overflow-x-hidden">
+      <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 md:pl-24 pt-20 pb-20 overflow-y-auto overflow-x-hidden">
 
         {/* Global Feed - Expandable Section */}
         <AnimatePresence>
@@ -1941,10 +1805,13 @@ export default function Page() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.12 }}
-                className="serif-display text-4xl sm:text-5xl md:text-6xl leading-[1.05] text-balance text-[var(--foreground)]"
+                className="serif-display text-4xl sm:text-5xl md:text-6xl leading-[1.05] text-balance text-[var(--foreground)] inline-flex items-center gap-3"
               >
-                What should we{' '}
-                <span className="text-[var(--accent)]">get into</span>?
+                <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-[var(--accent)] shrink-0" aria-hidden="true" />
+                <span>
+                  What should we{' '}
+                  <span className="text-[var(--accent)]">get into</span>?
+                </span>
               </motion.h1>
 
               <motion.p
@@ -1971,32 +1838,39 @@ export default function Page() {
                 onSubmit={handleSubmit}
                 className="w-full max-w-xl pt-2"
               >
-                <div className={`composer-bar glass-panel flex items-center gap-2 bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] ${isMobile ? 'p-2 pl-5' : 'p-2.5 pl-6'}`}>
+                <div className={`composer-bar flex items-center gap-2 rounded-[28px] bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] shadow-[var(--shadow-md)] ${isMobile ? 'p-2 pl-5' : 'p-2.5 pl-6'}`}>
                   <label htmlFor="landing-query-input" className="sr-only">
                     {`Ask ${selectedModel.name} anything`}
                   </label>
-                  <input
+                  <Textarea
                     id="landing-query-input"
                     name="query"
-                    type="text"
+                    rows={1}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="What's on your mind?"
-                    className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-base md:text-lg placeholder:text-[var(--foreground)]/35 font-light"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSubmit(e);
+                      }
+                    }}
+                    placeholder="Type / for skills"
+                    className="flex-1 resize-none min-h-0 h-auto border-none bg-transparent shadow-none px-0 py-2 text-base md:text-lg placeholder:text-[var(--foreground)]/35 font-light focus-visible:ring-0 focus-visible:border-none"
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="off"
                     spellCheck="false"
                     aria-label="Query input"
                   />
-                  <button
+                  <Button
                     type="submit"
                     disabled={!query.trim()}
-                    className="flex items-center justify-center w-10 h-10 flex-shrink-0 bg-[var(--accent)] hover:opacity-90 hover:scale-105 active:scale-95 rounded-xl disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed transition-all duration-[var(--duration-fast)] shadow-[0_4px_20px_-4px_var(--accent-glow)]"
+                    size="icon"
+                    className="w-10 h-10 flex-shrink-0 rounded-2xl shadow-[0_4px_20px_-4px_var(--accent-glow)]"
                     title="Send"
                   >
-                    <Send className="w-4 h-4 text-white" />
-                  </button>
+                    <Send className="w-4 h-4" />
+                  </Button>
                 </div>
               </motion.form>
 
@@ -2673,7 +2547,7 @@ while (true) {
 
             <form onSubmit={handleSubmit} className="relative">
               <div
-                className={`composer-bar glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border transition-all duration-300 ${isDraggingImage ? 'border-[var(--accent)]' : 'border-[var(--border)]'} ${isMobile ? 'p-3' : 'p-4'}`}
+                className={`composer-bar relative rounded-[28px] bg-[var(--panel-bg)] backdrop-blur-2xl border shadow-[var(--shadow-md)] transition-all duration-300 ${isDraggingImage ? 'border-[var(--accent)]' : 'border-[var(--border)]'} ${isMobile ? 'p-3' : 'p-4'}`}
                 onDragOver={handleComposerDragOver}
                 onDragLeave={handleComposerDragLeave}
                 onDrop={handleComposerDrop}
@@ -2692,245 +2566,264 @@ while (true) {
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <div className={`flex items-end ${isMobile ? 'gap-2' : 'gap-4'}`}>
-                  {isProcessing && (
-                    <button
-                      type="button"
-                      onClick={handleStop}
-                      className="flex items-center gap-2 px-3 py-2 text-sm border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                    >
-                      <Square className="w-4 h-4" />
-                      Stop
-                    </button>
-                  )}
-                  {/* Inline Model Selector */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
-                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--accent)] text-sm font-medium"
-                    >
-                      <Zap className="w-4 h-4" />
-                      <span className="hidden sm:inline">{selectedModel.name}</span>
-                      <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
-                    </button>
 
-                    <AnimatePresence>
-                      {isModelMenuOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                          className="absolute bottom-full left-0 mb-2 w-56 bg-[var(--hud-bg)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden z-20 max-h-64 overflow-y-auto custom-scrollbar"
+                {/* Row 1: the growing textarea itself, full-width and
+                    uncluttered - reference's low-chrome look keeps every
+                    control below it, not crowding the typing area. */}
+                <label htmlFor="query-input-bottom" className="sr-only">
+                  {isImageGenMode ? 'Describe an image to generate' : `Ask ${selectedModel.name} anything`}
+                </label>
+                <Textarea
+                  ref={inputRef}
+                  id="query-input-bottom"
+                  name="query"
+                  rows={1}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onPaste={handleComposerPaste}
+                  onKeyDown={(e) => {
+                    // Enter sends, Shift+Enter inserts a newline - matches
+                    // the multi-line composer convention. Ignore Enter
+                    // while an IME composition is in progress (e.g.
+                    // confirming Japanese/Chinese input) so it doesn't
+                    // submit prematurely.
+                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      if (!isProcessing && query.trim()) {
+                        handleSubmit(e);
+                      }
+                    }
+                  }}
+                  placeholder={isImageGenMode ? 'Describe an image to generate…' : 'Type / for skills'}
+                  className="composer-textarea w-full resize-none custom-scrollbar border-none bg-transparent shadow-none text-[var(--foreground)] text-lg placeholder:text-[var(--foreground)]/35 transition-colors font-light leading-normal px-1 py-1 focus-visible:ring-0 min-h-0 h-auto"
+                  style={{ maxHeight: COMPOSER_MAX_HEIGHT_PX }}
+                  disabled={isProcessing}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  aria-label="Query input"
+                />
+
+                {/* Row 2: every other control - attach (+) on the left,
+                    model picker + secondary actions + mic + send on the
+                    right, matching the reference composer's low bottom
+                    toolbar instead of one crowded single row. */}
+                <div className={`flex items-center justify-between gap-2 pt-2 ${isMobile ? 'flex-wrap' : ''}`}>
+                  <div className="flex items-center gap-1">
+                    {/* Attach Image */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                      aria-hidden="true"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isImageUploadDisabled || isImageGenMode}
+                      className="rounded-full text-[var(--muted)] hover:text-[var(--foreground)]"
+                      title={isImageGenMode ? 'Switch off image generation to attach an image' : isImageUploadDisabled ? `Image upload disabled: ${imageUploadDisabledReason}` : 'Attach image'}
+                    >
+                      <Paperclip className="w-4 h-4" />
+                    </Button>
+
+                    {/* Generate Image - toggles the composer into text-to-image
+                        mode (Stable Diffusion 3 Medium via Hugging Face's
+                        Inference Providers), a separate capability from the
+                        chat models above rather than one more model-picker
+                        entry, since it produces an image rather than text. */}
+                    {!hideImageGen && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsImageGenMode(prev => !prev)}
+                        disabled={!!selectedImage}
+                        className={`rounded-full ${isImageGenMode
+                          ? 'text-[var(--accent)] bg-[var(--accent)]/10 hover:text-[var(--accent)]'
+                          : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                          }`}
+                        title={selectedImage ? 'Remove the attached image to generate one instead' : isImageGenMode ? 'Switch back to chat' : 'Generate an image from a text prompt'}
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                      </Button>
+                    )}
+
+                    {/* Fullscreen Toggle - hidden (not disabled) when the
+                        Fullscreen API isn't available, e.g. iOS Safari, same
+                        convention as the dictation/image-gen controls above. */}
+                    {isFullscreenSupported && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleFullscreen}
+                        className="rounded-full text-[var(--muted)] hover:text-[var(--foreground)]"
+                        title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
+                      >
+                        {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                      </Button>
+                    )}
+
+                    {/* Chat History - opens the panel listing past
+                        conversations to switch between, rename, or delete. */}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setIsHistoryOpen(true)}
+                      className="rounded-full text-[var(--muted)] hover:text-[var(--foreground)]"
+                      title="Chat History"
+                    >
+                      <History className="w-4 h-4" />
+                    </Button>
+
+                    {/* New Chat - leaves the current conversation persisted in
+                        history and returns to the landing view for a fresh
+                        one. */}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={startNewChat}
+                      className="rounded-full text-[var(--muted)] hover:text-[var(--foreground)]"
+                      title="New Chat"
+                    >
+                      <MessageSquarePlus className="w-4 h-4" />
+                    </Button>
+
+                    {/* Multi-Perspective Model Selectors - Only shown when Multi-Perspective is selected */}
+                    {selectedModelId === 'multi-perspective' && (
+                      <div className="flex items-center gap-2 border-l border-[var(--border)] pl-2 ml-1">
+                        <span className="text-xs text-[var(--muted)] whitespace-nowrap hidden sm:inline">Combine:</span>
+                        <select
+                          value={parallelModel1}
+                          onChange={(e) => setParallelModel1(e.target.value)}
+                          className="px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none"
                         >
-                          {filteredAvailableModels.map(model => (
-                            <button
-                              key={model.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedModelId(model.id);
-                                setIsModelMenuOpen(false);
-                              }}
-                              className={`w-full text-left px-4 py-3 text-xs transition-colors hover:bg-[var(--surface-strong)] flex items-center justify-between ${selectedModelId === model.id ? 'text-[var(--accent)] bg-[var(--surface)]' : 'text-[var(--foreground)]'
-                                }`}
-                            >
-                              {model.name}
-                              {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}
-                            </button>
+                          {groqOnlyModels.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
                           ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                        </select>
+                        <span className="text-xs text-[var(--accent)]">+</span>
+                        <select
+                          value={parallelModel2}
+                          onChange={(e) => setParallelModel2(e.target.value)}
+                          className="px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none"
+                        >
+                          {groqOnlyModels.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Multi-Perspective Model Selectors - Only shown when Multi-Perspective is selected */}
-                  {selectedModelId === 'multi-perspective' && (
-                    <div className="flex items-center gap-2 border-r border-[var(--border)] pr-3">
-                      <span className="text-xs text-[var(--muted)] whitespace-nowrap">Combine:</span>
-                      <select
-                        value={parallelModel1}
-                        onChange={(e) => setParallelModel1(e.target.value)}
-                        className="px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none"
+                  <div className="flex items-center gap-1">
+                    {isProcessing && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleStop}
+                        className="gap-1.5 rounded-full text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--accent)]"
                       >
-                        {groqOnlyModels.map(m => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
-                      </select>
-                      <span className="text-xs text-[var(--accent)]">+</span>
-                      <select
-                        value={parallelModel2}
-                        onChange={(e) => setParallelModel2(e.target.value)}
-                        className="px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none"
-                      >
-                        {groqOnlyModels.map(m => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Dictation - real speech-to-text via the browser's native
-                      Web Speech API, not just the decorative visualizer mic.
-                      Hidden entirely (not disabled) when unsupported, per
-                      this codebase's "never show a broken-looking control"
-                      convention. */}
-                  {isDictationSupported && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isDictating) {
-                          stopDictation();
-                          return;
-                        }
-                        dictationPrefixRef.current = query ? `${query} ` : '';
-                        dictationFinalRef.current = '';
-                        startDictation(
-                          (interim) => setQuery(dictationPrefixRef.current + dictationFinalRef.current + interim),
-                          (final) => {
-                            dictationFinalRef.current += `${final} `;
-                            setQuery(dictationPrefixRef.current + dictationFinalRef.current);
-                          }
-                        );
-                      }}
-                      className={`relative p-2 rounded-lg transition-all duration-150 ${isDictating
-                        ? 'text-[var(--accent)] bg-[var(--accent)]/10'
-                        : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-strong)]'
-                        }`}
-                      title={dictationError ?? (isDictating ? 'Stop dictation' : 'Dictate your message')}
-                    >
-                      {isDictating && (
-                        <motion.span
-                          aria-hidden="true"
-                          className="absolute inset-0 rounded-lg bg-[var(--accent)]/20"
-                          animate={{ opacity: [0.3, 0.7, 0.3] }}
-                          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-                        />
-                      )}
-                      <Mic className="w-4 h-4 relative z-10" />
-                    </button>
-                  )}
-
-                  {/* Attach Image */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                    aria-hidden="true"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isImageUploadDisabled || isImageGenMode}
-                    className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                    title={isImageGenMode ? 'Switch off image generation to attach an image' : isImageUploadDisabled ? `Image upload disabled: ${imageUploadDisabledReason}` : 'Attach image'}
-                  >
-                    <Paperclip className="w-4 h-4" />
-                  </button>
-
-                  {/* Generate Image - toggles the composer into text-to-image
-                      mode (Stable Diffusion 3 Medium via Hugging Face's
-                      Inference Providers), a separate capability from the
-                      chat models above rather than one more model-picker
-                      entry, since it produces an image rather than text. */}
-                  {!hideImageGen && (
-                    <button
-                      type="button"
-                      onClick={() => setIsImageGenMode(prev => !prev)}
-                      disabled={!!selectedImage}
-                      className={`p-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isImageGenMode
-                        ? 'text-[var(--accent)] bg-[var(--accent)]/10'
-                        : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-strong)]'
-                        }`}
-                      title={selectedImage ? 'Remove the attached image to generate one instead' : isImageGenMode ? 'Switch back to chat' : 'Generate an image from a text prompt'}
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                    </button>
-                  )}
-
-                  {/* Fullscreen Toggle - hidden (not disabled) when the
-                      Fullscreen API isn't available, e.g. iOS Safari, same
-                      convention as the dictation/image-gen controls above. */}
-                  {isFullscreenSupported && (
-                    <button
-                      type="button"
-                      onClick={toggleFullscreen}
-                      className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                      title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
-                    >
-                      {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-                    </button>
-                  )}
-
-                  {/* Chat History - opens the panel listing past
-                      conversations to switch between, rename, or delete. */}
-                  <button
-                    type="button"
-                    onClick={() => setIsHistoryOpen(true)}
-                    className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                    title="Chat History"
-                  >
-                    <History className="w-4 h-4" />
-                  </button>
-
-                  {/* New Chat - leaves the current conversation persisted in
-                      history and returns to the landing view for a fresh
-                      one. */}
-                  <button
-                    type="button"
-                    onClick={startNewChat}
-                    className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                    title="New Chat"
-                  >
-                    <MessageSquarePlus className="w-4 h-4" />
-                  </button>
-
-                  <label htmlFor="query-input-bottom" className="sr-only">
-                    {isImageGenMode ? 'Describe an image to generate' : `Ask ${selectedModel.name} anything`}
-                  </label>
-                  <textarea
-                    ref={inputRef}
-                    id="query-input-bottom"
-                    name="query"
-                    rows={1}
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onPaste={handleComposerPaste}
-                    onKeyDown={(e) => {
-                      // Enter sends, Shift+Enter inserts a newline - matches
-                      // the multi-line composer convention. Ignore Enter
-                      // while an IME composition is in progress (e.g.
-                      // confirming Japanese/Chinese input) so it doesn't
-                      // submit prematurely.
-                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                        e.preventDefault();
-                        if (!isProcessing && query.trim()) {
-                          handleSubmit(e);
-                        }
-                      }
-                    }}
-                    placeholder={isImageGenMode ? 'Describe an image to generate... ' : `Ask ${selectedModel.name} anything... `}
-                    className="composer-textarea flex-1 bg-transparent border-none outline-none resize-none custom-scrollbar text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light leading-normal py-2"
-                    style={{ maxHeight: COMPOSER_MAX_HEIGHT_PX }}
-                    disabled={isProcessing}
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck="false"
-                    aria-label="Query input"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!query.trim() || isProcessing}
-                    className="flex items-center justify-center w-12 h-12 p-0 bg-[var(--accent)] hover:opacity-90 hover:scale-105 active:scale-95 rounded-xl disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed transition-all duration-[var(--duration-fast)] shadow-[0_4px_20px_-4px_var(--accent-glow)]"
-                  >
-                    {isProcessing ? (
-                      <Zap className="w-5 h-5 text-white animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5 text-white" />
+                        <Square className="w-3.5 h-3.5" />
+                        Stop
+                      </Button>
                     )}
-                  </button>
+
+                    {/* Model picker - shadcn DropdownMenu replacing the old
+                        hand-rolled AnimatePresence popover, same model list
+                        and selection behavior. */}
+                    <DropdownMenu open={isModelMenuOpen} onOpenChange={setIsModelMenuOpen}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 rounded-full text-[var(--accent)] hover:text-[var(--accent)] font-medium"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline max-w-[9rem] truncate">{selectedModel.name}</span>
+                          <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" side="top" className="w-56 max-h-64 overflow-y-auto custom-scrollbar">
+                        {filteredAvailableModels.map(model => (
+                          <DropdownMenuItem
+                            key={model.id}
+                            onSelect={() => setSelectedModelId(model.id)}
+                            className={`flex items-center justify-between text-xs ${selectedModelId === model.id ? 'text-[var(--accent)]' : ''}`}
+                          >
+                            {model.name}
+                            {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Dictation - real speech-to-text via the browser's native
+                        Web Speech API, not just the decorative visualizer mic.
+                        Hidden entirely (not disabled) when unsupported, per
+                        this codebase's "never show a broken-looking control"
+                        convention. */}
+                    {isDictationSupported && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (isDictating) {
+                            stopDictation();
+                            return;
+                          }
+                          dictationPrefixRef.current = query ? `${query} ` : '';
+                          dictationFinalRef.current = '';
+                          startDictation(
+                            (interim) => setQuery(dictationPrefixRef.current + dictationFinalRef.current + interim),
+                            (final) => {
+                              dictationFinalRef.current += `${final} `;
+                              setQuery(dictationPrefixRef.current + dictationFinalRef.current);
+                            }
+                          );
+                        }}
+                        className={`relative rounded-full ${isDictating
+                          ? 'text-[var(--accent)] bg-[var(--accent)]/10 hover:text-[var(--accent)]'
+                          : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                          }`}
+                        title={dictationError ?? (isDictating ? 'Stop dictation' : 'Dictate your message')}
+                      >
+                        {isDictating && (
+                          <motion.span
+                            aria-hidden="true"
+                            className="absolute inset-0 rounded-full bg-[var(--accent)]/20"
+                            animate={{ opacity: [0.3, 0.7, 0.3] }}
+                            transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                          />
+                        )}
+                        <Mic className="w-4 h-4 relative z-10" />
+                      </Button>
+                    )}
+
+                    <Button
+                      type="submit"
+                      disabled={!query.trim() || isProcessing}
+                      size="icon"
+                      className="w-10 h-10 rounded-2xl shadow-[0_4px_20px_-4px_var(--accent-glow)]"
+                    >
+                      {isProcessing ? (
+                        <Zap className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </form>

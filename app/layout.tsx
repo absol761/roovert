@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -135,7 +136,9 @@ export default function RootLayout({
         </a>
         {/* Privacy-focused visitor tracker - non-blocking, lightweight */}
         <Script src="/tracker.js" strategy="afterInteractive" />
-        <ErrorBoundary>{children}</ErrorBoundary>
+        <ErrorBoundary>
+          <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

@@ -1,5 +1,9 @@
 @import "tailwindcss";
 @import 'highlight.js/styles/github-dark.css';
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 /* Google Fonts removed - now loaded via layout.tsx head */
 
@@ -99,6 +103,39 @@
   --radius-card: 20px;
   --radius-cta: 32px;
   --radius-pill: 9999px;
+
+  /* shadcn/ui semantic tokens - deliberately DERIVED from roovert's own
+     palette above rather than the CLI's generated parallel oklch system, so
+     shadcn components (Button, DropdownMenu, Dialog, ...) render using the
+     same theme roovert's hand-rolled components already use, and pick up
+     Look/theme switches automatically. --muted keeps its original meaning
+     here (a translucent foreground/text color, used throughout the app as
+     `text-[var(--muted)]`) - shadcn's "muted background" concept is mapped
+     separately below via --color-muted in the @theme block instead of
+     reusing this variable name for a background. */
+  --card: var(--panel-bg);
+  --card-foreground: var(--foreground);
+  --popover: var(--panel-bg);
+  --popover-foreground: var(--foreground);
+  --primary: var(--accent);
+  --primary-foreground: var(--background);
+  --secondary: var(--surface-strong);
+  --secondary-foreground: var(--foreground);
+  --muted-foreground: var(--muted);
+  --accent-foreground: var(--background);
+  --destructive: #e5484d;
+  --destructive-foreground: #ffffff;
+  --input: var(--border);
+  --ring: var(--accent);
+  --radius: 14px;
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--accent);
+  --sidebar-primary-foreground: var(--background);
+  --sidebar-accent: var(--surface);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--accent);
 }
 
 /* Themes are applied client-side via a useEffect (JS), so the very first
@@ -151,6 +188,42 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-serif: var(--font-serif);
+  --font-heading: var(--font-geist-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  /* --color-muted is shadcn's "subtle background" token (used by e.g.
+     hover states, disabled fills) - mapped to roovert's --surface rather
+     than --muted, since --muted is already roovert's muted TEXT color
+     (referenced directly as `text-[var(--muted)]` throughout the app) and
+     reusing it here would collide two different meanings under one name. */
+  --color-muted: var(--surface);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 html {
@@ -2178,3 +2251,20 @@ textarea:focus {
   }
 }
 
+/* No `.dark { ... }` override block here: roovert doesn't use next-themes'
+   class-based dark-mode strategy - it drives every Look (including the
+   default dark 'midnight' look) via `[data-theme]`/`[data-look]` attributes
+   on <html>, and the :root block above already carries dark-appropriate
+   values. A separate `.dark` class token set would just be dead CSS. */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
