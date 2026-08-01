@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon, ThumbsUp, ThumbsDown, Command, Download, Focus, Keyboard, Cpu } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Command, Download, Focus, Keyboard, Cpu } from 'lucide-react';
 import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { useMicLevel } from './hooks/useMicLevel';
@@ -12,6 +12,7 @@ import { useSpeechToText } from './hooks/useSpeechToText';
 import { LooksModal } from './components/modals/LooksModal';
 import { MoreModelsModal } from './components/modals/MoreModelsModal';
 import { SettingsModal } from './components/modals/SettingsModal';
+import { ConversationHistoryModal } from './components/modals/ConversationHistoryModal';
 import { CommandPaletteModal, type CommandAction } from './components/modals/CommandPaletteModal';
 import { ShortcutsHelpModal } from './components/modals/ShortcutsHelpModal';
 import { GlobalFeedExpanded } from './components/GlobalFeedExpanded';
@@ -37,15 +38,93 @@ const VisualizerConfigPanel = dynamic(
 
 type ChatContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
 
-// Where the conversation (history + whether we're in chat mode) is persisted
-// so a refresh/crash/accidental tab close doesn't lose it.
+type HistoryTurn = {
+  query: string;
+  response: string;
+  model: string;
+  image?: string;
+  perspectives?: Array<{ model: string; content: string }>;
+  generatedImage?: string;
+  // Extended-thinking text for reasoning-capable models (DeepSeek R1, Kimi
+  // K3), persisted per-turn once streaming finishes.
+  reasoning?: string;
+};
+
+// What actually gets persisted per turn - `image`/`generatedImage` are
+// dropped (see MAX_PERSISTED_TURNS comment below), so a stored turn is a
+// strict subset of the in-memory one.
+type PersistedHistoryTurn = Pick<HistoryTurn, 'query' | 'response' | 'model' | 'perspectives' | 'reasoning'>;
+
+interface Conversation {
+  id: string;
+  title: string;
+  // Whether `title` came from the user renaming it (vs. the auto-generated
+  // heuristic below) - guards against the auto-title recomputation
+  // clobbering a rename on the next persist.
+  titleIsCustom: boolean;
+  history: PersistedHistoryTurn[];
+  isChatMode: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// Legacy single-conversation key from before multi-conversation history
+// existed. Only ever read once, on mount, to migrate an existing user's
+// in-progress chat into the new list format - see the hydrate effect below.
 const CONVERSATION_STORAGE_KEY = 'roovert_conversation';
-// Cap on how many trailing turns get persisted, so a very long conversation
-// can't blow past localStorage's ~5-10MB quota.
+// Where the full conversation list + which one is active is persisted, so a
+// refresh/crash/accidental tab close doesn't lose any of them.
+const CONVERSATIONS_STORAGE_KEY = 'roovert_conversations';
+// Cap on how many trailing turns get persisted per conversation, so a very
+// long conversation can't blow past localStorage's ~5-10MB quota.
 const MAX_PERSISTED_TURNS = 50;
+// Cap on how many conversations are kept around at all, so the list itself
+// can't grow unboundedly - oldest (by last activity) are dropped first.
+const MAX_CONVERSATIONS = 30;
 // Where the response style pick (Normal/Concise/Explanatory/Formal) is
 // persisted so it survives a reload, same as the conversation above.
 const RESPONSE_STYLE_STORAGE_KEY = 'roovert_response_style';
+const DEFAULT_CONVERSATION_TITLE = 'New chat';
+const MAX_CONVERSATION_TITLE_LENGTH = 40;
+
+function generateConversationId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback for environments without crypto.randomUUID (very old browsers) -
+  // not cryptographically strong, but this is just a local list key, not a
+  // security-sensitive identifier.
+  return `conv_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+// Cheap, zero-dependency, zero-latency auto-title: clean up and truncate the
+// first user message rather than making a separate LLM call for it. Keeps
+// "first response arrives" instant instead of adding a round trip.
+function deriveConversationTitle(firstMessage: string): string {
+  const cleaned = firstMessage.replace(/\s+/g, ' ').trim();
+  if (!cleaned) return DEFAULT_CONVERSATION_TITLE;
+  if (cleaned.length <= MAX_CONVERSATION_TITLE_LENGTH) return cleaned;
+  return `${cleaned.slice(0, MAX_CONVERSATION_TITLE_LENGTH).trimEnd()}…`;
+}
+
+// Best-effort localStorage write for the conversation list - never throws,
+// matching the rest of this file's "persistence is a nice-to-have, not a
+// requirement" stance on storage errors (quota exceeded, private browsing).
+function persistConversations(conversations: Conversation[], activeConversationId: string) {
+  try {
+    if (conversations.length === 0) {
+      localStorage.removeItem(CONVERSATIONS_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(
+      CONVERSATIONS_STORAGE_KEY,
+      JSON.stringify({ conversations, activeConversationId })
+    );
+  } catch {
+    // Quota exceeded or storage unavailable - persistence is best-effort and
+    // must never crash the app.
+  }
+}
 
 // Extended-thinking disclosure for reasoning-capable models (DeepSeek R1,
 // Kimi K3). Collapsed/muted by default like the rest of the app's
@@ -109,12 +188,19 @@ export default function Page() {
   // section, used once the real answer has started (before that, it's
   // forced open regardless of this flag - see ReasoningSection).
   const [liveReasoningExpanded, setLiveReasoningExpanded] = useState(false);
-  const [history, setHistory] = useState<Array<{ query: string; response: string; model: string; image?: string; perspectives?: Array<{ model: string; content: string }>; generatedImage?: string; reasoning?: string }>>([]);
+  const [history, setHistory] = useState<HistoryTurn[]>([]);
   // Manual expand/collapse override for a past turn's reasoning section,
   // keyed by history index. Absent = default behavior (collapsed).
   const [expandedReasoning, setExpandedReasoning] = useState<Record<number, boolean>>({});
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [isChatMode, setIsChatMode] = useState(false);
+  // The full conversation list (for the history panel) and which one
+  // `history`/`isChatMode` above currently represent. `history`/`isChatMode`
+  // stay the single source of truth the rest of this component already
+  // reads/writes - switching conversations just swaps what they point at.
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState('');
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [messageFeedback, setMessageFeedback] = useState<Record<number, 'up' | 'down'>>({});
   // Feedback state for the "Share Conversation" action in Settings - mirrors
@@ -330,48 +416,116 @@ export default function Page() {
   // tradeoff is a one-frame flash from empty to restored, which is fine here.
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(CONVERSATION_STORAGE_KEY);
+      const saved = localStorage.getItem(CONVERSATIONS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed.history)) {
+        if (parsed && Array.isArray(parsed.conversations) && parsed.conversations.length > 0) {
+          const restored: Conversation[] = parsed.conversations;
+          const activeId = typeof parsed.activeConversationId === 'string'
+            && restored.some((c) => c.id === parsed.activeConversationId)
+            ? parsed.activeConversationId
+            : restored[0].id;
+          const active = restored.find((c) => c.id === activeId) ?? restored[0];
           // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage on mount; can't run during SSR/render, so an effect is the only option
-          setHistory(parsed.history);
+          setConversations(restored);
+          setActiveConversationId(activeId);
+          setHistory(active.history);
+          setIsChatMode(active.isChatMode);
+          return;
         }
-        if (parsed && typeof parsed.isChatMode === 'boolean') {
-          setIsChatMode(parsed.isChatMode);
+      }
+
+      // Nothing under the new key yet - check for a conversation saved under
+      // the old single-slot key (pre-multi-conversation-history) and migrate
+      // it in, rather than silently discarding an existing user's chat.
+      const legacy = localStorage.getItem(CONVERSATION_STORAGE_KEY);
+      let migratedId: string | null = null;
+      if (legacy) {
+        const parsedLegacy = JSON.parse(legacy);
+        if (parsedLegacy && Array.isArray(parsedLegacy.history)
+          && (parsedLegacy.history.length > 0 || parsedLegacy.isChatMode)) {
+          const now = Date.now();
+          const migrated: Conversation = {
+            id: generateConversationId(),
+            title: deriveConversationTitle(parsedLegacy.history[0]?.query ?? ''),
+            titleIsCustom: false,
+            history: parsedLegacy.history,
+            isChatMode: !!parsedLegacy.isChatMode,
+            createdAt: now,
+            updatedAt: now,
+          };
+          setConversations([migrated]);
+          setActiveConversationId(migrated.id);
+          setHistory(migrated.history);
+          setIsChatMode(migrated.isChatMode);
+          persistConversations([migrated], migrated.id);
+          migratedId = migrated.id;
         }
+        localStorage.removeItem(CONVERSATION_STORAGE_KEY);
+      }
+      if (!migratedId) {
+        setActiveConversationId(generateConversationId());
       }
     } catch {
       // Corrupt/unparseable saved data - ignore it and start fresh instead
       // of crashing the app.
+      setActiveConversationId(generateConversationId());
     } finally {
       setIsHydrated(true);
     }
   }, []);
 
-  // Persist history + isChatMode to localStorage whenever they change, so a
-  // refresh or crash doesn't lose the conversation.
+  // Persist history + isChatMode into the active conversation whenever they
+  // change, so a refresh or crash doesn't lose it. `conversations` is
+  // intentionally read via closure rather than listed as a dependency - it's
+  // only ever updated by this same effect, so depending on it would just
+  // make it re-run redundantly on its own writes.
   useEffect(() => {
-    if (!isHydrated) return; // avoid overwriting saved data before we've restored it
-    try {
-      if (history.length === 0 && !isChatMode) {
-        localStorage.removeItem(CONVERSATION_STORAGE_KEY);
-        return;
-      }
-      // Only keep the last MAX_PERSISTED_TURNS turns, and drop each turn's
-      // (often large, base64-encoded) `image` field before persisting -
-      // images are usually the biggest payload and the least essential
-      // thing to restore, so stripping them keeps us well under
-      // localStorage's ~5-10MB quota even for long or image-heavy chats.
-      const trimmed = history
-        .slice(-MAX_PERSISTED_TURNS)
-        .map(({ query, response, model, perspectives }) => ({ query, response, model, perspectives }));
-      localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify({ history: trimmed, isChatMode }));
-    } catch {
-      // Quota exceeded or storage unavailable (e.g. private browsing) -
-      // persistence is best-effort and must never crash the app.
+    if (!isHydrated || !activeConversationId) return; // avoid overwriting saved data before we've restored it
+    const existing = conversations.find((c) => c.id === activeConversationId);
+
+    if (history.length === 0 && !isChatMode) {
+      if (!existing) return; // this conversation never had content - nothing to remove
+      const next = conversations.filter((c) => c.id !== activeConversationId);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing the in-memory conversation list with what was just written to localStorage, the same external-system-sync case the hydration effect above is exempted for
+      setConversations(next);
+      persistConversations(next, activeConversationId);
+      return;
     }
-  }, [history, isChatMode, isHydrated]);
+
+    // Only keep the last MAX_PERSISTED_TURNS turns, and drop each turn's
+    // (often large, base64-encoded) `image` field before persisting - images
+    // are usually the biggest payload and the least essential thing to
+    // restore, so stripping them keeps us well under localStorage's
+    // ~5-10MB quota even for long or image-heavy chats.
+    const trimmedHistory: PersistedHistoryTurn[] = history
+      .slice(-MAX_PERSISTED_TURNS)
+      .map(({ query, response, model, perspectives, reasoning }) => ({ query, response, model, perspectives, reasoning }));
+    const now = Date.now();
+    const title = existing?.titleIsCustom
+      ? existing.title
+      : deriveConversationTitle(history[0]?.query ?? '');
+    const nextEntry: Conversation = {
+      id: activeConversationId,
+      title,
+      titleIsCustom: existing?.titleIsCustom ?? false,
+      history: trimmedHistory,
+      isChatMode,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    let next = [nextEntry, ...conversations.filter((c) => c.id !== activeConversationId)]
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+    if (next.length > MAX_CONVERSATIONS) {
+      // nextEntry always sorts first (it just got `now` as updatedAt), so
+      // the active conversation is never the one dropped here.
+      next = next.slice(0, MAX_CONVERSATIONS);
+    }
+    setConversations(next);
+    persistConversations(next, activeConversationId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `conversations` deliberately omitted, see comment above
+  }, [history, isChatMode, isHydrated, activeConversationId]);
 
   // Persist the response style choice whenever it changes.
   useEffect(() => {
@@ -404,10 +558,63 @@ export default function Page() {
     setQuery('');
     setSelectedImage(null);
     setIsChatMode(false);
-    try {
-      localStorage.removeItem(CONVERSATION_STORAGE_KEY);
-    } catch {
-      // ignore - nothing to clean up if storage is unavailable
+    setActiveConversationId(generateConversationId());
+  };
+
+  // Switches `history`/`isChatMode` to point at a different, already-known
+  // conversation. The one being left is already fully persisted (every
+  // history/isChatMode change flows through the persist effect above), so
+  // there's nothing extra to save on the way out.
+  const switchConversation = (id: string) => {
+    if (id === activeConversationId) {
+      setIsHistoryOpen(false);
+      return;
+    }
+    const target = conversations.find((c) => c.id === id);
+    if (!target) return;
+    abortController?.abort();
+    setAbortController(null);
+    setIsProcessing(false);
+    setActiveConversationId(id);
+    setHistory(target.history);
+    setIsChatMode(target.isChatMode);
+    setResponse(null);
+    setQuery('');
+    setSelectedImage(null);
+    setIsHistoryOpen(false);
+  };
+
+  const renameConversation = (id: string, rawTitle: string) => {
+    const title = rawTitle.trim().slice(0, MAX_CONVERSATION_TITLE_LENGTH) || DEFAULT_CONVERSATION_TITLE;
+    const next = conversations.map((c) => (c.id === id ? { ...c, title, titleIsCustom: true } : c));
+    setConversations(next);
+    persistConversations(next, activeConversationId);
+  };
+
+  const deleteConversation = (id: string) => {
+    const next = conversations.filter((c) => c.id !== id);
+    setConversations(next);
+    if (id !== activeConversationId) {
+      persistConversations(next, activeConversationId);
+      return;
+    }
+    // Deleted the active conversation - fall back to the next most recent
+    // one, or a fresh empty conversation if that was the last one.
+    const fallback = next[0];
+    setResponse(null);
+    setQuery('');
+    setSelectedImage(null);
+    if (fallback) {
+      setActiveConversationId(fallback.id);
+      setHistory(fallback.history);
+      setIsChatMode(fallback.isChatMode);
+      persistConversations(next, fallback.id);
+    } else {
+      const newId = generateConversationId();
+      setActiveConversationId(newId);
+      setHistory([]);
+      setIsChatMode(false);
+      persistConversations(next, newId);
     }
   };
 
@@ -1250,6 +1457,14 @@ export default function Page() {
       onSelect: startNewChat,
     },
     {
+      id: 'open-history',
+      label: 'Conversation History',
+      category: 'Actions',
+      icon: <History className="w-4 h-4" />,
+      keywords: 'past chats switch rename delete',
+      onSelect: () => setIsHistoryOpen(true),
+    },
+    {
       id: 'open-settings',
       label: 'Open Settings',
       category: 'Actions',
@@ -1413,6 +1628,14 @@ export default function Page() {
               >
                 <Settings className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Settings</span>
+              </button>
+              <button
+                onClick={() => setIsHistoryOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+                title="Chat History"
+              >
+                <History className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">History</span>
               </button>
               <div className="hidden sm:block">
                 <NavClock />
@@ -1661,6 +1884,22 @@ export default function Page() {
             selectedModelId={selectedModelId}
             onSelectModel={setSelectedModelId}
             onInitialize={handleInitialize}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Chat History Panel */}
+      <AnimatePresence>
+        {isHistoryOpen && (
+          <ConversationHistoryModal
+            isOpen={isHistoryOpen}
+            onClose={() => setIsHistoryOpen(false)}
+            conversations={conversations}
+            activeConversationId={activeConversationId}
+            onSelect={switchConversation}
+            onRename={renameConversation}
+            onDelete={deleteConversation}
+            onNewChat={startNewChat}
           />
         )}
       </AnimatePresence>
@@ -2624,9 +2863,20 @@ while (true) {
                     </button>
                   )}
 
-                  {/* New Chat - clears the current conversation (and its
-                      persisted localStorage copy) and returns to the landing
-                      view. */}
+                  {/* Chat History - opens the panel listing past
+                      conversations to switch between, rename, or delete. */}
+                  <button
+                    type="button"
+                    onClick={() => setIsHistoryOpen(true)}
+                    className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                    title="Chat History"
+                  >
+                    <History className="w-4 h-4" />
+                  </button>
+
+                  {/* New Chat - leaves the current conversation persisted in
+                      history and returns to the landing view for a fresh
+                      one. */}
                   <button
                     type="button"
                     onClick={startNewChat}
