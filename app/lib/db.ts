@@ -54,6 +54,19 @@ export function getDatabase(): Database.Database {
 
         CREATE INDEX IF NOT EXISTS idx_feedback_model ON message_feedback(model_id);
         CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON message_feedback(created_at);
+
+        -- Shared conversations (SQLite fallback for local dev - Vercel KV is
+        -- the primary store in production, same pattern as unique_visitors
+        -- above). Keyed by an unguessable crypto.randomUUID(), not an
+        -- incrementing id, since this is a publicly-readable share link.
+        CREATE TABLE IF NOT EXISTS shared_conversations (
+          id TEXT PRIMARY KEY,
+          content TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          expires_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_shared_expires_at ON shared_conversations(expires_at);
       `);
     } catch (error) {
       console.error('Database initialization error:', error);

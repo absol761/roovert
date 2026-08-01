@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, X, Monitor, Eye, EyeOff, Zap, Download, Save, Trash2 } from 'lucide-react';
+import { Settings, X, Monitor, Eye, EyeOff, Zap, Download, Save, Trash2, Share2, Check, Loader2 } from 'lucide-react';
 import { type Model } from '../../lib/models';
 import { LAYOUTS } from '../../lib/looks';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
@@ -53,6 +53,9 @@ interface SettingsModalProps {
   responseStyle: ResponseStyle;
   setResponseStyle: (value: ResponseStyle) => void;
   onExportChat: () => void;
+  onShareConversation: () => void;
+  shareStatus: 'idle' | 'sharing' | 'copied' | 'error';
+  canShare: boolean;
   neuralNoiseEnabled: boolean;
   setNeuralNoiseEnabled: (value: boolean) => void;
   showVisualizerButton: boolean;
@@ -71,6 +74,9 @@ export function SettingsModal({
   systemPrompt, setSystemPrompt,
   responseStyle, setResponseStyle,
   onExportChat,
+  onShareConversation,
+  shareStatus,
+  canShare,
   neuralNoiseEnabled,
   setNeuralNoiseEnabled,
   showVisualizerButton,
@@ -377,6 +383,29 @@ export function SettingsModal({
                 className="w-full flex items-center justify-center gap-2 py-2 bg-[var(--surface-strong)] hover:bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm transition-colors"
               >
                 <Download className="w-4 h-4" /> Export Conversation Log
+              </button>
+
+              <button
+                onClick={onShareConversation}
+                disabled={!canShare || shareStatus === 'sharing'}
+                className="w-full flex items-center justify-center gap-2 py-2 mt-2 bg-[var(--surface-strong)] hover:bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={canShare ? 'Copy a public, read-only link to this conversation' : 'Start a conversation first'}
+              >
+                {shareStatus === 'sharing' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Creating link…
+                  </>
+                ) : shareStatus === 'copied' ? (
+                  <>
+                    <Check className="w-4 h-4" /> Link copied!
+                  </>
+                ) : shareStatus === 'error' ? (
+                  'Couldn\'t create share link'
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4" /> Share Conversation
+                  </>
+                )}
               </button>
             </div>
           </section>

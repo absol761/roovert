@@ -4,11 +4,9 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Command, Download, Focus, Keyboard, Cpu } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Command, Download, Focus, Keyboard, Cpu } from 'lucide-react';
 import { useMobile } from './hooks/useMobile';
+import { MarkdownMessage } from './components/MarkdownMessage';
 import { useMicLevel } from './hooks/useMicLevel';
 import { useSpeechToText } from './hooks/useSpeechToText';
 import { LooksModal } from './components/modals/LooksModal';
@@ -204,8 +202,10 @@ export default function Page() {
   const [activeConversationId, setActiveConversationId] = useState('');
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
-  const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
   const [messageFeedback, setMessageFeedback] = useState<Record<number, 'up' | 'down'>>({});
+  // Feedback state for the "Share Conversation" action in Settings - mirrors
+  // the copiedCodeBlock pattern's brief self-resetting confirmation.
+  const [shareStatus, setShareStatus] = useState<'idle' | 'sharing' | 'copied' | 'error'>('idle');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   // Whether a file is currently being dragged over the composer - drives the
   // drop-zone highlight; separate from selectedImage so the overlay never
@@ -779,21 +779,65 @@ export default function Page() {
     a.click();
   };
 
+  // Posts the current conversation to /api/share and copies the resulting
+  // /share/{id} link to the clipboard - mirrors the copy-to-clipboard
+  // confirmation pattern used by code blocks (copiedCodeBlock in
+  // MarkdownMessage): a brief "copied" state that self-resets.
+  const handleShareConversation = async () => {
+    if (history.length === 0) {
+      setShareStatus('error');
+      setTimeout(() => setShareStatus('idle'), 2000);
+      return;
+    }
+
+    setShareStatus('sharing');
+    try {
+      // Flatten each turn into the {role, content} shape validateConversationHistory
+      // expects (same shape query-gateway sends to the model) - Multi-Perspective
+      // turns are collapsed into one assistant message per model so the shared
+      // view can still show every perspective.
+      const conversationHistory = history.flatMap((h) => {
+        const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+          { role: 'user', content: h.query },
+        ];
+        if (h.perspectives && h.perspectives.length > 0) {
+          const combined = h.perspectives
+            .map((p) => `[${availableModels.find((m) => m.id === p.model)?.name || p.model}]\n${p.content}`)
+            .join('\n\n');
+          messages.push({ role: 'assistant', content: combined });
+        } else if (h.response) {
+          messages.push({ role: 'assistant', content: h.response });
+        }
+        return messages;
+      });
+
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationHistory }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Share request failed');
+      }
+
+      const data = await res.json();
+      const shareUrl = `${window.location.origin}${data.url}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setShareStatus('copied');
+    } catch (err) {
+      console.error('Failed to create share link:', err);
+      setShareStatus('error');
+    } finally {
+      setTimeout(() => setShareStatus('idle'), 2500);
+    }
+  };
+
   const handleStop = () => {
     if (abortController) {
       abortController.abort();
       setAbortController(null);
       setIsProcessing(false);
-    }
-  };
-
-  const copyCodeBlock = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopiedCodeBlock(code);
-      setTimeout(() => setCopiedCodeBlock(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
     }
   };
 
@@ -1382,66 +1426,16 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, isProcessing]);
 
-  // Shared react-markdown `code` renderer (copy-to-clipboard code blocks) -
-  // reused by every ReactMarkdown instance on this page (history entries,
-  // the live single-model response, and each Multi-Perspective card) so the
-  // block isn't copy-pasted per call site. Memoized on `copiedCodeBlock` (the
-  // only thing it actually depends on) so streaming updates elsewhere in
-  // this component - which re-render the whole page - don't hand every
-  // ReactMarkdown instance a brand-new `components` object on every token.
-  const markdownComponents = useMemo(() => ({
-    code: ({ className, children, ...props }: React.HTMLAttributes<HTMLElement>) => {
-      const match = /language-(\w+)/.exec(className || '');
-      const code = String(children).replace(/\n$/, '');
-      const isCopied = copiedCodeBlock === code;
-      // react-markdown v9+ no longer passes an `inline` prop - block
-      // code is the only kind that gets a `language-x` className from
-      // rehype-highlight, so its presence is the reliable signal.
-      const isInline = !className;
-
-      return !isInline ? (
-        <div className="relative my-4">
-          <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
-            <span className="text-xs text-[var(--muted)] font-mono">
-              {match ? match[1] : 'code'}
-            </span>
-            <button
-              onClick={() => copyCodeBlock(code)}
-              className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-            >
-              {isCopied ? (
-                <>
-                  <Check className="w-3 h-3" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  Copy
-                </>
-              )}
-            </button>
-          </div>
-          <pre className={`${className} m-0 rounded-b-lg rounded-t-none overflow-x-auto`} {...props}>
-            <code className={className} {...props}>
-              {children}
-            </code>
-          </pre>
-        </div>
-      ) : (
-        <code className={`${className} bg-[var(--surface-strong)] px-1.5 py-0.5 rounded text-sm`} {...props}>
-          {children}
-        </code>
-      );
-    },
-  }), [copiedCodeBlock]);
-
   // Small 3-dot "thinking" indicator, reused for both the single-model
   // "processing" state and each Multi-Perspective card while that model is
   // still streaming. Dots fade in a gentle stagger (opacity only) rather
   // than bounce, for a calmer, more understated feel. A plain element (not
   // a component defined at render-time) so it's safe to reuse across
   // multiple spots in the JSX below.
+  //
+  // Note: the shared `code`-block-copy renderer that used to live here
+  // (`markdownComponents`) moved into `MarkdownMessage.tsx`, reused by both
+  // this page and the read-only share view - see that file instead.
   const thinkingIndicator = (
     <div className="flex space-x-1 h-6 items-center">
       <div className="thinking-dot w-2 h-2 bg-[var(--foreground)]/40 rounded-full [animation-delay:-0.32s]"></div>
@@ -1826,6 +1820,9 @@ export default function Page() {
             responseStyle={responseStyle}
             setResponseStyle={setResponseStyle}
             onExportChat={handleExportChat}
+            onShareConversation={handleShareConversation}
+            shareStatus={shareStatus}
+            canShare={history.length > 0}
             neuralNoiseEnabled={neuralNoiseEnabled}
             setNeuralNoiseEnabled={setNeuralNoiseEnabled}
             showVisualizerButton={showVisualizerButton}
@@ -2473,31 +2470,14 @@ while (true) {
                                               {availableModels.find(m => m.id === p.model)?.name || p.model}
                                             </div>
                                             <div className="text-[var(--foreground)] text-base font-light markdown-content">
-                                              <ReactMarkdown
-                                                remarkPlugins={[remarkGfm]}
-                                                rehypePlugins={[rehypeHighlight]}
-                                                disallowedElements={['script', 'iframe', 'object', 'embed']}
-                                                unwrapDisallowed={true}
-                                                components={markdownComponents}
-                                              >
-                                                {p.content}
-                                              </ReactMarkdown>
+                                              <MarkdownMessage content={p.content} />
                                             </div>
                                           </div>
                                         ))}
                                       </div>
                                     ) : (
                                       <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
-                                        <ReactMarkdown
-                                          remarkPlugins={[remarkGfm]}
-                                          rehypePlugins={[rehypeHighlight]}
-                                          // Security: Disable HTML rendering to prevent XSS
-                                          disallowedElements={['script', 'iframe', 'object', 'embed']}
-                                          unwrapDisallowed={true}
-                                          components={markdownComponents}
-                                        >
-                                          {entry.response}
-                                        </ReactMarkdown>
+                                        <MarkdownMessage content={entry.response} />
                                       </div>
                                     )}
                                   </div>
@@ -2559,15 +2539,7 @@ while (true) {
                                         )}
                                         {content && (
                                           <div className="text-[var(--foreground)] text-base font-light markdown-content">
-                                            <ReactMarkdown
-                                              remarkPlugins={[remarkGfm]}
-                                              rehypePlugins={[rehypeHighlight]}
-                                              disallowedElements={['script', 'iframe', 'object', 'embed']}
-                                              unwrapDisallowed={true}
-                                              components={markdownComponents}
-                                            >
-                                              {content}
-                                            </ReactMarkdown>
+                                            <MarkdownMessage content={content} />
                                           </div>
                                         )}
                                       </div>
@@ -2615,16 +2587,7 @@ while (true) {
                                     </div>
                                   ) : response ? (
                                     <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
-                                      <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        rehypePlugins={[rehypeHighlight]}
-                                        // Security: Disable HTML rendering to prevent XSS
-                                        disallowedElements={['script', 'iframe', 'object', 'embed']}
-                                        unwrapDisallowed={true}
-                                        components={markdownComponents}
-                                      >
-                                        {response}
-                                      </ReactMarkdown>
+                                      <MarkdownMessage content={response} />
                                       {isProcessing && (
                                         <div className="flex items-center gap-3 mt-3">
                                           <span
