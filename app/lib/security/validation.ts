@@ -427,6 +427,56 @@ export function validateTrackingRequest(
 }
 
 /**
+ * Fields produced by validateFeedbackRequest once a payload has passed
+ * validation.
+ */
+export interface SanitizedFeedbackRequest {
+  rating: 'up' | 'down';
+  modelId: string;
+}
+
+/**
+ * Validate message feedback (thumbs up/down) request payload.
+ * Deliberately narrow: only a rating and a model identifier are accepted -
+ * no message content, excerpt, or visitor-identifying data.
+ */
+export function validateFeedbackRequest(
+  payload: Record<string, unknown>
+): { valid: boolean; errors: string[]; sanitized?: SanitizedFeedbackRequest } {
+  const errors: string[] = [];
+
+  const ratingValue = payload.rating;
+  if (ratingValue !== 'up' && ratingValue !== 'down') {
+    errors.push('rating must be "up" or "down"');
+  }
+
+  const modelIdValidation = validateString(payload.modelId, 'modelId', MAX_LENGTHS.MODEL_ID, true);
+  if (!modelIdValidation.valid) {
+    errors.push(modelIdValidation.error!);
+  }
+
+  // Reject unexpected fields (prevent mass assignment / accidental content leakage)
+  const allowedFields = ['rating', 'modelId'];
+  const unexpectedFields = Object.keys(payload).filter(key => !allowedFields.includes(key));
+  if (unexpectedFields.length > 0) {
+    errors.push(`Unexpected fields: ${unexpectedFields.join(', ')}`);
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, errors };
+  }
+
+  return {
+    valid: true,
+    errors: [],
+    sanitized: {
+      rating: ratingValue as 'up' | 'down',
+      modelId: modelIdValidation.sanitized!,
+    },
+  };
+}
+
+/**
  * Create validation error response
  */
 export function createValidationErrorResponse(errors: string[]): Response {

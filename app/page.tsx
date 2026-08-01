@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon, ThumbsUp, ThumbsDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -20,6 +20,7 @@ import { LiveStats } from './components/nav/LiveStats';
 import { NavClock } from './components/nav/NavClock';
 import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from './lib/models';
 import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
+import { getSystemPrompt, getStyleInstruction, type ResponseStyle } from './lib/prompts';
 import type { VisualizerMode } from './components/visualizer/R3FVisualizer';
 // Plain 2D canvas, not three.js - cheap enough to not need the dynamic-import
 // treatment the R3F visualizer components above get.
@@ -42,6 +43,9 @@ const CONVERSATION_STORAGE_KEY = 'roovert_conversation';
 // Cap on how many trailing turns get persisted, so a very long conversation
 // can't blow past localStorage's ~5-10MB quota.
 const MAX_PERSISTED_TURNS = 50;
+// Where the response style pick (Normal/Concise/Explanatory/Formal) is
+// persisted so it survives a reload, same as the conversation above.
+const RESPONSE_STYLE_STORAGE_KEY = 'roovert_response_style';
 
 export default function Page() {
   const { isMobile } = useMobile();
@@ -61,7 +65,12 @@ export default function Page() {
   const [isChatMode, setIsChatMode] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
+  const [messageFeedback, setMessageFeedback] = useState<Record<number, 'up' | 'down'>>({});
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  // Whether a file is currently being dragged over the composer - drives the
+  // drop-zone highlight; separate from selectedImage so the overlay never
+  // lingers after a drop completes.
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   // Image generation mode - when on, the composer sends the prompt to
   // /api/huggingface-image instead of a chat model, and the result is a
   // generated image appended to history instead of streamed text.
@@ -120,6 +129,15 @@ export default function Page() {
   const [dataSaver, setDataSaver] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
+  // Response style modifier (Normal/Concise/Explanatory/Formal) - composes
+  // with, rather than replaces, the custom system prompt above. Lazily read
+  // from localStorage since this only ever runs client-side (useState
+  // initializers don't execute during SSR).
+  const [responseStyle, setResponseStyle] = useState<ResponseStyle>(() => {
+    if (typeof window === 'undefined') return 'normal';
+    const saved = window.localStorage.getItem(RESPONSE_STYLE_STORAGE_KEY);
+    return saved === 'concise' || saved === 'explanatory' || saved === 'formal' ? saved : 'normal';
+  });
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -131,6 +149,12 @@ export default function Page() {
   // reachable via the nav's Waves button, genuinely reacts to real audio via
   // the mic, and stays off by default since enabling it requests mic access.
   const [visualizerEnabled, setVisualizerEnabled] = useState(false);
+  // Gates whether the nav's Waves button (the only entry point to the
+  // visualizer/config panel) renders at all. Off by default so the feature
+  // is fully hidden from the landing page until explicitly turned on in
+  // Settings; turning it back off also force-disables the visualizer itself
+  // so it can't keep running with its only control gone.
+  const [showVisualizerButton, setShowVisualizerButton] = useState(false);
   // Single shared mic stream for both the nav's pulsing indicator and the
   // 3D visualizer's particle motion - only requested while the visualizer
   // is actually on.
@@ -257,6 +281,26 @@ export default function Page() {
     }
   }, [history, isChatMode, isHydrated]);
 
+  // Persist the response style choice whenever it changes.
+  useEffect(() => {
+    try {
+      localStorage.setItem(RESPONSE_STYLE_STORAGE_KEY, responseStyle);
+    } catch {
+      // Storage unavailable (e.g. private browsing) - persistence is
+      // best-effort and must never crash the app.
+    }
+  }, [responseStyle]);
+
+  // Combines the custom system prompt with the active response style's
+  // instruction (if any) into the single string sent to the backend.
+  // Returns undefined when neither is set, so the API route falls back to
+  // its own default base prompt exactly as before this feature existed.
+  const buildEffectiveSystemPrompt = () => {
+    const styleInstruction = getStyleInstruction(responseStyle);
+    if (!systemPrompt && !styleInstruction) return undefined;
+    return getSystemPrompt(systemPrompt || undefined, styleInstruction);
+  };
+
   // Clears the current conversation and returns to the landing view. Used by
   // the explicit "New Chat" control and by the nav actions that end the
   // current session - both previously only flipped isChatMode back to false
@@ -342,6 +386,31 @@ export default function Page() {
     });
   };
 
+  const handleMessageFeedback = (messageIdx: number, rating: 'up' | 'down', modelId: string) => {
+    const nextRating = messageFeedback[messageIdx] === rating ? undefined : rating;
+
+    setMessageFeedback(prev => {
+      const next = { ...prev };
+      if (nextRating) {
+        next[messageIdx] = nextRating;
+      } else {
+        delete next[messageIdx];
+      }
+      return next;
+    });
+
+    if (!nextRating) return; // Toggled off - no need to log a retraction
+
+    // Fire-and-forget: feedback logging should never block or disrupt the UI
+    fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: nextRating, modelId: modelId || 'unknown' }),
+    }).catch(() => {
+      // Silently fail - feedback logging is not critical
+    });
+  };
+
   const handleInitialize = async () => {
     // Track "Initialize Chat" click
     try {
@@ -355,6 +424,17 @@ export default function Page() {
       inputRef.current?.focus();
     });
   };
+
+  // iOS Safari (the dominant mobile browser on the one platform where this
+  // app has no alternative rendering engine) has no Fullscreen API support -
+  // document.fullscreenEnabled is false there. Without this check the button
+  // below rendered unconditionally and just silently did nothing when
+  // tapped, unlike every other unsupported-feature control in this file
+  // (dictation, image-gen) which hide themselves instead of looking broken.
+  const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
+  useEffect(() => {
+    setIsFullscreenSupported(typeof document !== 'undefined' && !!document.fullscreenEnabled);
+  }, []);
 
   const toggleFullscreen = async () => {
     try {
@@ -477,17 +557,17 @@ export default function Page() {
     });
   };
 
-  // Image upload handler
-  const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  // Shared image-attach pipeline: validates a File the same way regardless of
+  // how it arrived (click-to-attach, paste, or drag-and-drop) and, if valid,
+  // compresses it and sets it as the attached image. Returns true if the
+  // file was accepted so callers (e.g. paste/drop handlers) know whether to
+  // suppress their default browser behavior.
+  const attachImageFile = async (file: File): Promise<boolean> => {
     // Prevent upload if disabled (model unavailable or API key missing)
     if (isImageUploadDisabled) {
-      event.target.value = ''; // Clear the input
       setStatusNote(`Image upload is disabled: ${imageUploadDisabledReason}. Please select an available model.`);
       setTimeout(() => setStatusNote(null), 5000);
-      return;
+      return false;
     }
 
     // Security: Validate file extension (MIME type can be spoofed)
@@ -495,20 +575,20 @@ export default function Page() {
     const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
     if (!allowedExtensions.includes(fileExtension)) {
       alert('Invalid file type. Please select a JPG, PNG, GIF, or WebP image.');
-      return;
+      return false;
     }
 
     // Validate file type (MIME type check)
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file');
-      return;
+      return false;
     }
 
     // Validate file size (max 20MB before compression)
     const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
     if (file.size > MAX_FILE_SIZE) {
       alert('Image size must be less than 20MB. Large images will be automatically compressed.');
-      return;
+      return false;
     }
 
     try {
@@ -526,6 +606,65 @@ export default function Page() {
       };
       reader.readAsDataURL(file);
     }
+    return true;
+  };
+
+  // Image upload handler (click-to-attach via the hidden file input)
+  const handleImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const accepted = await attachImageFile(file);
+    if (!accepted) {
+      event.target.value = ''; // Clear the input so re-selecting the same file re-fires onChange
+    }
+  };
+
+  // Paste-to-attach: only intercepts when the clipboard actually contains an
+  // image file, so normal text paste is completely unaffected.
+  const handleComposerPaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    if (isImageGenMode) return;
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    const imageItem = Array.from(items).find(item => item.kind === 'file' && item.type.startsWith('image/'));
+    if (!imageItem) return;
+
+    const file = imageItem.getAsFile();
+    if (!file) return;
+
+    event.preventDefault();
+    void attachImageFile(file);
+  };
+
+  // Drag-and-drop: desktop-only by nature. Tracks drag state so the drop
+  // zone highlight only shows while a file is actively being dragged over
+  // the composer.
+  const handleComposerDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    if (isImageGenMode || isImageUploadDisabled) return;
+    if (!event.dataTransfer?.types.includes('Files')) return;
+    event.preventDefault();
+    setIsDraggingImage(true);
+  };
+
+  const handleComposerDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    // Ignore leave events bubbling from child elements while still inside the composer
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setIsDraggingImage(false);
+  };
+
+  const handleComposerDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    setIsDraggingImage(false);
+    // Prevent the browser's default "navigate to dropped file" behavior for
+    // any file drop, even ones we ultimately reject as non-image.
+    if (event.dataTransfer?.types.includes('Files')) {
+      event.preventDefault();
+    }
+    if (isImageGenMode) return;
+    const file = event.dataTransfer?.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+
+    void attachImageFile(file);
   };
 
   const handleRemoveImage = () => {
@@ -648,7 +787,7 @@ export default function Page() {
           query: trimmedQuery,
           image: selectedImage || undefined,
           model: selectedModel.id, // Send model ID, not API ID (backend maps it)
-          systemPrompt: systemPrompt || undefined,
+          systemPrompt: buildEffectiveSystemPrompt(),
           conversationHistory: conversationHistory,
           runParallel: actualRunParallel,
           outputLength: outputLength,
@@ -687,7 +826,7 @@ export default function Page() {
       };
       const perspectiveDone = new Set<string>();
 
-      const flagPossibleModelError = (content: string) => {
+      const flagPossibleModelError = (content: string, modelId: string = selectedModelId) => {
         if (
           content.includes('Provider Error') ||
           content.includes('rate limit') ||
@@ -697,11 +836,11 @@ export default function Page() {
           content.includes('Provider returned error')
         ) {
           // Mark model as unavailable temporarily (for 5 minutes)
-          setUnavailableModels(prev => new Set(prev).add(selectedModelId));
+          setUnavailableModels(prev => new Set(prev).add(modelId));
           setTimeout(() => {
             setUnavailableModels(prev => {
               const next = new Set(prev);
-              next.delete(selectedModelId);
+              next.delete(modelId);
               return next;
             });
           }, 5 * 60 * 1000); // 5 minutes
@@ -729,7 +868,7 @@ export default function Page() {
               if (data.model) {
                 if (typeof data.content === 'string' && data.content) {
                   perspectiveText[data.model] = (perspectiveText[data.model] || '') + data.content;
-                  flagPossibleModelError(data.content);
+                  flagPossibleModelError(data.content, data.model);
                 }
                 if (data.done) {
                   perspectiveDone.add(data.model);
@@ -1051,7 +1190,7 @@ export default function Page() {
 
       {/* Navigation */}
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-opacity duration-[var(--duration-base)] ${focusMode ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}
+        className={`fixed top-0 left-0 right-0 z-50 bg-[var(--background)]/80 backdrop-blur-xl border-b border-[var(--border)] transition-opacity duration-[var(--duration-base)] ${focusMode && !isMobile ? 'opacity-0 hover:opacity-100 pointer-events-none hover:pointer-events-auto' : 'opacity-100'}`}
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="max-w-7xl mx-auto px-6 py-3.5">
@@ -1085,6 +1224,7 @@ export default function Page() {
               >
                 <Paintbrush className="w-4 h-4" />
               </button>
+              {showVisualizerButton && (
               <button
                 onClick={() => {
                   // Single click both toggles the visualizer directly (this
@@ -1179,16 +1319,23 @@ export default function Page() {
                   <Waves className="w-4 h-4 relative z-10 group-hover:scale-110 transition-transform" />
                 )}
               </button>
+              )}
             </div>
 
+            {/* Global Feed must stay reachable below the md breakpoint too -
+                it previously lived inside the `hidden md:flex` group below
+                with Mission/Careers/LiveStats, which left mobile users with
+                no way to ever open it since this button was its only
+                trigger. */}
+            <button
+              onClick={() => setIsGlobalFeedOpen(true)}
+              className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-[var(--surface)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+              title="Global Feed"
+            >
+              <Globe className="w-4 h-4" />
+            </button>
+
             <div className="hidden md:flex items-center gap-7">
-              <button
-                onClick={() => setIsGlobalFeedOpen(true)}
-                className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-[var(--surface)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                title="Global Feed"
-              >
-                <Globe className="w-4 h-4" />
-              </button>
               {!isChatMode && (
                 <>
                   <a
@@ -1229,9 +1376,21 @@ export default function Page() {
             setFocusMode={setFocusMode}
             systemPrompt={systemPrompt}
             setSystemPrompt={setSystemPrompt}
+            responseStyle={responseStyle}
+            setResponseStyle={setResponseStyle}
             onExportChat={handleExportChat}
             neuralNoiseEnabled={neuralNoiseEnabled}
             setNeuralNoiseEnabled={setNeuralNoiseEnabled}
+            showVisualizerButton={showVisualizerButton}
+            setShowVisualizerButton={(value) => {
+              setShowVisualizerButton(value);
+              if (!value) {
+                // The nav button is the visualizer's only on/off control -
+                // hiding it while the visualizer is still running would leave
+                // it stuck on with no way to turn it off.
+                setVisualizerEnabled(false);
+              }
+            }}
             availableModels={availableModels}
           />
         )}
@@ -1561,7 +1720,12 @@ while (true) {
                     </div>
                   )}
 
-                  <div className={`overflow-y-auto custom-scrollbar ${isMobile ? 'pr-2' : 'pr-4'}`} style={{ maxHeight: 'calc(100vh - 300px)', minHeight: '200px' }}>
+                  {/* dvh (not vh) so this doesn't mis-size as iOS/Android
+                      Safari and Chrome show/hide their address bar - 100vh
+                      is pinned to the largest possible viewport and doesn't
+                      shrink with the toolbar, so history could extend
+                      underneath the fixed composer bar at the bottom. */}
+                  <div className={`overflow-y-auto custom-scrollbar ${isMobile ? 'pr-2' : 'pr-4'}`} style={{ maxHeight: 'calc(100dvh - 300px)', minHeight: '200px' }}>
                     {/* Conversation History */}
                     <div className="space-y-6 mb-6">
                       {history
@@ -1643,7 +1807,7 @@ while (true) {
                                             setAbortController(controller);
 
                                             try {
-                                              const conversationHistory = history.slice(0, idx).map(h => {
+                                              const conversationHistory = history.slice(0, originalIdx).map(h => {
                                                 const content: ChatContent = h.image
                                                   ? [
                                                     { type: 'text', text: h.query },
@@ -1663,7 +1827,7 @@ while (true) {
                                                   query: entry.query,
                                                   image: entry.image || undefined,
                                                   model: selectedModelId,
-                                                  systemPrompt: systemPrompt || undefined,
+                                                  systemPrompt: buildEffectiveSystemPrompt(),
                                                   conversationHistory: conversationHistory
                                                 }),
                                                 signal: controller.signal,
@@ -1693,7 +1857,7 @@ while (true) {
                                                       setAbortController(null);
                                                       setHistory(prev => {
                                                         const newHistory = [...prev];
-                                                        newHistory[idx] = { ...newHistory[idx], response: fullResponse };
+                                                        newHistory[originalIdx] = { ...newHistory[originalIdx], response: fullResponse };
                                                         return newHistory;
                                                       });
                                                       setResponse(null);
@@ -1713,6 +1877,28 @@ while (true) {
                                           title="Regenerate Response"
                                         >
                                           <RefreshCw className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleMessageFeedback(originalIdx, 'up', entry.model)}
+                                          className={`p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors ${
+                                            messageFeedback[originalIdx] === 'up'
+                                              ? 'text-[var(--accent)]'
+                                              : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                                          }`}
+                                          title="Good response"
+                                        >
+                                          <ThumbsUp className="w-4 h-4" fill={messageFeedback[originalIdx] === 'up' ? 'currentColor' : 'none'} />
+                                        </button>
+                                        <button
+                                          onClick={() => handleMessageFeedback(originalIdx, 'down', entry.model)}
+                                          className={`p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors ${
+                                            messageFeedback[originalIdx] === 'down'
+                                              ? 'text-[var(--accent)]'
+                                              : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                                          }`}
+                                          title="Bad response"
+                                        >
+                                          <ThumbsDown className="w-4 h-4" fill={messageFeedback[originalIdx] === 'down' ? 'currentColor' : 'none'} />
                                         </button>
                                       </div>
                                     </div>
@@ -1955,7 +2141,26 @@ while (true) {
             )}
 
             <form onSubmit={handleSubmit} className="relative">
-              <div className={`composer-bar glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border border-[var(--border)] ${isMobile ? 'p-3' : 'p-4'} transition-all duration-300`}>
+              <div
+                className={`composer-bar glass-panel relative bg-[var(--panel-bg)] backdrop-blur-2xl border transition-all duration-300 ${isDraggingImage ? 'border-[var(--accent)]' : 'border-[var(--border)]'} ${isMobile ? 'p-3' : 'p-4'}`}
+                onDragOver={handleComposerDragOver}
+                onDragLeave={handleComposerDragLeave}
+                onDrop={handleComposerDrop}
+              >
+                {/* Drop-zone overlay - only visible while actively dragging an image over the composer */}
+                <AnimatePresence>
+                  {isDraggingImage && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-[inherit] border-2 border-dashed border-[var(--accent)] bg-[var(--accent)]/10"
+                    >
+                      <span className="text-sm font-medium text-[var(--accent)]">Drop image to attach</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-4'}`}>
                   {isProcessing && (
                     <button
@@ -2113,15 +2318,19 @@ while (true) {
                     </button>
                   )}
 
-                  {/* Fullscreen Toggle */}
-                  <button
-                    type="button"
-                    onClick={toggleFullscreen}
-                    className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                    title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
-                  >
-                    {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-                  </button>
+                  {/* Fullscreen Toggle - hidden (not disabled) when the
+                      Fullscreen API isn't available, e.g. iOS Safari, same
+                      convention as the dictation/image-gen controls above. */}
+                  {isFullscreenSupported && (
+                    <button
+                      type="button"
+                      onClick={toggleFullscreen}
+                      className="p-2 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                      title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
+                    >
+                      {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                    </button>
+                  )}
 
                   {/* New Chat - clears the current conversation (and its
                       persisted localStorage copy) and returns to the landing
@@ -2145,6 +2354,7 @@ while (true) {
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
+                    onPaste={handleComposerPaste}
                     placeholder={isImageGenMode ? 'Describe an image to generate... ' : `Ask ${selectedModel.name} anything... `}
                     className="flex-1 bg-transparent border-none outline-none text-[var(--foreground)] text-xl placeholder:text-[var(--foreground)]/30 transition-colors font-light"
                     disabled={isProcessing}

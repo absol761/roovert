@@ -20,7 +20,7 @@ export function LooksModal({ isOpen, onClose, currentLook, setLook }: LooksModal
   const looksByCategory = LOOK_CATEGORIES.map(cat => ({
     category: cat,
     looks: LOOKS.filter(l => l.category === cat)
-  }));
+  })).filter(cat => cat.looks.length > 0);
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 text-[var(--foreground)]">

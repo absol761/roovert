@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSystemPrompt, filterResponse, containsOffensiveContent } from '../../lib/prompts';
-import { applyRateLimit, incrementRateLimit, getRateLimitStatus, shouldHideOpenRouterModels } from '../../lib/security/rateLimit';
+import { applyRateLimit, incrementRateLimit, getRateLimitStatus } from '../../lib/security/rateLimit';
 import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse, MAX_LENGTHS } from '../../lib/security/validation';
 
 // Route segment config
@@ -65,8 +65,14 @@ export async function POST(request: NextRequest) {
       return rateLimitResponse;
     }
 
-    // Security: Check OpenRouter-specific rate limit (45/24hrs)
-    if (await shouldHideOpenRouterModels(request)) {
+    // Security: OpenRouter-specific rate limit (45/24hrs). Must use
+    // applyRateLimit (atomically checks-and-consumes) rather than the old
+    // shouldHideOpenRouterModels + incrementRateLimit pattern - that pattern
+    // only ever peeked at the bucket and "incremented" it via the now
+    // no-op incrementRateLimit, so the 'openrouter' bucket was never
+    // actually consumed and this limit never triggered.
+    const openRouterRateLimitResponse = await applyRateLimit(request, 'openrouter');
+    if (openRouterRateLimitResponse) {
       return new Response(
         `data: ${JSON.stringify({ 
           content: getUserFriendlyErrorMessage('rate_limit'), 
