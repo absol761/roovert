@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon, Command, Download, Focus, Keyboard, Cpu, ThumbsUp, ThumbsDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -14,6 +14,8 @@ import { useSpeechToText } from './hooks/useSpeechToText';
 import { LooksModal } from './components/modals/LooksModal';
 import { MoreModelsModal } from './components/modals/MoreModelsModal';
 import { SettingsModal } from './components/modals/SettingsModal';
+import { CommandPaletteModal, type CommandAction } from './components/modals/CommandPaletteModal';
+import { ShortcutsHelpModal } from './components/modals/ShortcutsHelpModal';
 import { GlobalFeedExpanded } from './components/GlobalFeedExpanded';
 import { NeuralNoise } from './components/NeuralNoise';
 import { LiveStats } from './components/nav/LiveStats';
@@ -175,6 +177,10 @@ export default function Page() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
   const [isGlobalFeedOpen, setIsGlobalFeedOpen] = useState(false);
+  // Cmd/Ctrl+K quick-actions palette and its "?" shortcuts-help overlay -
+  // both are plain client-side modals with no state beyond open/closed.
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [look, setLook] = useState('midnight');
   const [layout, setLayout] = useState('standard');
   const [fontSize, setFontSize] = useState('normal');
@@ -1108,6 +1114,17 @@ export default function Page() {
 
   // Keyboard shortcuts
   useEffect(() => {
+    // Whether the key event originated in a text input/textarea/contentEditable
+    // element - guards single-character shortcuts (like "?") so they don't
+    // hijack normal typing. Modifier-combo shortcuts (Cmd+K etc.) don't need
+    // this: holding Cmd/Ctrl means no character is actually being typed.
+    const isTypingTarget = (target: EventTarget | null) => {
+      const el = target as HTMLElement | null;
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Cmd/Ctrl + Enter to submit
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -1115,19 +1132,46 @@ export default function Page() {
         if (!isProcessing && query.trim()) {
           handleSubmit(e);
         }
+        return;
       }
       // Escape to stop
       if (e.key === 'Escape' && isProcessing) {
         handleStop();
+        return;
+      }
+      // Cmd/Ctrl + K - open the quick-actions command palette
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(true);
+        return;
+      }
+      // Cmd/Ctrl + Shift + O - start a new chat (matches Claude.ai; avoids
+      // Cmd+N, which browsers/OSes reserve for "new window")
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        startNewChat();
+        return;
+      }
+      // Cmd/Ctrl + , - open settings (standard app-preferences convention)
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        setIsSettingsOpen(true);
+        return;
+      }
+      // ? - open the shortcuts help overlay, but only outside of text input
+      // (so typing a literal "?" in the composer or a search box works normally)
+      if (e.key === '?' && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        setIsShortcutsHelpOpen(true);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-    // handleSubmit/handleStop intentionally omitted: they're recreated every
-    // render (not memoized) and this effect already re-subscribes on every
-    // query/isProcessing change, so including them would add churn with no
-    // behavioral difference.
+    // handleSubmit/handleStop/startNewChat intentionally omitted: they're
+    // recreated every render (not memoized) and this effect already
+    // re-subscribes on every query/isProcessing change, so including them
+    // would add churn with no behavioral difference.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, isProcessing]);
 
@@ -1198,6 +1242,74 @@ export default function Page() {
       <div className="thinking-dot w-2 h-2 bg-[var(--foreground)]/40 rounded-full"></div>
     </div>
   );
+
+  // Command palette actions - each wired directly to a handler/setter that
+  // already exists above rather than inventing new behavior, so the palette
+  // is just another entry point into things the UI can already do.
+  const commandActions: CommandAction[] = [
+    {
+      id: 'new-chat',
+      label: 'New Chat',
+      category: 'Actions',
+      icon: <MessageSquarePlus className="w-4 h-4" />,
+      keywords: 'clear reset conversation',
+      onSelect: startNewChat,
+    },
+    {
+      id: 'open-settings',
+      label: 'Open Settings',
+      category: 'Actions',
+      icon: <Settings className="w-4 h-4" />,
+      onSelect: () => setIsSettingsOpen(true),
+    },
+    {
+      id: 'change-theme',
+      label: 'Change Theme / Look',
+      category: 'Actions',
+      icon: <Paintbrush className="w-4 h-4" />,
+      keywords: 'looks appearance style',
+      onSelect: () => setIsLooksOpen(true),
+    },
+    {
+      id: 'open-global-feed',
+      label: 'Open Global Feed',
+      category: 'Actions',
+      icon: <Globe className="w-4 h-4" />,
+      onSelect: () => setIsGlobalFeedOpen(true),
+    },
+    {
+      id: 'export-chat',
+      label: 'Export Conversation',
+      category: 'Actions',
+      icon: <Download className="w-4 h-4" />,
+      keywords: 'download save transcript',
+      onSelect: handleExportChat,
+    },
+    {
+      id: 'toggle-focus-mode',
+      label: focusMode ? 'Turn Off Focus Mode' : 'Turn On Focus Mode',
+      category: 'Actions',
+      icon: <Focus className="w-4 h-4" />,
+      keywords: 'distraction free zen',
+      onSelect: () => setFocusMode(prev => !prev),
+    },
+    {
+      id: 'shortcuts-help',
+      label: 'Show Keyboard Shortcuts',
+      category: 'Actions',
+      icon: <Keyboard className="w-4 h-4" />,
+      keywords: 'help hotkeys',
+      onSelect: () => setIsShortcutsHelpOpen(true),
+    },
+    ...filteredAvailableModels.map((m): CommandAction => ({
+      id: `model-${m.id}`,
+      label: m.id === selectedModelId ? `${m.name} (current)` : `Switch to ${m.name}`,
+      category: 'Models',
+      icon: <Cpu className="w-4 h-4" />,
+      keywords: m.category,
+      onSelect: () => setSelectedModelId(m.id),
+    })),
+  ];
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] relative overflow-hidden transition-colors duration-500 flex flex-col">
@@ -1311,6 +1423,20 @@ export default function Page() {
               <div className="hidden sm:block">
                 <NavClock />
               </div>
+              {/* Command palette discoverability hint - desktop-only (the
+                  palette is a keyboard-driven feature with no equivalent
+                  touch gesture), so it's gated on useMobile() rather than
+                  just a CSS breakpoint. */}
+              {!isMobile && (
+                <button
+                  onClick={() => setIsCommandPaletteOpen(true)}
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] transition-all text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
+                  title="Quick Actions"
+                >
+                  <Command className="w-3.5 h-3.5" />
+                  <span>K for quick actions</span>
+                </button>
+              )}
             </div>
 
             {/* Theme + Visualizer controls - Center */}
@@ -1503,6 +1629,27 @@ export default function Page() {
             onClose={() => setIsLooksOpen(false)}
             currentLook={look}
             setLook={setLook}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Command Palette - Cmd/Ctrl+K quick actions */}
+      <AnimatePresence>
+        {isCommandPaletteOpen && (
+          <CommandPaletteModal
+            isOpen={isCommandPaletteOpen}
+            onClose={() => setIsCommandPaletteOpen(false)}
+            actions={commandActions}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Shortcuts Help - "?" overlay listing all available shortcuts */}
+      <AnimatePresence>
+        {isShortcutsHelpOpen && (
+          <ShortcutsHelpModal
+            isOpen={isShortcutsHelpOpen}
+            onClose={() => setIsShortcutsHelpOpen(false)}
           />
         )}
       </AnimatePresence>
