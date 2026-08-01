@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Copy, Check, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Waves, Mic, MicOff, Loader2, MessageSquarePlus, ImageIcon, ThumbsUp, ThumbsDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -65,6 +65,7 @@ export default function Page() {
   const [isChatMode, setIsChatMode] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
+  const [messageFeedback, setMessageFeedback] = useState<Record<number, 'up' | 'down'>>({});
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   // Image generation mode - when on, the composer sends the prompt to
   // /api/huggingface-image instead of a chat model, and the result is a
@@ -372,6 +373,31 @@ export default function Page() {
     setResponse(null);
     requestAnimationFrame(() => {
       inputRef.current?.focus();
+    });
+  };
+
+  const handleMessageFeedback = (messageIdx: number, rating: 'up' | 'down', modelId: string) => {
+    const nextRating = messageFeedback[messageIdx] === rating ? undefined : rating;
+
+    setMessageFeedback(prev => {
+      const next = { ...prev };
+      if (nextRating) {
+        next[messageIdx] = nextRating;
+      } else {
+        delete next[messageIdx];
+      }
+      return next;
+    });
+
+    if (!nextRating) return; // Toggled off - no need to log a retraction
+
+    // Fire-and-forget: feedback logging should never block or disrupt the UI
+    fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: nextRating, modelId: modelId || 'unknown' }),
+    }).catch(() => {
+      // Silently fail - feedback logging is not critical
     });
   };
 
@@ -1748,6 +1774,28 @@ while (true) {
                                           title="Regenerate Response"
                                         >
                                           <RefreshCw className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleMessageFeedback(originalIdx, 'up', entry.model)}
+                                          className={`p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors ${
+                                            messageFeedback[originalIdx] === 'up'
+                                              ? 'text-[var(--accent)]'
+                                              : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                                          }`}
+                                          title="Good response"
+                                        >
+                                          <ThumbsUp className="w-4 h-4" fill={messageFeedback[originalIdx] === 'up' ? 'currentColor' : 'none'} />
+                                        </button>
+                                        <button
+                                          onClick={() => handleMessageFeedback(originalIdx, 'down', entry.model)}
+                                          className={`p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors ${
+                                            messageFeedback[originalIdx] === 'down'
+                                              ? 'text-[var(--accent)]'
+                                              : 'text-[var(--muted)] hover:text-[var(--foreground)]'
+                                          }`}
+                                          title="Bad response"
+                                        >
+                                          <ThumbsDown className="w-4 h-4" fill={messageFeedback[originalIdx] === 'down' ? 'currentColor' : 'none'} />
                                         </button>
                                       </div>
                                     </div>
