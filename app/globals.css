@@ -1751,7 +1751,19 @@ textarea:focus {
 
 /* Markdown Content Styling */
 .markdown-content {
-  line-height: 1.8;
+  /* Sole source of truth for line-height on rendered assistant prose - the
+     containing element used to also carry Tailwind's `leading-relaxed`
+     (1.625), which fought this declaration for the same property at equal
+     specificity. Settled on 1.75, matching Claude.ai's reading rhythm. */
+  line-height: 1.75;
+}
+
+.markdown-content > *:first-child {
+  /* Now that message cards no longer add their own top padding above the
+     response text (chrome removed so the reply reads as plain prose), the
+     first heading/paragraph needs its own top margin zeroed out or the
+     response starts with a stray gap under the "AI Response" label. */
+  margin-top: 0;
 }
 
 .markdown-content p {
@@ -1761,7 +1773,9 @@ textarea:focus {
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3,
-.markdown-content h4 {
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
   font-weight: 600;
