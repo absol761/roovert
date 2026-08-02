@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check } from 'lucide-react';
 import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { useMicLevel } from './hooks/useMicLevel';
@@ -211,6 +211,19 @@ export default function Page() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [messageFeedback, setMessageFeedback] = useState<Record<number, 'up' | 'down'>>({});
+  // Brief self-resetting "Copied" confirmation for the per-response copy
+  // button - keyed by message index the same way messageFeedback is, since
+  // multiple responses can each show their own copy state independently.
+  const [copiedResponseIdx, setCopiedResponseIdx] = useState<number | null>(null);
+  const copyResponseToClipboard = async (idx: number, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedResponseIdx(idx);
+      setTimeout(() => setCopiedResponseIdx((prev) => (prev === idx ? null : prev)), 2000);
+    } catch (err) {
+      console.error('Failed to copy response:', err);
+    }
+  };
   // Feedback state for the "Share Conversation" action in Settings - mirrors
   // the copiedCodeBlock pattern's brief self-resetting confirmation.
   const [shareStatus, setShareStatus] = useState<'idle' | 'sharing' | 'copied' | 'error'>('idle');
@@ -258,16 +271,24 @@ export default function Page() {
     return () => clearInterval(interval);
   }, []);
 
-  // Get available models (combine MODELS, OPENROUTER_MODELS, and
-  // HUGGINGFACE_MODELS, filtering each provider's models out if that
-  // provider's rate limit is currently exhausted)
+  // Get available models (combine HUGGINGFACE_MODELS, MODELS, and
+  // OPENROUTER_MODELS, filtering each provider's models out if that
+  // provider's rate limit is currently exhausted). Hugging Face models are
+  // listed first so they're the most visible entries in every model list
+  // that renders off this array (composer dropdown, "Browse AI Models",
+  // command palette).
   const availableModels = [
+    ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
     ...MODELS,
     ...(hideOpenRouterModels ? [] : OPENROUTER_MODELS),
-    ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
   ];
 
-  const [selectedModelId, setSelectedModelId] = useState(availableModels[0]?.id || MODELS[0].id);
+  // Default selection stays Multi-Perspective (the flagship feature) by id,
+  // not by array position - the HF-first ordering above would otherwise
+  // silently change which model a fresh visitor starts with.
+  const [selectedModelId, setSelectedModelId] = useState(
+    availableModels.find(m => m.id === 'multi-perspective')?.id || availableModels[0]?.id || MODELS[0].id
+  );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
   const [isGlobalFeedOpen, setIsGlobalFeedOpen] = useState(false);
@@ -2192,13 +2213,26 @@ while (true) {
                                     <Sparkles className="w-5 h-5 text-[var(--accent)]" />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <div className="label text-[var(--accent)]">
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                      <div className="label text-[var(--accent)] min-w-0 truncate">
                                         {entry.generatedImage
                                           ? 'Image Generation (HF)'
                                           : filteredAvailableModels.find(m => m.id === entry.model)?.name || availableModels.find(m => m.id === entry.model)?.name || 'AI'}
                                       </div>
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        {!entry.generatedImage && (
+                                          <button
+                                            onClick={() => copyResponseToClipboard(originalIdx, entry.response)}
+                                            className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                            title="Copy response"
+                                          >
+                                            {copiedResponseIdx === originalIdx ? (
+                                              <Check className="w-4 h-4" />
+                                            ) : (
+                                              <Copy className="w-4 h-4" />
+                                            )}
+                                          </button>
+                                        )}
                                         <button
                                           onClick={() => {
                                             setQuery(entry.query);
@@ -2610,7 +2644,7 @@ while (true) {
                     right, matching the reference composer's low bottom
                     toolbar instead of one crowded single row. */}
                 <div className={`flex items-center justify-between gap-2 pt-2 ${isMobile ? 'flex-wrap' : ''}`}>
-                  <div className="flex items-center gap-1">
+                  <div className={`flex items-center gap-1 ${isMobile ? 'flex-wrap' : ''}`}>
                     {/* Attach Image */}
                     <input
                       ref={fileInputRef}
@@ -2699,12 +2733,12 @@ while (true) {
 
                     {/* Multi-Perspective Model Selectors - Only shown when Multi-Perspective is selected */}
                     {selectedModelId === 'multi-perspective' && (
-                      <div className="flex items-center gap-2 border-l border-[var(--border)] pl-2 ml-1">
+                      <div className={`flex items-center gap-2 ${isMobile ? 'w-full pl-0 ml-0 mt-1 border-l-0' : 'border-l border-[var(--border)] pl-2 ml-1'}`}>
                         <span className="text-xs text-[var(--muted)] whitespace-nowrap hidden sm:inline">Combine:</span>
                         <select
                           value={parallelModel1}
                           onChange={(e) => setParallelModel1(e.target.value)}
-                          className="px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none"
+                          className={`px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none ${isMobile ? 'min-w-0 flex-1' : ''}`}
                         >
                           {groqOnlyModels.map(m => (
                             <option key={m.id} value={m.id}>{m.name}</option>
@@ -2714,7 +2748,7 @@ while (true) {
                         <select
                           value={parallelModel2}
                           onChange={(e) => setParallelModel2(e.target.value)}
-                          className="px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none"
+                          className={`px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none ${isMobile ? 'min-w-0 flex-1' : ''}`}
                         >
                           {groqOnlyModels.map(m => (
                             <option key={m.id} value={m.id}>{m.name}</option>

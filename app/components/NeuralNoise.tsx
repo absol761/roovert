@@ -343,6 +343,17 @@ export function NeuralNoise({ isChatMode = false, currentLook = 'default' }: Neu
     window.addEventListener('touchmove', handleTouchMove);
     window.addEventListener('click', handleClick);
 
+    // Safari doesn't reliably fire 'resize' while a window is being
+    // dragged to/from fullscreen (only Chrome does that consistently) -
+    // without this, the canvas's WebGL backing buffer stays sized for the
+    // old window and gets stretched to fit the new CSS box, i.e. squished
+    // instead of redrawn at the right resolution. ResizeObserver on the
+    // document element catches the box-size change directly regardless of
+    // whether 'resize' fires, matching the more robust pattern already
+    // used for the mic frequency bars canvas (MicFrequencyBars.tsx).
+    const resizeObserver = new ResizeObserver(() => resizeCanvas());
+    resizeObserver.observe(document.documentElement);
+
     // Update color when look/theme changes
     const observer = new MutationObserver(() => {
       updateColor();
@@ -364,6 +375,7 @@ export function NeuralNoise({ isChatMode = false, currentLook = 'default' }: Neu
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('click', handleClick);
       observer.disconnect();
+      resizeObserver.disconnect();
     };
     // Only re-run when isChatMode/isMounted/currentLook actually change -
     // the handler functions are stable enough closures recreated each

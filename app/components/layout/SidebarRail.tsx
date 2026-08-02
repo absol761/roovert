@@ -148,7 +148,7 @@ export function SidebarRail({
       initial={false}
       animate={{ width: expanded ? 200 : 64 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="hidden md:flex fixed left-0 top-0 bottom-0 z-40 flex-col items-stretch gap-1 border-r border-[var(--border)] bg-[var(--background)]/95 backdrop-blur-xl py-3 px-2"
+      className="hidden md:flex fixed left-0 top-0 bottom-0 z-50 flex-col items-stretch gap-1 border-r border-[var(--border)] bg-[var(--background)]/95 backdrop-blur-xl py-3 px-2"
       style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
       aria-label="Primary navigation"
     >

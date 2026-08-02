@@ -6,7 +6,7 @@ import { type Model } from '../../lib/models';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { MODAL_TRANSITION, EASE_OUT } from '../../lib/motion';
 
-const CATEGORIES = ['Standard', 'Advanced', 'Premium', 'OpenRouter', 'Hugging Face'];
+const CATEGORIES = ['Hugging Face', 'Standard', 'Advanced', 'Premium', 'OpenRouter'];
 
 export function MoreModelsModal({
   isOpen,

@@ -144,19 +144,19 @@ export function SettingsModal({
         transition={MODAL_TRANSITION}
         className="relative w-full max-w-2xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden max-h-[85vh] flex flex-col text-[var(--foreground)]"
       >
-        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <h2 id="settings-modal-title" className="serif-display text-xl flex items-center gap-2.5 text-[var(--foreground)]">
-            <Settings className="w-5 h-5 text-[var(--accent)]" />
+        <div className="flex items-center justify-between gap-2 p-6 border-b border-[var(--border)]">
+          <h2 id="settings-modal-title" className="serif-display text-xl flex items-center gap-2.5 text-[var(--foreground)] min-w-0 truncate">
+            <Settings className="w-5 h-5 text-[var(--accent)] shrink-0" />
             Settings
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleReset}
-              className="text-xs text-[var(--muted)] hover:text-[var(--accent)] transition-colors px-3 py-1.5 rounded-lg border border-transparent hover:border-[var(--border)] hover:bg-[var(--surface)]"
+              className="text-xs text-[var(--muted)] hover:text-[var(--accent)] transition-colors whitespace-nowrap px-2 sm:px-3 py-1.5 rounded-lg border border-transparent hover:border-[var(--border)] hover:bg-[var(--surface)]"
             >
               Reset Defaults
             </button>
-            <button onClick={onClose} aria-label="Close" className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
+            <button onClick={onClose} aria-label="Close" className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)] shrink-0">
               <X className="w-5 h-5" />
             </button>
           </div>
