@@ -277,11 +277,16 @@ export default function Page() {
   // listed first so they're the most visible entries in every model list
   // that renders off this array (composer dropdown, "Browse AI Models",
   // command palette).
-  const availableModels = [
+  // Memoized - this component re-renders on every composer keystroke
+  // (`query` is local state), and without this the spread/filter below
+  // would rebuild a new array identity every time, defeating any
+  // downstream memoization (e.g. MarkdownMessage) and re-running every
+  // .find() against it for no reason.
+  const availableModels = useMemo(() => [
     ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
     ...MODELS,
     ...(hideOpenRouterModels ? [] : OPENROUTER_MODELS),
-  ];
+  ], [hideHuggingFaceModels, hideOpenRouterModels]);
 
   // Default selection stays Multi-Perspective (the flagship feature) by id,
   // not by array position - the HF-first ordering above would otherwise
@@ -373,10 +378,10 @@ export default function Page() {
   // are deliberately excluded: that provider is only wired up as a single-
   // model passthrough (app/api/openrouter/route.ts), not into the combine
   // dispatch, so one here would silently mis-route.
-  const combineModels = [
+  const combineModels = useMemo(() => [
     ...MODELS.filter(m => m.id !== 'multi-perspective'),
     ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
-  ];
+  ], [hideHuggingFaceModels]);
   const [parallelModel1, setParallelModel1] = useState(combineModels[0]?.id || 'ooverta');
   const [parallelModel2, setParallelModel2] = useState(combineModels[1]?.id || 'llama-3.3-70b');
   // Live per-model text for an in-flight Multi-Perspective request, keyed by
@@ -689,7 +694,10 @@ export default function Page() {
 
 
   // Filter out unavailable models (use the combined list from above)
-  const filteredAvailableModels = availableModels.filter(m => !unavailableModels.has(m.id));
+  const filteredAvailableModels = useMemo(
+    () => availableModels.filter(m => !unavailableModels.has(m.id)),
+    [availableModels, unavailableModels]
+  );
   const selectedModel = filteredAvailableModels.find(m => m.id === selectedModelId) || filteredAvailableModels[0];
 
   // If selected model becomes unavailable, switch to first available.

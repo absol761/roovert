@@ -144,6 +144,13 @@ function ParticleField({
     const burst = audioBurstRef.current;
     const audioBoost = 0.2 + (audioLevelRef.current * 0.9 + bands.bass * 1.3) * 2.2 + burst * 1.4;
     const treble = bands.treble;
+    // Hoisted out of the per-particle loop below - color1/color2 don't
+    // change per-particle, only per color-prop update, so re-parsing the
+    // hex string (regex + parseInt ×3) for every one of up to ~2600
+    // particles, every frame, was pure waste (~156k needless regex execs/sec
+    // at 60fps for a color that's constant across the whole frame).
+    const color1RGB = hexToRgb(color1);
+    const color2RGB = hexToRgb(color2);
 
     for (let i = 0; i < particleCount; i++) {
       const x = positions.getX(i);
@@ -212,8 +219,6 @@ function ParticleField({
       const currentZ = positions.getZ(i);
 
       const waveIntensity = Math.sin(timeRef.current * speed * 2 + distance * 0.5) * 0.5 + 0.5;
-      const color1RGB = hexToRgb(color1);
-      const color2RGB = hexToRgb(color2);
       const posVariation = (Math.sin(currentX * 0.5) + Math.cos(currentZ * 0.5)) * 0.1;
       // With "colors follow music" on, brighter treble content pulls the mix
       // toward color2 and a loud transient briefly overexposes everything -
