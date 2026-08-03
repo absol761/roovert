@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Globe, X } from 'lucide-react';
+import { Globe, X, Sparkles } from 'lucide-react';
 
 interface NewsStory {
   id: string | number;
@@ -12,7 +12,17 @@ interface NewsStory {
   score?: number;
 }
 
-export function GlobalFeedExpanded({ onClose }: { onClose: () => void }) {
+export function GlobalFeedExpanded({
+  onClose,
+  onAskAbout,
+}: {
+  onClose: () => void;
+  // Hands the story off to the chat composer (enters chat mode, prefills a
+  // prompt about it) instead of this component reaching into chat state
+  // itself - keeps GlobalFeedExpanded's only responsibility "render the
+  // feed," same separation page.tsx already uses for QUICK_PROMPTS.
+  onAskAbout: (story: { title: string; url?: string }) => void;
+}) {
   const [news, setNews] = useState<NewsStory[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,22 +85,39 @@ export function GlobalFeedExpanded({ onClose }: { onClose: () => void }) {
           ) : news.length > 0 ? (
             <div className="space-y-4">
               {news.map((story) => (
-                <a
+                <div
                   key={story.id}
-                  href={story.url || `https://news.ycombinator.com/item?id=${story.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block p-4 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] hover:border-[var(--accent)] transition-all group"
+                  className="relative p-4 rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] hover:border-[var(--accent)] transition-all group"
                 >
-                  <h3 className="text-sm font-medium text-[var(--foreground)] mb-2 group-hover:text-[var(--accent)] transition-colors">
+                  {/* Stretched-link pattern: this anchor covers the whole
+                      card for a click-to-open target, while the "Ask about
+                      this" button below - a normal-flow sibling painted on
+                      top of it - stays independently clickable without
+                      nesting a <button> inside an <a> (invalid HTML/a11y). */}
+                  <a
+                    href={story.url || `https://news.ycombinator.com/item?id=${story.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute inset-0 rounded-lg"
+                    aria-label={story.title}
+                  />
+                  <h3 className="relative text-sm font-medium text-[var(--foreground)] mb-2 group-hover:text-[var(--accent)] transition-colors">
                     {story.title}
                   </h3>
                   {story.by && (
-                    <p className="text-xs text-[var(--muted)]">
+                    <p className="relative text-xs text-[var(--muted)] mb-3">
                       by {story.by} {typeof story.score === 'number' && story.score > 0 && `• ${story.score} points`}
                     </p>
                   )}
-                </a>
+                  <button
+                    type="button"
+                    onClick={() => onAskAbout({ title: story.title, url: story.url })}
+                    className="relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border)] text-xs text-[var(--muted)] hover:text-[var(--accent)] hover:border-[var(--accent)]/50 hover:bg-[var(--surface-strong)] transition-colors"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    Ask about this
+                  </button>
+                </div>
               ))}
             </div>
           ) : (

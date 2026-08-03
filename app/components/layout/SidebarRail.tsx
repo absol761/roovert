@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   PanelLeft,
@@ -69,6 +68,12 @@ function RailItem({ action, expanded }: { action: RailAction; expanded: boolean 
 
 export interface SidebarRailProps {
   isChatMode: boolean;
+  // Lifted to the parent (rather than local state) so the main content
+  // area and the fixed composer bar can shift their left offset in sync
+  // with the rail's width instead of sitting under it once expanded -
+  // a fixed-position sidebar doesn't push flow content on its own.
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
   onNewChat: () => void;
   onOpenHistory: () => void;
   onOpenGlobalFeed: () => void;
@@ -92,6 +97,8 @@ export interface SidebarRailProps {
 // TopStrip.tsx) lives here now.
 export function SidebarRail({
   isChatMode,
+  expanded,
+  onExpandedChange,
   onNewChat,
   onOpenHistory,
   onOpenGlobalFeed,
@@ -105,8 +112,6 @@ export function SidebarRail({
   micLevel,
   micBurst,
 }: SidebarRailProps) {
-  const [expanded, setExpanded] = useState(false);
-
   const topActions: RailAction[] = [
     {
       key: 'history',
@@ -169,7 +174,7 @@ export function SidebarRail({
               type="button"
               variant="ghost"
               size="icon"
-              onClick={() => setExpanded((prev) => !prev)}
+              onClick={() => onExpandedChange(!expanded)}
               className="text-[var(--muted)] hover:text-[var(--foreground)]"
               aria-pressed={expanded}
             >

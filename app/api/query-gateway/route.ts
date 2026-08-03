@@ -4,6 +4,7 @@ import { createGroq } from '@ai-sdk/groq';
 import { getSystemPrompt, filterResponse, containsOffensiveContent } from '../../lib/prompts';
 import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
 import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse, MAX_LENGTHS } from '../../lib/security/validation';
+import { HUGGINGFACE_MODEL_MAP, extractThinkChunks, type ThinkState } from '../../lib/huggingface';
 
 // Route segment config
 export const maxDuration = 60;
@@ -17,6 +18,88 @@ const groq = createGroq({
 // User-friendly error messages - NEVER expose internal API details
 function getUserFriendlyErrorMessage(): string {
   return "I'm temporarily unable to process your request. Please try again in a moment, or select a different model.";
+}
+
+// One Multi-Perspective combine leg backed by an HF model instead of Groq -
+// mirrors app/api/huggingface/route.ts's request/parsing (same router, same
+// SSE shape) but enqueues onto this route's shared parallel-mode stream
+// instead of returning its own Response, and tags each chunk with
+// `selectedModel` so the client knows which combine slot it belongs to.
+// Reasoning-capable HF models (Kimi K3, DeepSeek R1) still get their
+// <think>/reasoning_content stripped via extractThinkChunks, but that
+// reasoning is simply dropped here rather than forwarded - Multi-Perspective
+// shows final answers side by side, not per-model chain-of-thought.
+async function streamHuggingFaceLeg(
+  selectedModel: string,
+  hfModelId: string,
+  hfMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  enqueue: (obj: Record<string, unknown>) => void,
+  finishModel: () => void
+) {
+  try {
+    if (!process.env.HUGGINGFACE_API_KEY) {
+      enqueue({ model: selectedModel, content: getUserFriendlyErrorMessage(), done: true });
+      return;
+    }
+
+    const hfResponse = await fetch('https://router.huggingface.co/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+      },
+      body: JSON.stringify({ model: hfModelId, messages: hfMessages, stream: true }),
+    });
+
+    if (!hfResponse.ok || !hfResponse.body) {
+      const errorText = hfResponse.body ? await hfResponse.text() : 'No response body';
+      console.error(`Multi-perspective HF error (${selectedModel}):`, hfResponse.status, errorText);
+      enqueue({ model: selectedModel, content: getUserFriendlyErrorMessage(), done: true });
+      return;
+    }
+
+    const reader = hfResponse.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let thinkState: ThinkState = { insideThink: false, pending: '' };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]' || !trimmed.startsWith('data: ')) continue;
+
+        try {
+          const json = JSON.parse(trimmed.slice(6));
+          const content = json.choices?.[0]?.delta?.content;
+          if (content) {
+            const result = extractThinkChunks(content, thinkState);
+            thinkState = result.state;
+            for (const chunk of result.chunks) {
+              if (chunk.type === 'content') {
+                enqueue({ model: selectedModel, content: chunk.text, done: false });
+              }
+            }
+          }
+        } catch (parseError) {
+          // Skip malformed JSON
+        }
+      }
+    }
+
+    enqueue({ model: selectedModel, content: '', done: true });
+  } catch (error) {
+    console.error(`Multi-perspective HF streaming error (${selectedModel}):`, error);
+    enqueue({ model: selectedModel, content: getUserFriendlyErrorMessage(), done: true });
+  } finally {
+    finishModel();
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -57,7 +140,15 @@ export async function POST(request: NextRequest) {
       'llama-3.3-70b': 'llama-3.3-70b-versatile',
       'llama-3.1-8b': 'llama-3.1-8b-instant',
     };
-    const ALLOWED_MODEL_IDS = new Set(Object.keys(MODEL_MAP));
+    // Multi-Perspective's two combine slots (parallelModel1/2) can each be
+    // either a Groq model or an HF model - both allowlists are validated
+    // against here since validateAIQueryRequest checks `model`,
+    // `parallelModel1`, and `parallelModel2` against the same set. Single
+    // (non-parallel) `model` selection still only ever resolves against
+    // MODEL_MAP below - an HF `model` id gracefully falls through to this
+    // route's Groq default since single-mode HF requests go through
+    // app/api/huggingface/route.ts instead, never through here.
+    const ALLOWED_MODEL_IDS = new Set([...Object.keys(MODEL_MAP), ...Object.keys(HUGGINGFACE_MODEL_MAP)]);
 
     // Security: Strict input validation with schema
     const validation = validateAIQueryRequest(payload, ALLOWED_MODEL_IDS);
@@ -170,6 +261,19 @@ export async function POST(request: NextRequest) {
       messages.push({ role: 'user', content: query });
     }
 
+    // Same conversation, reshaped for HF's OpenAI-compatible chat format
+    // (system role inline, no `instructions` param, no file parts - a
+    // Multi-Perspective leg on an HF model never carries the image branch
+    // above since parallel mode is only entered when `!image`). Built
+    // unconditionally but only ever sent over the wire if a combine slot
+    // actually resolves to an HF model - see the dispatch below.
+    const hfMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: systemPrompt },
+      ...messages
+        .filter((m): m is { role: 'user' | 'assistant'; content: string } => typeof m.content === 'string')
+        .map((m) => ({ role: m.role, content: m.content })),
+    ];
+
     try {
       // If parallel mode is enabled and no image, use user-selected models
       if (runParallel && !image && parallelModel1 && parallelModel2) {
@@ -202,6 +306,17 @@ export async function POST(request: NextRequest) {
             };
 
             selectedModels.forEach((selectedModel) => {
+              // Each combine slot independently resolves to whichever
+              // provider actually serves that model id - HF ids never
+              // appear in MODEL_MAP (and vice versa), so this is a clean
+              // either/or, not a fallback guess.
+              const hfModelId = HUGGINGFACE_MODEL_MAP[selectedModel];
+              if (hfModelId) {
+                incrementRateLimit(request, 'huggingface').catch(() => {});
+                streamHuggingFaceLeg(selectedModel, hfModelId, hfMessages, enqueue, finishModel);
+                return;
+              }
+
               const modelId = MODEL_MAP[selectedModel] || targetModelId;
               (async () => {
                 // The AI SDK does NOT throw provider/network errors through
