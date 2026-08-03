@@ -2498,7 +2498,11 @@ while (true) {
                                           </div>
                                         )}
                                         {content && (
-                                          <div className="text-[var(--foreground)] text-base font-light markdown-content">
+                                          <div
+                                            className="text-[var(--foreground)] text-base font-light markdown-content"
+                                            aria-live="polite"
+                                            aria-atomic="false"
+                                          >
                                             <MarkdownMessage content={content} />
                                           </div>
                                         )}
@@ -2546,7 +2550,11 @@ while (true) {
                                       </button>
                                     </div>
                                   ) : response ? (
-                                    <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
+                                    <div
+                                      className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content"
+                                      aria-live="polite"
+                                      aria-atomic="false"
+                                    >
                                       <MarkdownMessage content={response} />
                                       {isProcessing && (
                                         <div className="flex items-center gap-3 mt-3">
