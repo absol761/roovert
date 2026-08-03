@@ -277,11 +277,16 @@ export default function Page() {
   // listed first so they're the most visible entries in every model list
   // that renders off this array (composer dropdown, "Browse AI Models",
   // command palette).
-  const availableModels = [
+  // Memoized - this component re-renders on every composer keystroke
+  // (`query` is local state), and without this the spread/filter below
+  // would rebuild a new array identity every time, defeating any
+  // downstream memoization (e.g. MarkdownMessage) and re-running every
+  // .find() against it for no reason.
+  const availableModels = useMemo(() => [
     ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
     ...MODELS,
     ...(hideOpenRouterModels ? [] : OPENROUTER_MODELS),
-  ];
+  ], [hideHuggingFaceModels, hideOpenRouterModels]);
 
   // Default selection stays Multi-Perspective (the flagship feature) by id,
   // not by array position - the HF-first ordering above would otherwise
@@ -373,10 +378,10 @@ export default function Page() {
   // are deliberately excluded: that provider is only wired up as a single-
   // model passthrough (app/api/openrouter/route.ts), not into the combine
   // dispatch, so one here would silently mis-route.
-  const combineModels = [
+  const combineModels = useMemo(() => [
     ...MODELS.filter(m => m.id !== 'multi-perspective'),
     ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
-  ];
+  ], [hideHuggingFaceModels]);
   const [parallelModel1, setParallelModel1] = useState(combineModels[0]?.id || 'ooverta');
   const [parallelModel2, setParallelModel2] = useState(combineModels[1]?.id || 'llama-3.3-70b');
   // Live per-model text for an in-flight Multi-Perspective request, keyed by
@@ -689,7 +694,10 @@ export default function Page() {
 
 
   // Filter out unavailable models (use the combined list from above)
-  const filteredAvailableModels = availableModels.filter(m => !unavailableModels.has(m.id));
+  const filteredAvailableModels = useMemo(
+    () => availableModels.filter(m => !unavailableModels.has(m.id)),
+    [availableModels, unavailableModels]
+  );
   const selectedModel = filteredAvailableModels.find(m => m.id === selectedModelId) || filteredAvailableModels[0];
 
   // If selected model becomes unavailable, switch to first available.
@@ -2297,7 +2305,20 @@ while (true) {
                                                 ];
                                               }).flat();
 
-                                              const res = await fetch('/api/query-gateway', {
+                                              // Same endpoint-selection handleSubmit uses (line ~1178) - this
+                                              // previously always POSTed to /api/query-gateway regardless of
+                                              // which model was selected, so regenerating while an OpenRouter
+                                              // or Hugging Face model was active silently mis-routed to Groq's
+                                              // gateway instead, which doesn't recognize those model ids.
+                                              const regenIsOpenRouterModel = OPENROUTER_MODELS.some(m => m.id === selectedModelId);
+                                              const regenIsHuggingFaceModel = HUGGINGFACE_MODELS.some(m => m.id === selectedModelId);
+                                              const regenApiEndpoint = regenIsOpenRouterModel
+                                                ? '/api/openrouter'
+                                                : regenIsHuggingFaceModel
+                                                  ? '/api/huggingface'
+                                                  : '/api/query-gateway';
+
+                                              const res = await fetch(regenApiEndpoint, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({
@@ -2477,7 +2498,11 @@ while (true) {
                                           </div>
                                         )}
                                         {content && (
-                                          <div className="text-[var(--foreground)] text-base font-light markdown-content">
+                                          <div
+                                            className="text-[var(--foreground)] text-base font-light markdown-content"
+                                            aria-live="polite"
+                                            aria-atomic="false"
+                                          >
                                             <MarkdownMessage content={content} />
                                           </div>
                                         )}
@@ -2525,7 +2550,11 @@ while (true) {
                                       </button>
                                     </div>
                                   ) : response ? (
-                                    <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
+                                    <div
+                                      className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content"
+                                      aria-live="polite"
+                                      aria-atomic="false"
+                                    >
                                       <MarkdownMessage content={response} />
                                       {isProcessing && (
                                         <div className="flex items-center gap-3 mt-3">

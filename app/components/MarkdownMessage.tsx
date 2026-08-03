@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -12,8 +12,16 @@ import { Copy, Check } from 'lucide-react';
  * (app/share/[id]/page.tsx) so the two don't drift out of sync on
  * formatting, syntax highlighting, or the copy-to-clipboard code block
  * behavior.
+ *
+ * Wrapped in memo() - a streaming response calls setResponse() on every
+ * SSE chunk (app/page.tsx's read loop), and without memoization every
+ * parent re-render this triggers re-runs the full ReactMarkdown parse +
+ * remark-gfm + rehype-highlight tokenization from scratch even though only
+ * the still-growing `content` string actually changed meaningfully once
+ * per chunk - memo's shallow prop compare skips that work whenever a
+ * parent re-render happens for an unrelated reason (e.g. sibling state).
  */
-export function MarkdownMessage({ content }: { content: string }) {
+export const MarkdownMessage = memo(function MarkdownMessage({ content }: { content: string }) {
   const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
 
   const copyCodeBlock = async (code: string) => {
@@ -85,4 +93,4 @@ export function MarkdownMessage({ content }: { content: string }) {
       {content}
     </ReactMarkdown>
   );
-}
+});
