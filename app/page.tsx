@@ -2305,7 +2305,20 @@ while (true) {
                                                 ];
                                               }).flat();
 
-                                              const res = await fetch('/api/query-gateway', {
+                                              // Same endpoint-selection handleSubmit uses (line ~1178) - this
+                                              // previously always POSTed to /api/query-gateway regardless of
+                                              // which model was selected, so regenerating while an OpenRouter
+                                              // or Hugging Face model was active silently mis-routed to Groq's
+                                              // gateway instead, which doesn't recognize those model ids.
+                                              const regenIsOpenRouterModel = OPENROUTER_MODELS.some(m => m.id === selectedModelId);
+                                              const regenIsHuggingFaceModel = HUGGINGFACE_MODELS.some(m => m.id === selectedModelId);
+                                              const regenApiEndpoint = regenIsOpenRouterModel
+                                                ? '/api/openrouter'
+                                                : regenIsHuggingFaceModel
+                                                  ? '/api/huggingface'
+                                                  : '/api/query-gateway';
+
+                                              const res = await fetch(regenApiEndpoint, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({
@@ -2485,7 +2498,11 @@ while (true) {
                                           </div>
                                         )}
                                         {content && (
-                                          <div className="text-[var(--foreground)] text-base font-light markdown-content">
+                                          <div
+                                            className="text-[var(--foreground)] text-base font-light markdown-content"
+                                            aria-live="polite"
+                                            aria-atomic="false"
+                                          >
                                             <MarkdownMessage content={content} />
                                           </div>
                                         )}
@@ -2533,7 +2550,11 @@ while (true) {
                                       </button>
                                     </div>
                                   ) : response ? (
-                                    <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
+                                    <div
+                                      className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content"
+                                      aria-live="polite"
+                                      aria-atomic="false"
+                                    >
                                       <MarkdownMessage content={response} />
                                       {isProcessing && (
                                         <div className="flex items-center gap-3 mt-3">
