@@ -115,15 +115,6 @@ export function getClientIP(request: { headers: { get: (key: string) => string |
 }
 
 /**
- * Get user identifier (for user-based rate limiting)
- * Can be extended to use session IDs, API keys, etc.
- */
-export function getUserIdentifier(request: { headers: { get: (key: string) => string | null } }): string | null {
-  const userId = request.headers.get('x-user-id');
-  return userId || null;
-}
-
-/**
  * Read the current count for a key without incrementing it.
  */
 async function peekCount(key: string, windowMs: number): Promise<{ count: number; resetAt: number }> {
@@ -185,11 +176,15 @@ function storeKey(endpointType: string, config: RateLimitConfig, identifierType:
   return `ratelimit:${endpointType}:${config.windowMs}:${config.maxRequests}:${identifierType}:${identifier}`;
 }
 
+// Previously preferred a client-supplied `x-user-id` header over IP when
+// present. Nothing in this codebase ever sets that header, and nothing
+// authenticates it - any caller could send a fresh, unauthenticated
+// `x-user-id` per request to get a brand new rate-limit bucket every time,
+// bypassing IP-based limiting entirely (including the metered Groq/
+// OpenRouter/Hugging Face buckets that exist specifically to control
+// spend). IP is the only identifier this app can actually trust today.
 function resolveIdentifier(request: { headers: { get: (key: string) => string | null } }): { identifier: string; identifierType: string } {
-  const userId = getUserIdentifier(request);
-  return userId
-    ? { identifier: userId, identifierType: 'user' }
-    : { identifier: getClientIP(request), identifierType: 'ip' };
+  return { identifier: getClientIP(request), identifierType: 'ip' };
 }
 
 /**

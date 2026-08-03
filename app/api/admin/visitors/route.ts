@@ -1,7 +1,23 @@
 // Admin endpoint to view unique visitor statistics
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { getDatabase } from '@/app/lib/db';
 import { applyRateLimit, incrementRateLimit } from '../../../lib/security/rateLimit';
+
+// Security: constant-time comparison - a plain `===`/`!==` string compare
+// short-circuits on the first mismatched byte, which leaks how many
+// leading characters of the guess were correct via response timing. Not
+// exploitable in one request, but this endpoint's rate limit (10/min)
+// doesn't prevent a slow, patient timing attack the way it would a brute
+// force. Buffers must be equal length first - timingSafeEqual throws
+// otherwise, and that length check is fine to do in variable time since
+// key length isn't secret.
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 /**
  * GET /api/admin/visitors
@@ -29,18 +45,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Security: Authentication check - API key must be in environment variable (never hardcoded)
+    // Security: Authentication check - API key must be in environment variable
+    // (never hardcoded). ADMIN_API_KEY is preferred; AI_GATEWAY_API_KEY is
+    // only a fallback for deployments that haven't set a dedicated admin
+    // key yet - reusing a key across two purposes widens the blast radius
+    // if either one ever leaks, so set ADMIN_API_KEY explicitly when possible.
     const adminKey = request.headers.get('x-admin-key');
-    const expectedKey = process.env.ADMIN_API_KEY || process.env.AI_GATEWAY_API_KEY; // Support both for backward compatibility
-    
-    if (!expectedKey) {
-      console.error('AI_GATEWAY_API_KEY not configured');
-      return NextResponse.json(
-        { error: 'Admin access not configured' },
-        { status: 503 }
-      );
-    }
-    
+    const expectedKey = process.env.ADMIN_API_KEY || process.env.AI_GATEWAY_API_KEY;
+
     if (!expectedKey) {
       console.error('ADMIN_API_KEY or AI_GATEWAY_API_KEY not configured in environment variables');
       return NextResponse.json(
@@ -48,8 +60,8 @@ export async function GET(request: NextRequest) {
         { status: 503 }
       );
     }
-    
-    if (!adminKey || adminKey !== expectedKey) {
+
+    if (!adminKey || !safeCompare(adminKey, expectedKey)) {
       // Security: Don't reveal whether key exists or not (prevent enumeration)
       return NextResponse.json(
         { error: 'Unauthorized' },
