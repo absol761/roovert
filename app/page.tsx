@@ -1235,6 +1235,22 @@ export default function Page() {
           setAbortController(null);
           return;
         }
+        if (res.status === 429) {
+          try {
+            const rateLimitBody = await res.json();
+            const retryAfter = rateLimitBody?.retryAfter;
+            if (typeof retryAfter === 'number' && Number.isFinite(retryAfter)) {
+              setStatusNote(`You're sending requests too quickly. Please wait ${retryAfter} seconds and try again.`);
+            } else {
+              setStatusNote('You are being rate limited. Please wait a moment and try again.');
+            }
+          } catch {
+            setStatusNote('You are being rate limited. Please wait a moment and try again.');
+          }
+          setIsProcessing(false);
+          setAbortController(null);
+          return;
+        }
         const errorText = await res.text().catch(() => 'Unknown error');
         throw new Error(`HTTP error! status: ${res.status}${errorText ? ` - ${errorText}` : ''}`);
       }
