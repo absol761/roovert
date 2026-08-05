@@ -92,7 +92,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Use sanitized payload
-    const { query, model, systemPrompt: customSystemPrompt, conversationHistory, image } = validation.sanitized!;
+    const { query, model, systemPrompt: customSystemPrompt, conversationHistory, image, outputLength } = validation.sanitized!;
+
+    // Response length control - mirrors query-gateway's maxTokensMap so the
+    // setting has the same effect regardless of which provider handles the
+    // model.
+    const maxTokensMap = { small: 800, medium: 2000, large: 4000 };
+    const maxTokens = maxTokensMap[outputLength as 'small' | 'medium' | 'large'] || maxTokensMap.medium;
 
     // Security: Content moderation - check for offensive content
     const queryCheck = containsOffensiveContent(query);
@@ -175,6 +181,7 @@ export async function POST(request: NextRequest) {
           model: targetModelId,
           messages,
           stream: true,
+          max_tokens: maxTokens,
         }),
       });
 

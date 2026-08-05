@@ -80,12 +80,43 @@ export function getStyleInstruction(style?: ResponseStyle): string | undefined {
 }
 
 /**
- * Get system prompt with Roovert context, optionally prefixed with a short
- * response-style instruction. `customPrompt` and `styleModifier` are
- * independent and compose naturally - a saved custom prompt and a response
- * style can both be active on the same request.
+ * Response length presets - control how much the model elaborates,
+ * independent of tone (ResponseStyle above). 'medium' is the default and
+ * asks for no unrequested elaboration, not a specific word count.
  */
-export function getSystemPrompt(customPrompt?: string, styleModifier?: string): string {
+export type OutputLength = 'small' | 'medium' | 'large';
+
+export const OUTPUT_LENGTHS: Array<{ id: OutputLength; label: string }> = [
+  { id: 'small', label: 'Short' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'large', label: 'Long' },
+];
+
+const LENGTH_INSTRUCTIONS: Record<OutputLength, string> = {
+  small: 'Answer in 1-3 sentences. Only the essential information.',
+  medium: 'Answer only what was asked - no unrequested elaboration, caveats, or extra sections.',
+  large: 'Be thorough: cover relevant context, edge cases, and examples in your answer.',
+};
+
+/**
+ * Look up the instruction text for a response length. 'medium' always
+ * resolves to an instruction (unlike ResponseStyle's 'normal') since the
+ * "no unrequested fluff" default is itself an explicit behavior to request.
+ */
+export function getLengthInstruction(length?: OutputLength): string | undefined {
+  if (!length) return undefined;
+  return LENGTH_INSTRUCTIONS[length];
+}
+
+/**
+ * Get system prompt with Roovert context, optionally prefixed with one or
+ * more short modifier instructions (response style, response length, etc).
+ * `customPrompt` and the modifiers are independent and compose naturally -
+ * a saved custom prompt and any number of active modifiers can all be
+ * active on the same request.
+ */
+export function getSystemPrompt(customPrompt?: string, ...modifiers: Array<string | undefined>): string {
+  const styleModifier = modifiers.filter((m): m is string => Boolean(m)).join('\n\n');
   const basePrompt = customPrompt || `You are a helpful, intelligent, and precise AI assistant on Roovert, an advanced AI platform.
 
 IMPORTANT CONTEXT:

@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from './lib/models';
 import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
-import { getSystemPrompt, getStyleInstruction, type ResponseStyle } from './lib/prompts';
+import { getSystemPrompt, getStyleInstruction, getLengthInstruction, type ResponseStyle, type OutputLength } from './lib/prompts';
 import type { VisualizerMode } from './components/visualizer/R3FVisualizer';
 // Plain 2D canvas, not three.js - cheap enough to not need the dynamic-import
 // treatment the R3F visualizer components above get.
@@ -92,6 +92,9 @@ const MAX_CONVERSATIONS = 30;
 // Where the response style pick (Normal/Concise/Explanatory/Formal) is
 // persisted so it survives a reload, same as the conversation above.
 const RESPONSE_STYLE_STORAGE_KEY = 'roovert_response_style';
+// Where the response length pick (Short/Medium/Long) is persisted so it
+// survives a reload, same pattern as the response style above.
+const OUTPUT_LENGTH_STORAGE_KEY = 'roovert_output_length';
 const DEFAULT_CONVERSATION_TITLE = 'New chat';
 const MAX_CONVERSATION_TITLE_LENGTH = 40;
 
@@ -362,11 +365,15 @@ export default function Page() {
   // Palette selection
   const [selectedPalette, setSelectedPalette] = useState(0);
 
-  // Parallel orchestration and output length
-  // No UI control currently sets these - they're pinned at their defaults,
-  // so only the getter is meaningful here.
+  // Parallel orchestration - no UI control sets this, pinned at its default.
   const [runParallel] = useState(false);
-  const [outputLength] = useState<'small' | 'medium' | 'large'>('medium');
+  // Response length (Short/Medium/Long) - like responseStyle above, lazily
+  // hydrated from localStorage since this only ever runs client-side.
+  const [outputLength, setOutputLength] = useState<OutputLength>(() => {
+    if (typeof window === 'undefined') return 'medium';
+    const saved = window.localStorage.getItem(OUTPUT_LENGTH_STORAGE_KEY);
+    return saved === 'small' || saved === 'large' ? saved : 'medium';
+  });
   // Multi-Perspective's two combine slots may be Groq or Hugging Face
   // models - query-gateway/route.ts's parallel branch dispatches each leg
   // to whichever provider actually serves that model id. OpenRouter models
@@ -577,14 +584,26 @@ export default function Page() {
     }
   }, [responseStyle]);
 
-  // Combines the custom system prompt with the active response style's
-  // instruction (if any) into the single string sent to the backend.
-  // Returns undefined when neither is set, so the API route falls back to
-  // its own default base prompt exactly as before this feature existed.
+  // Persist the response length choice whenever it changes.
+  useEffect(() => {
+    try {
+      localStorage.setItem(OUTPUT_LENGTH_STORAGE_KEY, outputLength);
+    } catch {
+      // Storage unavailable (e.g. private browsing) - persistence is
+      // best-effort and must never crash the app.
+    }
+  }, [outputLength]);
+
+  // Combines the custom system prompt with the active response style's and
+  // response length's instructions (if any) into the single string sent to
+  // the backend. Returns undefined when none are set, so the API route
+  // falls back to its own default base prompt exactly as before this
+  // feature existed.
   const buildEffectiveSystemPrompt = () => {
     const styleInstruction = getStyleInstruction(responseStyle);
-    if (!systemPrompt && !styleInstruction) return undefined;
-    return getSystemPrompt(systemPrompt || undefined, styleInstruction);
+    const lengthInstruction = getLengthInstruction(outputLength);
+    if (!systemPrompt && !styleInstruction && !lengthInstruction) return undefined;
+    return getSystemPrompt(systemPrompt || undefined, styleInstruction, lengthInstruction);
   };
 
   // Clears the current conversation and returns to the landing view. Used by
@@ -686,7 +705,6 @@ export default function Page() {
       document.documentElement.classList.remove('data-saver');
     }
   }, [look, layout, fontSize, dataSaver]);
-
 
   // Filter out unavailable models (use the combined list from above)
   const filteredAvailableModels = availableModels.filter(m => !unavailableModels.has(m.id));
@@ -1735,6 +1753,8 @@ export default function Page() {
             setSystemPrompt={setSystemPrompt}
             responseStyle={responseStyle}
             setResponseStyle={setResponseStyle}
+            outputLength={outputLength}
+            setOutputLength={setOutputLength}
             onExportChat={handleExportChat}
             onShareConversation={handleShareConversation}
             shareStatus={shareStatus}
