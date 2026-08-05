@@ -7,7 +7,7 @@ import { type Model } from '../../lib/models';
 import { LAYOUTS } from '../../lib/looks';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { MODAL_TRANSITION } from '../../lib/motion';
-import { RESPONSE_STYLES, type ResponseStyle } from '../../lib/prompts';
+import { RESPONSE_STYLES, type ResponseStyle, OUTPUT_LENGTHS, type OutputLength } from '../../lib/prompts';
 
 // Saved custom-system-prompt presets, kept entirely local to this modal -
 // they're just a convenience for recalling values into the single active
@@ -52,6 +52,8 @@ interface SettingsModalProps {
   setSystemPrompt: (value: string) => void;
   responseStyle: ResponseStyle;
   setResponseStyle: (value: ResponseStyle) => void;
+  outputLength: OutputLength;
+  setOutputLength: (value: OutputLength) => void;
   onExportChat: () => void;
   onShareConversation: () => void;
   shareStatus: 'idle' | 'sharing' | 'copied' | 'error';
@@ -73,6 +75,7 @@ export function SettingsModal({
   focusMode, setFocusMode,
   systemPrompt, setSystemPrompt,
   responseStyle, setResponseStyle,
+  outputLength, setOutputLength,
   onExportChat,
   onShareConversation,
   shareStatus,
@@ -110,6 +113,7 @@ export function SettingsModal({
     setFocusMode(false);
     setSystemPrompt('');
     setResponseStyle('normal');
+    setOutputLength('medium');
     setModelId('ooverta');
     setNeuralNoiseEnabled(false);
     setShowVisualizerButton(false);
@@ -310,6 +314,33 @@ export function SettingsModal({
                 </div>
                 <div className="text-xs text-[var(--muted)]">
                   Adjusts how responses are written. Works alongside the custom system prompt below.
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="label">Response Length</h4>
+                <input
+                  type="range"
+                  min={0}
+                  max={OUTPUT_LENGTHS.length - 1}
+                  step={1}
+                  value={OUTPUT_LENGTHS.findIndex((l) => l.id === outputLength)}
+                  onChange={(e) => setOutputLength(OUTPUT_LENGTHS[Number(e.target.value)].id)}
+                  aria-label="Response length"
+                  className="w-full h-1.5 rounded-full bg-[var(--surface-strong)] accent-[var(--accent)] cursor-pointer"
+                />
+                <div className="flex justify-between text-xs">
+                  {OUTPUT_LENGTHS.map((length) => (
+                    <span
+                      key={length.id}
+                      className={length.id === outputLength ? 'text-[var(--foreground)] font-medium' : 'text-[var(--muted)]'}
+                    >
+                      {length.label}
+                    </span>
+                  ))}
+                </div>
+                <div className="text-xs text-[var(--muted)]">
+                  Medium keeps answers to just what you asked, with no extra fluff.
                 </div>
               </div>
 

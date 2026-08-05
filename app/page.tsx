@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from './lib/models';
 import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
-import { getSystemPrompt, getStyleInstruction, type ResponseStyle } from './lib/prompts';
+import { getSystemPrompt, getStyleInstruction, getLengthInstruction, type ResponseStyle, type OutputLength } from './lib/prompts';
 import type { VisualizerMode } from './components/visualizer/R3FVisualizer';
 // Plain 2D canvas, not three.js - cheap enough to not need the dynamic-import
 // treatment the R3F visualizer components above get.
@@ -92,6 +92,9 @@ const MAX_CONVERSATIONS = 30;
 // Where the response style pick (Normal/Concise/Explanatory/Formal) is
 // persisted so it survives a reload, same as the conversation above.
 const RESPONSE_STYLE_STORAGE_KEY = 'roovert_response_style';
+// Where the response length pick (Short/Medium/Long) is persisted so it
+// survives a reload, same pattern as the response style above.
+const OUTPUT_LENGTH_STORAGE_KEY = 'roovert_output_length';
 const DEFAULT_CONVERSATION_TITLE = 'New chat';
 const MAX_CONVERSATION_TITLE_LENGTH = 40;
 
@@ -297,6 +300,11 @@ export default function Page() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [look, setLook] = useState('midnight');
+  // Desktop sidebar rail's expanded/collapsed state - lifted up from
+  // SidebarRail (which used to own it as private state) so the rail's
+  // actual rendered width can drive the --rail-width CSS var below, instead
+  // of other fixed-position elements guessing at it independently.
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [layout, setLayout] = useState('standard');
   const [fontSize, setFontSize] = useState('normal');
   const [dataSaver, setDataSaver] = useState(false);
@@ -357,11 +365,15 @@ export default function Page() {
   // Palette selection
   const [selectedPalette, setSelectedPalette] = useState(0);
 
-  // Parallel orchestration and output length
-  // No UI control currently sets these - they're pinned at their defaults,
-  // so only the getter is meaningful here.
+  // Parallel orchestration - no UI control sets this, pinned at its default.
   const [runParallel] = useState(false);
-  const [outputLength] = useState<'small' | 'medium' | 'large'>('medium');
+  // Response length (Short/Medium/Long) - like responseStyle above, lazily
+  // hydrated from localStorage since this only ever runs client-side.
+  const [outputLength, setOutputLength] = useState<OutputLength>(() => {
+    if (typeof window === 'undefined') return 'medium';
+    const saved = window.localStorage.getItem(OUTPUT_LENGTH_STORAGE_KEY);
+    return saved === 'small' || saved === 'large' ? saved : 'medium';
+  });
   // Multi-Perspective dropdowns must only offer Groq-backed models - the
   // backend's MODEL_MAP (query-gateway/route.ts) only knows how to route
   // those ids; an OpenRouter model here would silently mis-route.
@@ -566,14 +578,26 @@ export default function Page() {
     }
   }, [responseStyle]);
 
-  // Combines the custom system prompt with the active response style's
-  // instruction (if any) into the single string sent to the backend.
-  // Returns undefined when neither is set, so the API route falls back to
-  // its own default base prompt exactly as before this feature existed.
+  // Persist the response length choice whenever it changes.
+  useEffect(() => {
+    try {
+      localStorage.setItem(OUTPUT_LENGTH_STORAGE_KEY, outputLength);
+    } catch {
+      // Storage unavailable (e.g. private browsing) - persistence is
+      // best-effort and must never crash the app.
+    }
+  }, [outputLength]);
+
+  // Combines the custom system prompt with the active response style's and
+  // response length's instructions (if any) into the single string sent to
+  // the backend. Returns undefined when none are set, so the API route
+  // falls back to its own default base prompt exactly as before this
+  // feature existed.
   const buildEffectiveSystemPrompt = () => {
     const styleInstruction = getStyleInstruction(responseStyle);
-    if (!systemPrompt && !styleInstruction) return undefined;
-    return getSystemPrompt(systemPrompt || undefined, styleInstruction);
+    const lengthInstruction = getLengthInstruction(outputLength);
+    if (!systemPrompt && !styleInstruction && !lengthInstruction) return undefined;
+    return getSystemPrompt(systemPrompt || undefined, styleInstruction, lengthInstruction);
   };
 
   // Clears the current conversation and returns to the landing view. Used by
@@ -675,6 +699,15 @@ export default function Page() {
       document.documentElement.classList.remove('data-saver');
     }
   }, [look, layout, fontSize, dataSaver]);
+
+  // Single source of truth for how much horizontal space the desktop
+  // sidebar rail occupies, so every fixed-position element that needs to
+  // clear it (main content padding, the bottom composer bar) reads the same
+  // value instead of hardcoding a guess that goes stale when the rail's
+  // width changes.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--rail-width', sidebarExpanded ? '232px' : '96px');
+  }, [sidebarExpanded]);
 
 
   // Filter out unavailable models (use the combined list from above)
@@ -1646,6 +1679,8 @@ export default function Page() {
         className={`transition-opacity duration-[var(--duration-base)] ${focusMode && !isMobile ? 'opacity-0 hover:opacity-100 [&_*]:pointer-events-none hover:[&_*]:pointer-events-auto' : 'opacity-100'}`}
       >
         <SidebarRail
+          expanded={sidebarExpanded}
+          onToggleExpanded={() => setSidebarExpanded((prev) => !prev)}
           isChatMode={isChatMode}
           onNewChat={startNewChat}
           onOpenHistory={() => setIsHistoryOpen(true)}
@@ -1704,6 +1739,8 @@ export default function Page() {
             setSystemPrompt={setSystemPrompt}
             responseStyle={responseStyle}
             setResponseStyle={setResponseStyle}
+            outputLength={outputLength}
+            setOutputLength={setOutputLength}
             onExportChat={handleExportChat}
             onShareConversation={handleShareConversation}
             shareStatus={shareStatus}
@@ -1792,7 +1829,7 @@ export default function Page() {
       {/* Interactive Particle Background for Deep Space Look */}
 
       {/* Main Content Area */}
-      <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 md:pl-24 pt-20 pb-20 overflow-y-auto overflow-x-hidden">
+      <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 md:pl-[var(--rail-width)] pt-20 pb-20 overflow-y-auto overflow-x-hidden">
 
         {/* Global Feed - Expandable Section */}
         <AnimatePresence>
@@ -2542,7 +2579,7 @@ while (true) {
       {/* Input Deck - Fixed at bottom for chat mode */}
       {isChatMode && (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] ${isMobile ? 'p-3' : 'p-4'}`}
+          className={`fixed bottom-0 left-0 md:left-[var(--rail-width)] right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] ${isMobile ? 'p-3' : 'p-4'}`}
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), var(--space-3, 0.75rem))' }}
         >
           <div className={`max-w-7xl mx-auto ${isMobile ? 'px-2' : ''}`}>

@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   PanelLeft,
@@ -68,6 +67,11 @@ function RailItem({ action, expanded }: { action: RailAction; expanded: boolean 
 }
 
 export interface SidebarRailProps {
+  // Owned by the parent (page.tsx) rather than internally, so its actual
+  // rendered width can drive the shared --rail-width CSS var other
+  // fixed-position layout pieces clear against - see page.tsx.
+  expanded: boolean;
+  onToggleExpanded: () => void;
   isChatMode: boolean;
   onNewChat: () => void;
   onOpenHistory: () => void;
@@ -91,6 +95,8 @@ export interface SidebarRailProps {
 // NavClock/LiveStats, which stay in the slim top strip - see
 // TopStrip.tsx) lives here now.
 export function SidebarRail({
+  expanded,
+  onToggleExpanded,
   isChatMode,
   onNewChat,
   onOpenHistory,
@@ -105,8 +111,6 @@ export function SidebarRail({
   micLevel,
   micBurst,
 }: SidebarRailProps) {
-  const [expanded, setExpanded] = useState(false);
-
   const topActions: RailAction[] = [
     {
       key: 'history',
@@ -169,7 +173,7 @@ export function SidebarRail({
               type="button"
               variant="ghost"
               size="icon"
-              onClick={() => setExpanded((prev) => !prev)}
+              onClick={onToggleExpanded}
               className="text-[var(--muted)] hover:text-[var(--foreground)]"
               aria-pressed={expanded}
             >
