@@ -6,6 +6,7 @@ export const LOOKS = [
   { id: 'gemini', name: 'Google Gemini', description: 'Inspired by Gemini colors with smooth animations', category: 'modern' },
   { id: 'midnight', name: 'Ember', description: 'Warm charcoal with a muted terracotta accent', category: 'dark' },
   { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s aesthetic', category: 'themed' },
+  { id: 'evergreen', name: 'Evergreen', description: 'Deep forest jewel-tone with an antique-gold accent', category: 'dark' },
 ];
 
 export const LOOK_CATEGORIES = ['essential', 'modern', 'dark', 'themed'];
