@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
 import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { useMicLevel } from './hooks/useMicLevel';
@@ -2284,6 +2284,18 @@ while (true) {
                                             )}
                                           </button>
                                         )}
+                                        <button
+                                          onClick={handleShareConversation}
+                                          disabled={shareStatus === 'sharing'}
+                                          className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-50"
+                                          title="Share conversation"
+                                        >
+                                          {shareStatus === 'copied' ? (
+                                            <Check className="w-4 h-4" />
+                                          ) : (
+                                            <Share2 className="w-4 h-4" />
+                                          )}
+                                        </button>
                                         <button
                                           onClick={() => {
                                             setQuery(entry.query);
