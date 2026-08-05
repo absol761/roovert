@@ -1075,6 +1075,54 @@ textarea:focus {
   box-shadow: 0 0 30px rgba(255, 71, 214, 0.28);
 }
 
+/* Evergreen - deep forest jewel-tone with an antique-gold accent. A quiet,
+   still theme (no animation, no hue-shift) - the "field guide/editorial"
+   feel comes from the warm parchment foreground against a dark bottle-
+   green background, not from motion. */
+[data-look='evergreen'] {
+  --background: #0f1e17;
+  --foreground: #f3ecd8;
+  --accent: #b8933a;
+  --accent-glow: rgba(184, 147, 58, 0.24);
+  --panel-bg: rgba(31, 56, 44, 0.82);
+  --border: rgba(201, 162, 39, 0.35);
+  --panel-radius: 18px;
+  --surface: rgba(243, 236, 216, 0.08);
+  --surface-strong: rgba(243, 236, 216, 0.16);
+  --chip-bg: rgba(31, 56, 44, 0.9);
+  --muted: rgba(243, 236, 216, 0.6);
+  --muted-strong: rgba(243, 236, 216, 0.82);
+  --hud-bg: rgba(15, 30, 23, 0.95);
+}
+
+[data-look='evergreen'] body {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(184, 147, 58, 0.05), transparent 45%),
+    linear-gradient(160deg, #0f1e17 0%, #0a1610 100%);
+}
+
+[data-look='evergreen'] body::before {
+  background: radial-gradient(circle at 80% 85%, rgba(184, 147, 58, 0.06), transparent 55%);
+  opacity: 0.7;
+}
+
+[data-look='evergreen'] .glass-panel,
+[data-look='evergreen'] .intel-card {
+  border: 1px solid var(--border) !important;
+  background: linear-gradient(160deg, rgba(31, 56, 44, 0.75), rgba(15, 30, 23, 0.9)) !important;
+  box-shadow:
+    0 18px 36px -14px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(243, 236, 216, 0.05) !important;
+}
+
+/* Editorial masthead motif: a short goldleaf rule under card headings,
+   evoking a field-guide/almanac heading treatment rather than a UI badge. */
+[data-look='evergreen'] .intel-card h3 {
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--accent);
+  width: fit-content;
+}
+
 @keyframes ocean-wave {
 
   0%,
