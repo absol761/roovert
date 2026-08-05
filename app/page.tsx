@@ -612,6 +612,9 @@ export default function Page() {
   // while leaving the old history in memory (and in localStorage) underneath,
   // so it would silently reappear on the next message or reload.
   const startNewChat = () => {
+    abortController?.abort();
+    setAbortController(null);
+    setIsProcessing(false);
     setHistory([]);
     setResponse(null);
     setQuery('');
