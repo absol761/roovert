@@ -2276,6 +2276,7 @@ while (true) {
                                             onClick={() => copyResponseToClipboard(originalIdx, entry.response)}
                                             className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
                                             title="Copy response"
+                                            aria-label={copiedResponseIdx === originalIdx ? 'Copied' : 'Copy response'}
                                           >
                                             {copiedResponseIdx === originalIdx ? (
                                               <Check className="w-4 h-4" />
@@ -2292,6 +2293,7 @@ while (true) {
                                           }}
                                           className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
                                           title="Edit & Regenerate"
+                                          aria-label="Edit & Regenerate"
                                         >
                                           <Edit2 className="w-4 h-4" />
                                         </button>
@@ -2372,6 +2374,7 @@ while (true) {
                                           }}
                                           className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
                                           title="Regenerate Response"
+                                          aria-label="Regenerate Response"
                                         >
                                           <RefreshCw className="w-4 h-4" />
                                         </button>
@@ -2383,6 +2386,8 @@ while (true) {
                                               : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                                           }`}
                                           title="Good response"
+                                          aria-label="Good response"
+                                          aria-pressed={messageFeedback[originalIdx] === 'up'}
                                         >
                                           <ThumbsUp className="w-4 h-4" fill={messageFeedback[originalIdx] === 'up' ? 'currentColor' : 'none'} />
                                         </button>
@@ -2394,6 +2399,8 @@ while (true) {
                                               : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                                           }`}
                                           title="Bad response"
+                                          aria-label="Bad response"
+                                          aria-pressed={messageFeedback[originalIdx] === 'down'}
                                         >
                                           <ThumbsDown className="w-4 h-4" fill={messageFeedback[originalIdx] === 'down' ? 'currentColor' : 'none'} />
                                         </button>
