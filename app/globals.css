@@ -8,11 +8,6 @@
 /* Google Fonts removed - now loaded via layout.tsx head */
 
 :root {
-  /* Desktop sidebar rail's current rendered width (collapsed 64px + 32px
-     gap) plus breathing room - kept in sync with the rail's actual
-     collapsed/expanded state by page.tsx once it mounts. */
-  --rail-width: 96px;
-
   /* Default Theme (Deep Space) */
   --background: #050505;
   --foreground: #ffffff;

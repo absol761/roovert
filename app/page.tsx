@@ -293,6 +293,11 @@ export default function Page() {
     availableModels.find(m => m.id === 'multi-perspective')?.id || availableModels[0]?.id || MODELS[0].id
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  // Lifted out of SidebarRail so the main content area and composer bar can
+  // shift their left offset in sync with the rail's expand/collapse width -
+  // the rail is fixed-position, so it doesn't push sibling content on its
+  // own and previously overlapped it once expanded.
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
   const [isGlobalFeedOpen, setIsGlobalFeedOpen] = useState(false);
   // Cmd/Ctrl+K quick-actions palette and its "?" shortcuts-help overlay -
@@ -300,11 +305,6 @@ export default function Page() {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [look, setLook] = useState('midnight');
-  // Desktop sidebar rail's expanded/collapsed state - lifted up from
-  // SidebarRail (which used to own it as private state) so the rail's
-  // actual rendered width can drive the --rail-width CSS var below, instead
-  // of other fixed-position elements guessing at it independently.
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [layout, setLayout] = useState('standard');
   const [fontSize, setFontSize] = useState('normal');
   const [dataSaver, setDataSaver] = useState(false);
@@ -374,12 +374,18 @@ export default function Page() {
     const saved = window.localStorage.getItem(OUTPUT_LENGTH_STORAGE_KEY);
     return saved === 'small' || saved === 'large' ? saved : 'medium';
   });
-  // Multi-Perspective dropdowns must only offer Groq-backed models - the
-  // backend's MODEL_MAP (query-gateway/route.ts) only knows how to route
-  // those ids; an OpenRouter model here would silently mis-route.
-  const groqOnlyModels = MODELS.filter(m => m.id !== 'multi-perspective');
-  const [parallelModel1, setParallelModel1] = useState(groqOnlyModels[0]?.id || 'ooverta');
-  const [parallelModel2, setParallelModel2] = useState(groqOnlyModels[1]?.id || 'llama-3.3-70b');
+  // Multi-Perspective's two combine slots may be Groq or Hugging Face
+  // models - query-gateway/route.ts's parallel branch dispatches each leg
+  // to whichever provider actually serves that model id. OpenRouter models
+  // are deliberately excluded: that provider is only wired up as a single-
+  // model passthrough (app/api/openrouter/route.ts), not into the combine
+  // dispatch, so one here would silently mis-route.
+  const combineModels = [
+    ...MODELS.filter(m => m.id !== 'multi-perspective'),
+    ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
+  ];
+  const [parallelModel1, setParallelModel1] = useState(combineModels[0]?.id || 'ooverta');
+  const [parallelModel2, setParallelModel2] = useState(combineModels[1]?.id || 'llama-3.3-70b');
   // Live per-model text for an in-flight Multi-Perspective request, keyed by
   // model id (e.g. parallelModel1's value). Null when not in a
   // multi-perspective request.
@@ -700,16 +706,6 @@ export default function Page() {
     }
   }, [look, layout, fontSize, dataSaver]);
 
-  // Single source of truth for how much horizontal space the desktop
-  // sidebar rail occupies, so every fixed-position element that needs to
-  // clear it (main content padding, the bottom composer bar) reads the same
-  // value instead of hardcoding a guess that goes stale when the rail's
-  // width changes.
-  useEffect(() => {
-    document.documentElement.style.setProperty('--rail-width', sidebarExpanded ? '232px' : '96px');
-  }, [sidebarExpanded]);
-
-
   // Filter out unavailable models (use the combined list from above)
   const filteredAvailableModels = availableModels.filter(m => !unavailableModels.has(m.id));
   const selectedModel = filteredAvailableModels.find(m => m.id === selectedModelId) || filteredAvailableModels[0];
@@ -745,6 +741,32 @@ export default function Page() {
     requestAnimationFrame(() => {
       inputRef.current?.focus();
     });
+  };
+
+  // Global Feed renders inline at the top of #main-content (not a modal),
+  // so opening it while scrolled down anywhere else on the page - "Browse
+  // AI Models", "Built With Itself", etc. - left it rendering off-screen
+  // above the viewport with no indication anything happened. Scrolling the
+  // scroll container (main, not window - it owns its own overflow-y-auto)
+  // back to top whenever it opens keeps the panel where the user can see it.
+  const openGlobalFeed = () => {
+    setIsGlobalFeedOpen(true);
+    requestAnimationFrame(() => {
+      document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  };
+
+  // "Ask about this" on a Global Feed story - reuses the same
+  // enter-chat-mode-and-prefill pattern as the homepage's QUICK_PROMPTS
+  // buttons, then closes the feed panel since its job (picking a topic) is
+  // done and it would otherwise sit above the chat the user just started.
+  const askAboutStory = (story: { title: string; url?: string }) => {
+    injectPrompt(
+      story.url
+        ? `Tell me more about this story: "${story.title}" (${story.url})`
+        : `Tell me more about this story: "${story.title}"`
+    );
+    setIsGlobalFeedOpen(false);
   };
 
   const handleMessageFeedback = (messageIdx: number, rating: 'up' | 'down', modelId: string) => {
@@ -1546,7 +1568,7 @@ export default function Page() {
       label: 'Open Global Feed',
       category: 'Actions',
       icon: <Globe className="w-4 h-4" />,
-      onSelect: () => setIsGlobalFeedOpen(true),
+      onSelect: () => openGlobalFeed(),
     },
     {
       id: 'export-chat',
@@ -1661,14 +1683,6 @@ export default function Page() {
         }}
       />
 
-      {/* Animated Background - opacity-only + GPU-composited so the
-          continuous pulse doesn't repaint every frame; smaller/lighter on
-          mobile where the blur radius is otherwise a real GPU cost. */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none [contain:strict]">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 md:w-96 md:h-96 bg-[var(--accent)]/10 rounded-full blur-2xl md:blur-3xl animate-pulse [will-change:opacity] [transform:translateZ(0)]"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 md:w-96 md:h-96 bg-[var(--accent)]/5 rounded-full blur-2xl md:blur-3xl animate-pulse delay-1000 [will-change:opacity] [transform:translateZ(0)]"></div>
-      </div>
-
       {/* Navigation - a slim desktop icon rail (SidebarRail) replacing the
           old top nav bar, a hamburger-triggered slide-over covering the
           same actions on mobile (MobileNav), and a small top-right strip
@@ -1679,12 +1693,12 @@ export default function Page() {
         className={`transition-opacity duration-[var(--duration-base)] ${focusMode && !isMobile ? 'opacity-0 hover:opacity-100 [&_*]:pointer-events-none hover:[&_*]:pointer-events-auto' : 'opacity-100'}`}
       >
         <SidebarRail
-          expanded={sidebarExpanded}
-          onToggleExpanded={() => setSidebarExpanded((prev) => !prev)}
           isChatMode={isChatMode}
+          expanded={isSidebarExpanded}
+          onExpandedChange={setIsSidebarExpanded}
           onNewChat={startNewChat}
           onOpenHistory={() => setIsHistoryOpen(true)}
-          onOpenGlobalFeed={() => setIsGlobalFeedOpen(true)}
+          onOpenGlobalFeed={() => openGlobalFeed()}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           onOpenLooks={() => setIsLooksOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
@@ -1706,7 +1720,7 @@ export default function Page() {
           isChatMode={isChatMode}
           onNewChat={startNewChat}
           onOpenHistory={() => setIsHistoryOpen(true)}
-          onOpenGlobalFeed={() => setIsGlobalFeedOpen(true)}
+          onOpenGlobalFeed={() => openGlobalFeed()}
           onOpenLooks={() => setIsLooksOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
           showVisualizerButton={showVisualizerButton}
@@ -1829,12 +1843,12 @@ export default function Page() {
       {/* Interactive Particle Background for Deep Space Look */}
 
       {/* Main Content Area */}
-      <main id="main-content" className="theme-shell relative z-10 flex-1 flex flex-col px-6 md:pl-[var(--rail-width)] pt-20 pb-20 overflow-y-auto overflow-x-hidden">
+      <main id="main-content" className={`theme-shell relative z-10 flex-1 flex flex-col px-6 pt-20 pb-20 overflow-y-auto overflow-x-hidden transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24'}`}>
 
         {/* Global Feed - Expandable Section */}
         <AnimatePresence>
           {isGlobalFeedOpen && (
-            <GlobalFeedExpanded onClose={() => setIsGlobalFeedOpen(false)} />
+            <GlobalFeedExpanded onClose={() => setIsGlobalFeedOpen(false)} onAskAbout={askAboutStory} />
           )}
         </AnimatePresence>
 
@@ -2579,7 +2593,7 @@ while (true) {
       {/* Input Deck - Fixed at bottom for chat mode */}
       {isChatMode && (
         <div
-          className={`fixed bottom-0 left-0 md:left-[var(--rail-width)] right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] ${isMobile ? 'p-3' : 'p-4'}`}
+          className={`fixed bottom-0 left-0 right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] transition-[padding-left] duration-300 ${isMobile ? 'p-3' : 'p-4'} ${!isMobile && isSidebarExpanded ? 'md:pl-[200px]' : ''}`}
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), var(--space-3, 0.75rem))' }}
         >
           <div className={`max-w-7xl mx-auto ${isMobile ? 'px-2' : ''}`}>
@@ -2777,7 +2791,7 @@ while (true) {
                           onChange={(e) => setParallelModel1(e.target.value)}
                           className={`px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none ${isMobile ? 'min-w-0 flex-1' : ''}`}
                         >
-                          {groqOnlyModels.map(m => (
+                          {combineModels.map(m => (
                             <option key={m.id} value={m.id}>{m.name}</option>
                           ))}
                         </select>
@@ -2787,7 +2801,7 @@ while (true) {
                           onChange={(e) => setParallelModel2(e.target.value)}
                           className={`px-2 py-1.5 text-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--accent)]/50 transition-colors outline-none ${isMobile ? 'min-w-0 flex-1' : ''}`}
                         >
-                          {groqOnlyModels.map(m => (
+                          {combineModels.map(m => (
                             <option key={m.id} value={m.id}>{m.name}</option>
                           ))}
                         </select>

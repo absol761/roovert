@@ -67,12 +67,13 @@ function RailItem({ action, expanded }: { action: RailAction; expanded: boolean 
 }
 
 export interface SidebarRailProps {
-  // Owned by the parent (page.tsx) rather than internally, so its actual
-  // rendered width can drive the shared --rail-width CSS var other
-  // fixed-position layout pieces clear against - see page.tsx.
-  expanded: boolean;
-  onToggleExpanded: () => void;
   isChatMode: boolean;
+  // Lifted to the parent (rather than local state) so the main content
+  // area and the fixed composer bar can shift their left offset in sync
+  // with the rail's width instead of sitting under it once expanded -
+  // a fixed-position sidebar doesn't push flow content on its own.
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
   onNewChat: () => void;
   onOpenHistory: () => void;
   onOpenGlobalFeed: () => void;
@@ -95,9 +96,9 @@ export interface SidebarRailProps {
 // NavClock/LiveStats, which stay in the slim top strip - see
 // TopStrip.tsx) lives here now.
 export function SidebarRail({
-  expanded,
-  onToggleExpanded,
   isChatMode,
+  expanded,
+  onExpandedChange,
   onNewChat,
   onOpenHistory,
   onOpenGlobalFeed,
@@ -173,7 +174,7 @@ export function SidebarRail({
               type="button"
               variant="ghost"
               size="icon"
-              onClick={onToggleExpanded}
+              onClick={() => onExpandedChange(!expanded)}
               className="text-[var(--muted)] hover:text-[var(--foreground)]"
               aria-pressed={expanded}
             >
