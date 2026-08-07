@@ -1926,7 +1926,7 @@ export default function Page() {
                         handleSubmit(e);
                       }
                     }}
-                    placeholder="Type / for skills"
+                    placeholder="Message..."
                     className="flex-1 resize-none min-h-0 h-auto border-none bg-transparent shadow-none px-0 py-2 text-base md:text-lg placeholder:text-[var(--foreground)]/35 font-light focus-visible:ring-0 focus-visible:border-none"
                     autoComplete="off"
                     autoCorrect="off"
@@ -2679,7 +2679,7 @@ while (true) {
                       }
                     }
                   }}
-                  placeholder={isImageGenMode ? 'Describe an image to generate…' : 'Type / for skills'}
+                  placeholder={isImageGenMode ? 'Describe an image to generate…' : 'Message...'}
                   className="composer-textarea w-full resize-none custom-scrollbar border-none bg-transparent shadow-none text-[var(--foreground)] text-lg placeholder:text-[var(--foreground)]/35 transition-colors font-light leading-normal px-1 py-1 focus-visible:ring-0 min-h-0 h-auto"
                   style={{ maxHeight: COMPOSER_MAX_HEIGHT_PX }}
                   disabled={isProcessing}
