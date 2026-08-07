@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
 function getUserFriendlyErrorMessage(errorType: 'unavailable' | 'rate_limit' | 'gated' | 'permissions' | 'timeout' | 'generic'): string {
   const messages: Record<string, string> = {
     unavailable: "I'm temporarily unable to process your request. This model may be experiencing high demand. Please try a different model or try again in a moment.",
-    rate_limit: "You've reached the request limit for this session. Please wait before trying again.",
+    rate_limit: "You've reached the request limit for this session. Please wait a few minutes before trying again.",
     gated: 'This model requires accepting its license on huggingface.co before it can be used. Please try a different model.',
     // Distinct from 'gated': this means the *token itself* lacks the
     // "Inference Providers" permission scope, not a specific model's
