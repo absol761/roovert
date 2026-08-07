@@ -2029,6 +2029,16 @@ export default function Page() {
                       setSelectedModelId(model.id);
                       handleInitialize();
                     }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Select ${model.name}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedModelId(model.id);
+                        handleInitialize();
+                      }
+                    }}
                     className="card-hover bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 cursor-pointer group"
                   >
                     <div className="flex items-center justify-between mb-4">

@@ -346,6 +346,12 @@ body::before {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
 }
 
+.card-hover:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
 /* Composer input bar - single clean border, calm accent ring on focus
    instead of the old animated conic-gradient rainbow border. */
 .composer-bar {
