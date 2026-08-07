@@ -23,10 +23,12 @@ export function MarkdownMessage({ content }: { content: string }) {
   const copyCodeBlock = async (code: string) => {
     try {
       await navigator.clipboard.writeText(code);
+      setCopyFailedCodeBlock(null);
       setCopiedCodeBlock(code);
       setTimeout(() => setCopiedCodeBlock(null), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      setCopiedCodeBlock(null);
       setCopyFailedCodeBlock(code);
       setTimeout(() => setCopyFailedCodeBlock(null), 2000);
     }

@@ -225,10 +225,12 @@ export default function Page() {
   const copyResponseToClipboard = async (idx: number, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
+      setCopyFailedResponseIdx((prev) => (prev === idx ? null : prev));
       setCopiedResponseIdx(idx);
       setTimeout(() => setCopiedResponseIdx((prev) => (prev === idx ? null : prev)), 2000);
     } catch (err) {
       console.error('Failed to copy response:', err);
+      setCopiedResponseIdx((prev) => (prev === idx ? null : prev));
       setCopyFailedResponseIdx(idx);
       setTimeout(() => setCopyFailedResponseIdx((prev) => (prev === idx ? null : prev)), 2000);
     }
