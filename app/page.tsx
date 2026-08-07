@@ -627,6 +627,9 @@ export default function Page() {
     setSelectedImage(null);
     setIsChatMode(false);
     setActiveConversationId(generateConversationId());
+    setMessageFeedback({});
+    setExpandedReasoning({});
+    setCopiedResponseIdx(null);
   };
 
   // Switches `history`/`isChatMode` to point at a different, already-known
@@ -650,6 +653,9 @@ export default function Page() {
     setQuery('');
     setSelectedImage(null);
     setIsHistoryOpen(false);
+    setMessageFeedback({});
+    setExpandedReasoning({});
+    setCopiedResponseIdx(null);
   };
 
   const renameConversation = (id: string, rawTitle: string) => {
@@ -672,6 +678,9 @@ export default function Page() {
     setResponse(null);
     setQuery('');
     setSelectedImage(null);
+    setMessageFeedback({});
+    setExpandedReasoning({});
+    setCopiedResponseIdx(null);
     if (fallback) {
       setActiveConversationId(fallback.id);
       setHistory(fallback.history);
