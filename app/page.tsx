@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
 import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { useMicLevel } from './hooks/useMicLevel';
@@ -230,6 +230,12 @@ export default function Page() {
   // Feedback state for the "Share Conversation" action in Settings - mirrors
   // the copiedCodeBlock pattern's brief self-resetting confirmation.
   const [shareStatus, setShareStatus] = useState<'idle' | 'sharing' | 'copied' | 'error'>('idle');
+  // shareStatus above is global (shared with the Settings modal's Share
+  // button), but the per-response toolbar renders one Share button per
+  // history entry - track which entry's button was actually clicked so only
+  // that instance reflects shareStatus, mirroring copiedResponseIdx's
+  // per-instance scoping for the adjacent Copy button.
+  const [shareClickedIdx, setShareClickedIdx] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   // Whether a file is currently being dragged over the composer - drives the
   // drop-zone highlight; separate from selectedImage so the overlay never
@@ -2284,6 +2290,21 @@ while (true) {
                                             )}
                                           </button>
                                         )}
+                                        <button
+                                          onClick={() => {
+                                            setShareClickedIdx(originalIdx);
+                                            handleShareConversation();
+                                          }}
+                                          disabled={shareClickedIdx === originalIdx && shareStatus === 'sharing'}
+                                          className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-50"
+                                          title="Share conversation"
+                                        >
+                                          {shareClickedIdx === originalIdx && shareStatus === 'copied' ? (
+                                            <Check className="w-4 h-4" />
+                                          ) : (
+                                            <Share2 className="w-4 h-4" />
+                                          )}
+                                        </button>
                                         <button
                                           onClick={() => {
                                             setQuery(entry.query);
