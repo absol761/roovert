@@ -14,23 +14,29 @@ import { Copy, Check } from 'lucide-react';
  * behavior.
  */
 export function MarkdownMessage({ content }: { content: string }) {
-  const [copiedCodeBlock, setCopiedCodeBlock] = useState<string | null>(null);
+  const [copiedBlockIndex, setCopiedBlockIndex] = useState<number | null>(null);
 
-  const copyCodeBlock = async (code: string) => {
+  const copyCodeBlock = async (code: string, blockIndex: number) => {
     try {
       await navigator.clipboard.writeText(code);
-      setCopiedCodeBlock(code);
-      setTimeout(() => setCopiedCodeBlock(null), 2000);
+      setCopiedBlockIndex(blockIndex);
+      setTimeout(() => setCopiedBlockIndex(null), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
     }
   };
 
+  // Assigns each fenced code block a stable per-render position index, since
+  // identical code text (e.g. two copies of the same snippet) must not share
+  // a single "copied" identity.
+  let codeBlockIndex = 0;
+
   const markdownComponents = {
     code: ({ className, children, ...props }: React.HTMLAttributes<HTMLElement>) => {
       const match = /language-(\w+)/.exec(className || '');
       const code = String(children).replace(/\n$/, '');
-      const isCopied = copiedCodeBlock === code;
+      const blockIndex = codeBlockIndex++;
+      const isCopied = copiedBlockIndex === blockIndex;
       // react-markdown v9+ no longer passes an `inline` prop - block code is
       // the only kind that gets a `language-x` className from
       // rehype-highlight, so its presence is the reliable signal.
@@ -43,7 +49,7 @@ export function MarkdownMessage({ content }: { content: string }) {
               {match ? match[1] : 'code'}
             </span>
             <button
-              onClick={() => copyCodeBlock(code)}
+              onClick={() => copyCodeBlock(code, blockIndex)}
               className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
             >
               {isCopied ? (
