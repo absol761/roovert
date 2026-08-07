@@ -1446,8 +1446,8 @@ export default function Page() {
         }, 5 * 60 * 1000); // 5 minutes
       }
 
-      setResponse(`System notice: ${fallbackMessage}`);
-      setStatusNote('Simulation mode engaged — verify environment keys.');
+      setResponse(`We couldn't complete that request: ${fallbackMessage}`);
+      setStatusNote('Something went wrong. Please try again in a moment.');
       setIsProcessing(false);
       setAbortController(null);
     }
