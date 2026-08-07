@@ -1236,17 +1236,32 @@ export default function Page() {
           return;
         }
         if (res.status === 429) {
+          let friendlyRateLimitMessage = 'You are being rate limited. Please wait a moment and try again.';
           try {
             const rateLimitBody = await res.json();
             const retryAfter = rateLimitBody?.retryAfter;
             if (typeof retryAfter === 'number' && Number.isFinite(retryAfter)) {
-              setStatusNote(`You're sending requests too quickly. Please wait ${retryAfter} seconds and try again.`);
-            } else {
-              setStatusNote('You are being rate limited. Please wait a moment and try again.');
+              friendlyRateLimitMessage = `You're sending requests too quickly. Please wait ${retryAfter} seconds and try again.`;
             }
           } catch {
-            setStatusNote('You are being rate limited. Please wait a moment and try again.');
+            // Fall back to the generic message set above.
           }
+
+          // Preserve the pre-existing behavior of marking OpenRouter/Hugging
+          // Face models unavailable on rate limit so the picker auto-switches
+          // the user away from a model that will just 429 again immediately.
+          if (isOpenRouterModel || isHuggingFaceModel) {
+            setUnavailableModels(prev => new Set(prev).add(selectedModelId));
+            setTimeout(() => {
+              setUnavailableModels(prev => {
+                const next = new Set(prev);
+                next.delete(selectedModelId);
+                return next;
+              });
+            }, 5 * 60 * 1000); // 5 minutes
+          }
+
+          setStatusNote(friendlyRateLimitMessage);
           setIsProcessing(false);
           setAbortController(null);
           return;
@@ -2465,7 +2480,7 @@ while (true) {
 
                     {/* Current Response (if processing or showing latest) */}
                     <AnimatePresence mode="popLayout">
-                      {(response || isProcessing || perspectiveResponses) && (
+                      {(response || isProcessing || perspectiveResponses || statusNote) && (
                         <motion.div
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
@@ -2589,7 +2604,7 @@ while (true) {
                     </AnimatePresence>
 
                     {/* Empty State */}
-                    {history.length === 0 && !response && !isProcessing && (
+                    {history.length === 0 && !response && !isProcessing && !statusNote && (
                       <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] opacity-50">
                         <Zap className="w-12 h-12 mb-4" />
                         <p>Ready to query.</p>
