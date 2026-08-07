@@ -764,13 +764,20 @@ export default function Page() {
   // Global Feed renders inline at the top of #main-content (not a modal),
   // so opening it while scrolled down anywhere else on the page - "Browse
   // AI Models", "Built With Itself", etc. - left it rendering off-screen
-  // above the viewport with no indication anything happened. Scrolling the
-  // scroll container (main, not window - it owns its own overflow-y-auto)
-  // back to top whenever it opens keeps the panel where the user can see it.
+  // above the viewport with no indication anything happened. #main-content
+  // never actually scrolls internally (its scrollHeight always equals its
+  // clientHeight - it grows with content rather than clipping it), so the
+  // real scroll position lives on the window/document; that's what needs
+  // to move back to top whenever the panel opens. Uses 'instant' rather
+  // than 'smooth': the panel animates its own height open over ~300ms, and
+  // a smooth scroll racing that growth fights the browser's scroll-anchor
+  // heuristic (which tries to preserve the pre-scroll viewport content as
+  // new content is inserted above it), landing back near the original
+  // scroll position instead of at the top.
   const openGlobalFeed = () => {
     setIsGlobalFeedOpen(true);
     requestAnimationFrame(() => {
-      document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'instant' });
     });
   };
 
@@ -3000,7 +3007,7 @@ while (true) {
       {/* Expanded Sections (Only on Landing) */}
       {!isChatMode && (
         <>
-          <section id="mission" className="relative z-10 py-32 border-t border-[var(--border)]">
+          <section id="mission" className={`relative z-10 py-32 border-t border-[var(--border)] transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24'}`}>
             <div className="max-w-4xl mx-auto px-6 text-center">
               <h2 className="serif-display text-4xl mb-8 text-[var(--foreground)]">Our Mission</h2>
               <p className="text-xl text-[var(--muted)] leading-relaxed">
@@ -3012,7 +3019,7 @@ while (true) {
           </section>
 
           {/* Built With Itself Section */}
-          <section className="relative z-10 py-32 border-t border-[var(--border)]">
+          <section className={`relative z-10 py-32 border-t border-[var(--border)] transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24'}`}>
             <div className="max-w-5xl mx-auto px-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -3046,7 +3053,7 @@ while (true) {
             </div>
           </section>
 
-          <footer className="relative z-10 border-t border-[var(--border)] py-8 text-center text-[var(--foreground)]/40 text-sm">
+          <footer className={`relative z-10 border-t border-[var(--border)] py-8 text-center text-[var(--foreground)]/40 text-sm transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24'}`}>
             <p>© 2026 Roovert. Rigorously Pursuing Truth.</p>
           </footer>
         </>

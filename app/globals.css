@@ -231,6 +231,11 @@ html {
      while fonts/JS settle in - matches the instant-feeling first paint
      claude.com has instead of a visible reflow. */
   height: -webkit-fill-available;
+  /* Browser scroll anchoring otherwise fights explicit window.scrollTo()
+     calls whenever height-animated content (e.g. the Global Feed panel)
+     grows above the current viewport - it keeps nudging scrollY back down
+     to "compensate" for the insertion mid-animation. */
+  overflow-anchor: none;
 }
 
 body {
