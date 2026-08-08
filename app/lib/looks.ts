@@ -7,6 +7,7 @@ export const LOOKS = [
   { id: 'midnight', name: 'Ember', description: 'Warm charcoal with a muted terracotta accent', category: 'dark' },
   { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s aesthetic', category: 'themed' },
   { id: 'evergreen', name: 'Evergreen', description: 'Deep forest jewel-tone with an antique-gold accent', category: 'dark' },
+  { id: 'aurora', name: 'Aurora', description: 'Iridescent violet-teal-rose glow drifting over a calm near-black canvas', category: 'dark' },
 ];
 
 export const LOOK_CATEGORIES = ['essential', 'modern', 'dark', 'themed'];
