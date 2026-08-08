@@ -334,15 +334,3 @@ export async function getRateLimitStatus(
     isBlocked: !result.allowed,
   };
 }
-
-/**
- * Check if OpenRouter models should be hidden for this user
- * Used by the /api/openrouter/status endpoint to tell the client whether to
- * hide OpenRouter models (rate limit reached).
- */
-export async function shouldHideOpenRouterModels(
-  request: { headers: { get: (key: string) => string | null } }
-): Promise<boolean> {
-  const status = await getRateLimitStatus(request, 'openrouter');
-  return status.isBlocked;
-}
