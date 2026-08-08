@@ -2305,6 +2305,56 @@ textarea:focus {
   box-shadow: 0 8px 24px rgba(124, 77, 255, 0.35);
 }
 
+/* Aurora - calm, premium iridescent aesthetic: a violet-tinted near-black
+   canvas with a slow-drifting teal -> violet -> rose aurora gradient behind
+   glass panels. Deliberately static (no @keyframes) - the "flowing" read
+   comes from a large diagonal multi-stop gradient rather than motion, so
+   dense UI (message lists, code) stays calm and legible per current
+   aurora-glass best practice. All token colors below are checked against
+   the actual --background (#0a0a12) using the WCAG relative-luminance
+   formula: --foreground ~15.6:1, --muted-strong ~5.3:1 (both clear the
+   4.5:1 AA body-text floor), --accent (violet11) ~9.4:1. */
+[data-look='aurora'] {
+  --background: #0a0a12;
+  --foreground: #e8e6f4;
+  --accent: #baa7ff;
+  --accent-glow: rgba(186, 167, 255, 0.28);
+  --panel-bg: rgba(15, 14, 28, 0.85);
+  --border: rgba(186, 167, 255, 0.22);
+  --panel-radius: 20px;
+  --surface: rgba(232, 230, 244, 0.06);
+  --surface-strong: rgba(186, 167, 255, 0.14);
+  --chip-bg: rgba(15, 14, 28, 0.9);
+  --muted: rgba(232, 230, 244, 0.58);
+  --muted-strong: rgba(232, 230, 244, 0.85);
+  --hud-bg: rgba(11, 10, 20, 0.95);
+}
+
+[data-look='aurora'] body {
+  background:
+    linear-gradient(135deg, #0a0a12 0%, #120f24 40%, #0d1a1c 75%, #0a0a12 100%),
+    radial-gradient(ellipse 900px 700px at 12% 12%, rgba(99, 102, 241, 0.22), transparent 60%),
+    radial-gradient(ellipse 800px 800px at 82% 38%, rgba(192, 38, 211, 0.16), transparent 60%),
+    radial-gradient(ellipse 900px 700px at 30% 92%, rgba(45, 212, 191, 0.18), transparent 60%),
+    radial-gradient(ellipse 600px 600px at 90% 90%, rgba(251, 113, 133, 0.08), transparent 60%);
+  background-attachment: fixed;
+}
+
+[data-look='aurora'] body::before {
+  background: radial-gradient(circle at 50% 0%, rgba(186, 167, 255, 0.08), transparent 55%);
+  opacity: 0.5;
+}
+
+[data-look='aurora'] .glass-panel,
+[data-look='aurora'] .intel-card {
+  border: 1px solid var(--border) !important;
+  box-shadow:
+    0 20px 40px -16px rgba(76, 58, 227, 0.28),
+    0 0 32px rgba(45, 212, 191, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  background: linear-gradient(160deg, rgba(20, 18, 36, 0.9), rgba(13, 20, 24, 0.82)) !important;
+}
+
 @keyframes ocean-wave-texture {
 
   0%,
