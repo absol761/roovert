@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
@@ -2278,7 +2278,7 @@ while (true) {
                           const query = searchQuery.toLowerCase();
                           return entry.query.toLowerCase().includes(query) || entry.response.toLowerCase().includes(query);
                         })
-                        .map((entry, idx) => {
+                        .map((entry) => {
                           const originalIdx = history.indexOf(entry);
                           return (
                             <div key={originalIdx} className="space-y-4">
