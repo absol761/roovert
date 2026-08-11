@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Security: don't fingerprint the framework via the X-Powered-By header
+  poweredByHeader: false,
   // Security headers
   async headers() {
     return [

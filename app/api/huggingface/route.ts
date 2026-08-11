@@ -150,8 +150,11 @@ export async function POST(request: NextRequest) {
     if (conversationHistory && Array.isArray(conversationHistory)) {
       const limitedHistory = conversationHistory.slice(-MAX_LENGTHS.CONVERSATION_HISTORY_MESSAGES);
       for (const msg of limitedHistory) {
+        // Security: only 'user'/'assistant' are accepted here - a client-
+        // supplied 'system' role would otherwise let conversationHistory
+        // smuggle in a fake system-level instruction (prompt injection).
         if (msg && typeof msg === 'object' && msg.role && msg.content &&
-          (msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system') &&
+          (msg.role === 'user' || msg.role === 'assistant') &&
           typeof msg.content === 'string' && msg.content.length <= MAX_LENGTHS.MESSAGE_CONTENT) {
           messages.push({
             role: msg.role,

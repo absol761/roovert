@@ -18,10 +18,16 @@ const COOLDOWN_SECONDS = 300;
 
 /**
  * Get user identifier from request (IP-based)
+ *
+ * Security: x-forwarded-for is a hop chain each proxy APPENDS to, not
+ * replaces. With one trusted reverse proxy in front (Vercel's edge), the
+ * LAST entry is the one that proxy appended; earlier entries are whatever
+ * the client sent and must never be trusted as the real client IP.
  */
 function getUserIdentifier(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
-  const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown';
+  const ips = forwarded?.split(',').map(ip => ip.trim()).filter(Boolean);
+  const ip = ips && ips.length > 0 ? ips[ips.length - 1] : 'unknown';
   // Hash the IP for privacy - the raw IP must never be used as (or embedded
   // in) the Redis key.
   const hashedIp = createHash('sha256').update(ip).digest('hex');

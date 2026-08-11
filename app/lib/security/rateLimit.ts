@@ -105,22 +105,23 @@ const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
 /**
  * Get client IP address from request headers
  * Handles various proxy headers (X-Forwarded-For, X-Real-IP, CF-Connecting-IP)
+ *
+ * Security: x-forwarded-for is a comma-separated hop chain where each proxy
+ * APPENDS its view of the connecting peer - it does not replace whatever the
+ * client already sent. With exactly one trusted reverse proxy in front of
+ * this app (Vercel's edge network), the LAST entry is the one that proxy
+ * appended and is the only value in the header that isn't fully attacker-
+ * controlled; the first entry can be set to anything by the client and must
+ * never be trusted for rate limiting.
  */
 export function getClientIP(request: { headers: { get: (key: string) => string | null } }): string {
   const forwarded = request.headers.get('x-forwarded-for');
   const realIp = request.headers.get('x-real-ip');
   const cfConnectingIp = request.headers.get('cf-connecting-ip'); // Cloudflare
-  const ip = forwarded?.split(',')[0]?.trim() || realIp?.trim() || cfConnectingIp?.trim() || 'unknown';
+  const forwardedIps = forwarded?.split(',').map(ip => ip.trim()).filter(Boolean);
+  const trustedForwardedIp = forwardedIps?.[forwardedIps.length - 1];
+  const ip = trustedForwardedIp || realIp?.trim() || cfConnectingIp?.trim() || 'unknown';
   return ip;
-}
-
-/**
- * Get user identifier (for user-based rate limiting)
- * Can be extended to use session IDs, API keys, etc.
- */
-export function getUserIdentifier(request: { headers: { get: (key: string) => string | null } }): string | null {
-  const userId = request.headers.get('x-user-id');
-  return userId || null;
 }
 
 /**
@@ -186,10 +187,12 @@ function storeKey(endpointType: string, config: RateLimitConfig, identifierType:
 }
 
 function resolveIdentifier(request: { headers: { get: (key: string) => string | null } }): { identifier: string; identifierType: string } {
-  const userId = getUserIdentifier(request);
-  return userId
-    ? { identifier: userId, identifierType: 'user' }
-    : { identifier: getClientIP(request), identifierType: 'ip' };
+  // Security: identity used to be resolvable via a client-supplied
+  // 'x-user-id' header with zero verification - since nothing in this
+  // app's own frontend ever sent that header, it was pure unverified
+  // attack surface (trivially rotate it to get a fresh rate-limit bucket
+  // per request) with no legitimate use. IP is the only identifier here.
+  return { identifier: getClientIP(request), identifierType: 'ip' };
 }
 
 /**

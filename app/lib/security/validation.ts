@@ -141,8 +141,12 @@ export function validateConversationHistory(
 
     const msgRecord = msg as Record<string, unknown>;
 
+    // Security: only 'user'/'assistant' are accepted - a client-supplied
+    // 'system' role would otherwise let conversationHistory smuggle in a
+    // fake system-level instruction (prompt injection). The real system
+    // prompt is always set separately by the server, never from history.
     const roleValue = msgRecord.role;
-    if (roleValue !== 'user' && roleValue !== 'assistant' && roleValue !== 'system') {
+    if (roleValue !== 'user' && roleValue !== 'assistant') {
       return { valid: false, error: `Message ${i} has invalid role: ${String(roleValue)}` };
     }
     const role = roleValue;
