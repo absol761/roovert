@@ -28,11 +28,11 @@ npm install
 Set up environment variables. Create a `.env.local` file in the root directory:
 
 ```bash
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 # Optional: Admin API key (for testing /api/admin/visitors endpoint locally)
 # If not set, admin endpoint will return 503 in local development
-AI_GATEWAY_API_KEY=your_admin_key_here
+ADMIN_API_KEY=your_admin_key_here
 
 # Optional: Segment.io Analytics (for anonymous user analytics)
 # Get your write key from https://app.segment.com/
@@ -112,10 +112,15 @@ Deploy to Vercel:
 4. Deploy
 
 Required environment variables:
-- `NEXT_PUBLIC_APP_URL` - Your application URL
+- `GROQ_API_KEY` - Groq API key for the default (Ooverta) chat model
 
 Optional environment variables:
-- `AI_GATEWAY_API_KEY` - Admin API key for accessing `/api/admin/visitors` endpoint (required in production, optional for local dev)
+- `NEXT_PUBLIC_SITE_URL` - Your deployed site URL (falls back to `https://roovert.com`)
+- `ADMIN_API_KEY` - Admin API key for accessing `/api/admin/visitors` endpoint
+- `OPENROUTER_API_KEY` - enables the OpenRouter multi-provider model picker
+- `HUGGINGFACE_API_KEY` - enables the Hugging Face model picker and image generation
+- `KV_REST_API_URL` / `KV_REST_API_TOKEN` - visitor tracking storage (falls back to local SQLite)
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` - shared rate-limit storage (required for multi-instance production deployments)
 - `NEXT_PUBLIC_SEGMENT_WRITE_KEY` - Segment.io write key for anonymous analytics (get from [app.segment.com](https://app.segment.com/))
 
 ## Design

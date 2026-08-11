@@ -34,14 +34,6 @@ export async function GET(request: NextRequest) {
     const expectedKey = process.env.ADMIN_API_KEY || process.env.AI_GATEWAY_API_KEY; // Support both for backward compatibility
     
     if (!expectedKey) {
-      console.error('AI_GATEWAY_API_KEY not configured');
-      return NextResponse.json(
-        { error: 'Admin access not configured' },
-        { status: 503 }
-      );
-    }
-    
-    if (!expectedKey) {
       console.error('ADMIN_API_KEY or AI_GATEWAY_API_KEY not configured in environment variables');
       return NextResponse.json(
         { error: 'Admin access not configured' },
