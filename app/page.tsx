@@ -218,13 +218,21 @@ export default function Page() {
   // button - keyed by message index the same way messageFeedback is, since
   // multiple responses can each show their own copy state independently.
   const [copiedResponseIdx, setCopiedResponseIdx] = useState<number | null>(null);
+  // Brief self-resetting "Copy failed" state for the same button, shown when
+  // the Clipboard API throws (insecure context, permission denied, unsupported
+  // browser) so the UI doesn't silently do nothing.
+  const [copyFailedResponseIdx, setCopyFailedResponseIdx] = useState<number | null>(null);
   const copyResponseToClipboard = async (idx: number, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
+      setCopyFailedResponseIdx((prev) => (prev === idx ? null : prev));
       setCopiedResponseIdx(idx);
       setTimeout(() => setCopiedResponseIdx((prev) => (prev === idx ? null : prev)), 2000);
     } catch (err) {
       console.error('Failed to copy response:', err);
+      setCopiedResponseIdx((prev) => (prev === idx ? null : prev));
+      setCopyFailedResponseIdx(idx);
+      setTimeout(() => setCopyFailedResponseIdx((prev) => (prev === idx ? null : prev)), 2000);
     }
   };
   // Feedback state for the "Share Conversation" action in Settings - mirrors
@@ -2341,10 +2349,12 @@ while (true) {
                                           <button
                                             onClick={() => copyResponseToClipboard(originalIdx, entry.response)}
                                             className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                                            title="Copy response"
-                                            aria-label={copiedResponseIdx === originalIdx ? 'Copied' : 'Copy response'}
+                                            title={copyFailedResponseIdx === originalIdx ? 'Copy failed' : 'Copy response'}
+                                            aria-label={copyFailedResponseIdx === originalIdx ? 'Copy failed' : copiedResponseIdx === originalIdx ? 'Copied' : 'Copy response'}
                                           >
-                                            {copiedResponseIdx === originalIdx ? (
+                                            {copyFailedResponseIdx === originalIdx ? (
+                                              <X className="w-4 h-4 text-red-500" />
+                                            ) : copiedResponseIdx === originalIdx ? (
                                               <Check className="w-4 h-4" />
                                             ) : (
                                               <Copy className="w-4 h-4" />
