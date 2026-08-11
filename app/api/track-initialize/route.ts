@@ -34,6 +34,21 @@ function getUserIdentifier(request: NextRequest): string {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Security: Rate limiting for tracking endpoints (matches track/route.ts
+    // and visit/route.ts - this route was previously missing this check).
+    const rateLimitResponse = await applyRateLimit(request, 'tracking');
+    if (rateLimitResponse) {
+      try {
+        const errorData = await rateLimitResponse.json();
+        return NextResponse.json(errorData, {
+          status: 429,
+          headers: Object.fromEntries(rateLimitResponse.headers.entries())
+        });
+      } catch {
+        return rateLimitResponse;
+      }
+    }
+
     const now = Date.now();
     const userKey = getUserIdentifier(request);
     
