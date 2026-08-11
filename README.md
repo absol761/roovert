@@ -53,13 +53,15 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Features
 
-- Access to multiple AI models
+- Access to multiple AI models, including Hugging Face-hosted open models
 - Default Ooverta model with web search capabilities
 - Image upload and vision support for AI models
-- Conversation memory and history management
-- Message editing and regeneration
+- Multi-conversation history with server-side conversation sharing
+- Command palette and keyboard shortcuts
+- Message editing, regeneration, and thumbs-up/down feedback
+- Response style presets and adjustable response length
 - Privacy-focused visitor tracking using hashed identifiers
-- Customizable themes and interface layouts
+- Customizable themes, layouts, and an audio-reactive 3D visualizer
 - Real-time streaming responses
 - Code block syntax highlighting and copy functionality
 
@@ -67,10 +69,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 - Next.js 16 (App Router)
 - TypeScript
-- Tailwind CSS 4
+- Tailwind CSS 4, shadcn/ui, and Radix UI primitives
 - Framer Motion for animations
+- React Three Fiber / drei for the 3D visualizer
 - React Markdown for response rendering
-- Vercel KV for visitor tracking (production)
+- Vercel KV / Upstash Redis for visitor tracking (production)
 - SQLite for local development
 
 ## Project Structure

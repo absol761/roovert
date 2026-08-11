@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check } from 'lucide-react';
+import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
 import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { useMicLevel } from './hooks/useMicLevel';
@@ -238,6 +238,12 @@ export default function Page() {
   // Feedback state for the "Share Conversation" action in Settings - mirrors
   // the copiedCodeBlock pattern's brief self-resetting confirmation.
   const [shareStatus, setShareStatus] = useState<'idle' | 'sharing' | 'copied' | 'error'>('idle');
+  // shareStatus above is global (shared with the Settings modal's Share
+  // button), but the per-response toolbar renders one Share button per
+  // history entry - track which entry's button was actually clicked so only
+  // that instance reflects shareStatus, mirroring copiedResponseIdx's
+  // per-instance scoping for the adjacent Copy button.
+  const [shareClickedIdx, setShareClickedIdx] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   // Whether a file is currently being dragged over the composer - drives the
   // drop-zone highlight; separate from selectedImage so the overlay never
@@ -620,12 +626,18 @@ export default function Page() {
   // while leaving the old history in memory (and in localStorage) underneath,
   // so it would silently reappear on the next message or reload.
   const startNewChat = () => {
+    abortController?.abort();
+    setAbortController(null);
+    setIsProcessing(false);
     setHistory([]);
     setResponse(null);
     setQuery('');
     setSelectedImage(null);
     setIsChatMode(false);
     setActiveConversationId(generateConversationId());
+    setMessageFeedback({});
+    setExpandedReasoning({});
+    setCopiedResponseIdx(null);
   };
 
   // Switches `history`/`isChatMode` to point at a different, already-known
@@ -649,6 +661,9 @@ export default function Page() {
     setQuery('');
     setSelectedImage(null);
     setIsHistoryOpen(false);
+    setMessageFeedback({});
+    setExpandedReasoning({});
+    setCopiedResponseIdx(null);
   };
 
   const renameConversation = (id: string, rawTitle: string) => {
@@ -671,6 +686,9 @@ export default function Page() {
     setResponse(null);
     setQuery('');
     setSelectedImage(null);
+    setMessageFeedback({});
+    setExpandedReasoning({});
+    setCopiedResponseIdx(null);
     if (fallback) {
       setActiveConversationId(fallback.id);
       setHistory(fallback.history);
@@ -754,13 +772,20 @@ export default function Page() {
   // Global Feed renders inline at the top of #main-content (not a modal),
   // so opening it while scrolled down anywhere else on the page - "Browse
   // AI Models", "Built With Itself", etc. - left it rendering off-screen
-  // above the viewport with no indication anything happened. Scrolling the
-  // scroll container (main, not window - it owns its own overflow-y-auto)
-  // back to top whenever it opens keeps the panel where the user can see it.
+  // above the viewport with no indication anything happened. #main-content
+  // never actually scrolls internally (its scrollHeight always equals its
+  // clientHeight - it grows with content rather than clipping it), so the
+  // real scroll position lives on the window/document; that's what needs
+  // to move back to top whenever the panel opens. Uses 'instant' rather
+  // than 'smooth': the panel animates its own height open over ~300ms, and
+  // a smooth scroll racing that growth fights the browser's scroll-anchor
+  // heuristic (which tries to preserve the pre-scroll viewport content as
+  // new content is inserted above it), landing back near the original
+  // scroll position instead of at the top.
   const openGlobalFeed = () => {
     setIsGlobalFeedOpen(true);
     requestAnimationFrame(() => {
-      document.getElementById('main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'instant' });
     });
   };
 
@@ -1243,6 +1268,37 @@ export default function Page() {
           setAbortController(null);
           return;
         }
+        if (res.status === 429) {
+          let friendlyRateLimitMessage = 'You are being rate limited. Please wait a moment and try again.';
+          try {
+            const rateLimitBody = await res.json();
+            const retryAfter = rateLimitBody?.retryAfter;
+            if (typeof retryAfter === 'number' && Number.isFinite(retryAfter)) {
+              friendlyRateLimitMessage = `You're sending requests too quickly. Please wait ${retryAfter} seconds and try again.`;
+            }
+          } catch {
+            // Fall back to the generic message set above.
+          }
+
+          // Preserve the pre-existing behavior of marking OpenRouter/Hugging
+          // Face models unavailable on rate limit so the picker auto-switches
+          // the user away from a model that will just 429 again immediately.
+          if (isOpenRouterModel || isHuggingFaceModel) {
+            setUnavailableModels(prev => new Set(prev).add(selectedModelId));
+            setTimeout(() => {
+              setUnavailableModels(prev => {
+                const next = new Set(prev);
+                next.delete(selectedModelId);
+                return next;
+              });
+            }, 5 * 60 * 1000); // 5 minutes
+          }
+
+          setStatusNote(friendlyRateLimitMessage);
+          setIsProcessing(false);
+          setAbortController(null);
+          return;
+        }
         const errorText = await res.text().catch(() => 'Unknown error');
         throw new Error(`HTTP error! status: ${res.status}${errorText ? ` - ${errorText}` : ''}`);
       }
@@ -1448,8 +1504,8 @@ export default function Page() {
         }, 5 * 60 * 1000); // 5 minutes
       }
 
-      setResponse(`System notice: ${fallbackMessage}`);
-      setStatusNote('Simulation mode engaged — verify environment keys.');
+      setResponse(`We couldn't complete that request: ${fallbackMessage}`);
+      setStatusNote('Something went wrong. Please try again in a moment.');
       setIsProcessing(false);
       setAbortController(null);
     }
@@ -1934,7 +1990,7 @@ export default function Page() {
                         handleSubmit(e);
                       }
                     }}
-                    placeholder="Type / for skills"
+                    placeholder="Message..."
                     className="flex-1 resize-none min-h-0 h-auto border-none bg-transparent shadow-none px-0 py-2 text-base md:text-lg placeholder:text-[var(--foreground)]/35 font-light focus-visible:ring-0 focus-visible:border-none"
                     autoComplete="off"
                     autoCorrect="off"
@@ -2030,6 +2086,16 @@ export default function Page() {
                     onClick={() => {
                       setSelectedModelId(model.id);
                       handleInitialize();
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Select ${model.name}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedModelId(model.id);
+                        handleInitialize();
+                      }
                     }}
                     className="card-hover bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 cursor-pointer group"
                   >
@@ -2220,7 +2286,7 @@ while (true) {
                           const query = searchQuery.toLowerCase();
                           return entry.query.toLowerCase().includes(query) || entry.response.toLowerCase().includes(query);
                         })
-                        .map((entry, idx) => {
+                        .map((entry) => {
                           const originalIdx = history.indexOf(entry);
                           return (
                             <div key={originalIdx} className="space-y-4">
@@ -2284,6 +2350,7 @@ while (true) {
                                             onClick={() => copyResponseToClipboard(originalIdx, entry.response)}
                                             className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
                                             title={copyFailedResponseIdx === originalIdx ? 'Copy failed' : 'Copy response'}
+                                            aria-label={copyFailedResponseIdx === originalIdx ? 'Copy failed' : copiedResponseIdx === originalIdx ? 'Copied' : 'Copy response'}
                                           >
                                             {copyFailedResponseIdx === originalIdx ? (
                                               <X className="w-4 h-4 text-red-500" />
@@ -2296,12 +2363,28 @@ while (true) {
                                         )}
                                         <button
                                           onClick={() => {
+                                            setShareClickedIdx(originalIdx);
+                                            handleShareConversation();
+                                          }}
+                                          disabled={shareClickedIdx === originalIdx && shareStatus === 'sharing'}
+                                          className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-50"
+                                          title="Share conversation"
+                                        >
+                                          {shareClickedIdx === originalIdx && shareStatus === 'copied' ? (
+                                            <Check className="w-4 h-4" />
+                                          ) : (
+                                            <Share2 className="w-4 h-4" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={() => {
                                             setQuery(entry.query);
                                             setSelectedImage(entry.image || null);
                                             inputRef.current?.focus();
                                           }}
                                           className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
                                           title="Edit & Regenerate"
+                                          aria-label="Edit & Regenerate"
                                         >
                                           <Edit2 className="w-4 h-4" />
                                         </button>
@@ -2382,6 +2465,7 @@ while (true) {
                                           }}
                                           className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
                                           title="Regenerate Response"
+                                          aria-label="Regenerate Response"
                                         >
                                           <RefreshCw className="w-4 h-4" />
                                         </button>
@@ -2393,6 +2477,8 @@ while (true) {
                                               : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                                           }`}
                                           title="Good response"
+                                          aria-label="Good response"
+                                          aria-pressed={messageFeedback[originalIdx] === 'up'}
                                         >
                                           <ThumbsUp className="w-4 h-4" fill={messageFeedback[originalIdx] === 'up' ? 'currentColor' : 'none'} />
                                         </button>
@@ -2404,6 +2490,8 @@ while (true) {
                                               : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                                           }`}
                                           title="Bad response"
+                                          aria-label="Bad response"
+                                          aria-pressed={messageFeedback[originalIdx] === 'down'}
                                         >
                                           <ThumbsDown className="w-4 h-4" fill={messageFeedback[originalIdx] === 'down' ? 'currentColor' : 'none'} />
                                         </button>
@@ -2459,7 +2547,7 @@ while (true) {
 
                     {/* Current Response (if processing or showing latest) */}
                     <AnimatePresence mode="popLayout">
-                      {(response || isProcessing || perspectiveResponses) && (
+                      {(response || isProcessing || perspectiveResponses || statusNote) && (
                         <motion.div
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
@@ -2583,7 +2671,7 @@ while (true) {
                     </AnimatePresence>
 
                     {/* Empty State */}
-                    {history.length === 0 && !response && !isProcessing && (
+                    {history.length === 0 && !response && !isProcessing && !statusNote && (
                       <div className="flex flex-col items-center justify-center h-full text-[var(--muted)] opacity-50">
                         <Zap className="w-12 h-12 mb-4" />
                         <p>Ready to query.</p>
@@ -2689,7 +2777,7 @@ while (true) {
                       }
                     }
                   }}
-                  placeholder={isImageGenMode ? 'Describe an image to generate…' : 'Type / for skills'}
+                  placeholder={isImageGenMode ? 'Describe an image to generate…' : 'Message...'}
                   className="composer-textarea w-full resize-none custom-scrollbar border-none bg-transparent shadow-none text-[var(--foreground)] text-lg placeholder:text-[var(--foreground)]/35 transition-colors font-light leading-normal px-1 py-1 focus-visible:ring-0 min-h-0 h-auto"
                   style={{ maxHeight: COMPOSER_MAX_HEIGHT_PX }}
                   disabled={isProcessing}
@@ -2929,7 +3017,7 @@ while (true) {
       {/* Expanded Sections (Only on Landing) */}
       {!isChatMode && (
         <>
-          <section id="mission" className="relative z-10 py-32 border-t border-[var(--border)]">
+          <section id="mission" className={`relative z-10 py-32 border-t border-[var(--border)] transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24'}`}>
             <div className="max-w-4xl mx-auto px-6 text-center">
               <h2 className="serif-display text-4xl mb-8 text-[var(--foreground)]">Our Mission</h2>
               <p className="text-xl text-[var(--muted)] leading-relaxed">
@@ -2941,7 +3029,7 @@ while (true) {
           </section>
 
           {/* Built With Itself Section */}
-          <section className="relative z-10 py-32 border-t border-[var(--border)]">
+          <section className={`relative z-10 py-32 border-t border-[var(--border)] transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24'}`}>
             <div className="max-w-5xl mx-auto px-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -2975,7 +3063,7 @@ while (true) {
             </div>
           </section>
 
-          <footer className="relative z-10 border-t border-[var(--border)] py-8 text-center text-[var(--foreground)]/40 text-sm">
+          <footer className={`relative z-10 border-t border-[var(--border)] py-8 text-center text-[var(--foreground)]/40 text-sm transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24'}`}>
             <p>© 2026 Roovert. Rigorously Pursuing Truth.</p>
           </footer>
         </>

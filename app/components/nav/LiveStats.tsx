@@ -53,7 +53,7 @@ export function LiveStats() {
             className="absolute right-0 top-full mt-2 z-50 bg-[var(--hud-bg)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-4 shadow-[var(--shadow-lg)] min-w-[180px]"
           >
             <div className="flex items-center justify-between gap-4 text-sm">
-              <span className="text-[var(--muted)]">Visitors</span>
+              <span className="text-[var(--muted)]">Chats Started</span>
               <span className="text-[var(--accent)] font-mono font-bold">
                 {userCount.toLocaleString()}
               </span>
@@ -67,12 +67,10 @@ export function LiveStats() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         className="flex items-center gap-2 bg-[var(--surface)] hover:bg-[var(--surface-strong)] border border-[var(--border)] rounded-full px-3 py-1.5 transition-colors"
-        title="Visitor count"
+        title="Show chats started"
+        aria-label="Show chats started"
       >
         <Users className="w-3.5 h-3.5 text-[var(--accent)]" />
-        <span className="text-xs text-[var(--muted-strong)] font-mono">
-          {userCount.toLocaleString()}
-        </span>
       </motion.button>
     </div>
   );
