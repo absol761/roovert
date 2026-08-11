@@ -331,6 +331,7 @@ export async function POST(request: NextRequest) {
                     model: groq(modelId),
                     instructions: systemPrompt,
                     messages,
+                    maxOutputTokens: maxTokens,
                     onError: ({ error }) => { streamError = error; },
                   });
 
@@ -372,6 +373,7 @@ export async function POST(request: NextRequest) {
         model: groq(targetModelId),
         instructions: systemPrompt,
         messages,
+        maxOutputTokens: maxTokens,
         onError: ({ error }) => { streamError = error; },
       });
 
