@@ -1,23 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/app/lib/db';
 import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
-import { Redis } from '@upstash/redis';
-
-// Initialize Redis client if environment variables are available
-let redis: Redis | null = null;
-if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-  redis = new Redis({
-    url: process.env.KV_REST_API_URL,
-    token: process.env.KV_REST_API_TOKEN,
-  });
-}
+import { getRedis } from '@/app/lib/redis';
 
 /**
  * Get "Initialize Chat" click count
  * This is now the only stat we track - number of times "Initialize Chat" has been clicked
  */
 async function getInitializeCount(): Promise<number> {
-  // Try Upstash Redis first (production)
+  // Try Upstash Redis first (production). Uses the shared getRedis() helper
+  // (recognizes both UPSTASH_REDIS_REST_URL/TOKEN and KV_REST_API_URL/TOKEN)
+  // instead of hand-rolling a client that only checked the latter - this is
+  // the same live counter /api/track-initialize's GET handler reads, which
+  // already went through this fix.
+  const redis = getRedis();
   if (redis) {
     try {
       const count = await redis.get<number>('initialize_chat_clicks');
