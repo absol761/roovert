@@ -1,4 +1,10 @@
-# Security Audit Report
+# Security Audit Report (Historical — 2026-01-06)
+
+> **This is a point-in-time historical record, not the current security status of the application.**
+> Every vulnerability below (unprotected admin endpoint, no rate limiting, CSP `unsafe-eval`, insufficient input validation, etc.) has since been fixed. Do **not** use this document to answer "is X currently protected?" — for that, see **[SECURITY.md](./SECURITY.md)**, which describes the security measures actually in place today and is kept up to date as the code changes.
+>
+> This document is preserved unmodified below as the historical audit that motivated those fixes.
+
 **Date:** 2026-01-06  
 **Auditor:** Security Review  
 **Scope:** Full codebase security review
