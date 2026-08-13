@@ -87,7 +87,7 @@ async function streamHuggingFaceLeg(
               }
             }
           }
-        } catch (parseError) {
+        } catch {
           // Skip malformed JSON
         }
       }
@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
               if (closed) return;
               try {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
-              } catch (ignore) { /* controller already closed */ }
+              } catch { /* controller already closed */ }
             };
 
             const finishModel = () => {
@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
               if (remaining <= 0 && !closed) {
                 enqueue({ content: '', done: true });
                 closed = true;
-                try { controller.close(); } catch (ignore) { }
+                try { controller.close(); } catch { }
               }
             };
 
@@ -428,8 +428,8 @@ export async function POST(request: NextRequest) {
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(), done: true })}\n\n`)
               );
-            } catch (ignore) { }
-            try { controller.close(); } catch (ignore) { }
+            } catch { }
+            try { controller.close(); } catch { }
           }
         },
       });
