@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Settings, X, Monitor, Eye, EyeOff, Zap, Download, Save, Trash2, Share2, Check, Loader2 } from 'lucide-react';
 import { type Model } from '../../lib/models';
 import { LAYOUTS } from '../../lib/looks';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MODAL_TRANSITION } from '../../lib/motion';
 import { RESPONSE_STYLES, type ResponseStyle, OUTPUT_LENGTHS, type OutputLength } from '../../lib/prompts';
 
@@ -87,6 +88,8 @@ export function SettingsModal({
   availableModels = [],
 }: SettingsModalProps) {
   useModalDismiss(isOpen, onClose);
+  const containerRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isOpen, containerRef);
 
   // Saved prompt presets + the name typed into the "save current prompt as"
   // field. Loaded lazily from localStorage on mount - this modal only ever
@@ -139,14 +142,17 @@ export function SettingsModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/70 backdrop-blur-sm" onClick={onClose} />
       <motion.div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
+        tabIndex={-1}
         initial={{ opacity: 0, scale: 0.97, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 8 }}
         transition={MODAL_TRANSITION}
         className="relative w-full max-w-2xl bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden max-h-[85vh] flex flex-col text-[var(--foreground)]"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-2 p-6 border-b border-[var(--border)]">
           <h2 id="settings-modal-title" className="serif-display text-xl flex items-center gap-2.5 text-[var(--foreground)] min-w-0 truncate">
