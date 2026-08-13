@@ -197,6 +197,35 @@ export function validateConversationHistory(
 }
 
 /**
+ * Reduces a validated conversation-history message's content down to plain
+ * text for forwarding to a model as chat history.
+ *
+ * Every API route re-sends the *current* turn's image as a proper multimodal
+ * part, but resending every *past* turn's image on every subsequent request
+ * would be expensive and is unnecessary once a model has already responded
+ * to it once. Routes used to handle this by dropping any history message
+ * whose content wasn't already a string - which silently deleted the user's
+ * words along with the image, leaving an orphaned assistant reply with no
+ * matching user turn. This degrades multimodal history entries to their text
+ * portion instead, so the conversation stays coherent (including across a
+ * model switch) even though the image itself isn't resent.
+ *
+ * Returns null for an entry with no text at all (e.g. an image with no
+ * caption), which callers should treat as "drop this entry".
+ */
+export function historyContentToText(content: string | Array<MessageContentItem>): string | null {
+  if (typeof content === 'string') {
+    return content;
+  }
+  const text = content
+    .filter((item): item is MessageTextContent => item.type === 'text')
+    .map(item => item.text)
+    .join(' ')
+    .trim();
+  return text.length > 0 ? text : null;
+}
+
+/**
  * Validate image data (base64)
  */
 export function validateImage(image: unknown): { valid: boolean; error?: string; sanitized?: string } {
