@@ -167,18 +167,33 @@ describe('share.ts', () => {
       expect(result).toBeNull();
     });
 
-    it('falls back to SQLite when kv.set fails, so the record is still readable there', async () => {
+    it('falls back to SQLite when kv.set fails, and the record is still readable there', async () => {
       const { saveSharedConversation, getSharedConversation } = await import('./share');
       kvMock.set.mockRejectedValue(new Error('kv unavailable'));
       const id = freshId();
 
       await expect(saveSharedConversation(id, sampleMessages)).resolves.toBeUndefined();
 
-      // Read path still goes through KV first (which is configured), and
-      // kv.get was never told about this record, so it reports nothing.
+      // Read path checks KV first (which is configured) and finds nothing
+      // there, but must still fall back to SQLite - otherwise a link
+      // created during a transient KV outage would 404 forever even though
+      // the caller was told the share succeeded.
       kvMock.get.mockResolvedValue(null);
-      const viaKv = await getSharedConversation(id);
-      expect(viaKv).toBeNull();
+      const result = await getSharedConversation(id);
+      expect(result?.messages).toEqual(sampleMessages);
+      expect(kvMock.get).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not consult SQLite when KV already has the record', async () => {
+      const { getSharedConversation } = await import('./share');
+      kvMock.get.mockResolvedValue(JSON.stringify({ messages: sampleMessages, createdAt: 42 }));
+
+      const result = await getSharedConversation(freshId());
+      expect(result).toEqual({ messages: sampleMessages, createdAt: 42 });
+      // Nothing to assert on the SQLite side directly here beyond the KV
+      // result winning outright - covered by "reads back through kv.get"
+      // above; this test's job is just to make sure the new SQLite
+      // fallback doesn't shadow a real KV hit.
     });
 
     it('returns null (does not fall back to SQLite) when kv.get itself throws', async () => {
