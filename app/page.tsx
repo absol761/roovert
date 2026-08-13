@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
@@ -175,6 +175,19 @@ function ReasoningSection({
       )}
     </div>
   );
+}
+
+// Fullscreen API support (see isFullscreenSupported below) never changes at
+// runtime, so the store has nothing to notify subscribers about - the
+// subscribe function is a permanent no-op.
+function fullscreenSupportSubscribe() {
+  return () => {};
+}
+function getFullscreenSupportSnapshot() {
+  return typeof document !== 'undefined' && !!document.fullscreenEnabled;
+}
+function getFullscreenSupportServerSnapshot() {
+  return false;
 }
 
 export default function Page() {
@@ -847,10 +860,16 @@ export default function Page() {
   // below rendered unconditionally and just silently did nothing when
   // tapped, unlike every other unsupported-feature control in this file
   // (dictation, image-gen) which hide themselves instead of looking broken.
-  const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
-  useEffect(() => {
-    setIsFullscreenSupported(typeof document !== 'undefined' && !!document.fullscreenEnabled);
-  }, []);
+  // useSyncExternalStore reads this browser-only value without a
+  // setState-in-effect: the server snapshot is always `false` (matching SSR,
+  // where `document` doesn't exist), and the real value is read on the
+  // client during render, avoiding a hydration mismatch and the extra
+  // post-mount render a `useEffect` + `useState` pair would cause.
+  const isFullscreenSupported = useSyncExternalStore(
+    fullscreenSupportSubscribe,
+    getFullscreenSupportSnapshot,
+    getFullscreenSupportServerSnapshot
+  );
 
   const toggleFullscreen = async () => {
     try {
