@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
@@ -8,6 +8,10 @@ import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { useMicLevel } from './hooks/useMicLevel';
 import { useSpeechToText } from './hooks/useSpeechToText';
+import { useVisualizerSettings } from './hooks/useVisualizerSettings';
+import { useProviderRateLimits } from './hooks/useProviderRateLimits';
+import { useFullscreen } from './hooks/useFullscreen';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { LooksModal } from './components/modals/LooksModal';
 import { MoreModelsModal } from './components/modals/MoreModelsModal';
 import { SettingsModal } from './components/modals/SettingsModal';
@@ -30,7 +34,6 @@ import {
 import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from './lib/models';
 import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
 import { getSystemPrompt, getStyleInstruction, getLengthInstruction, type ResponseStyle, type OutputLength } from './lib/prompts';
-import type { VisualizerMode } from './components/visualizer/R3FVisualizer';
 // Plain 2D canvas, not three.js - cheap enough to not need the dynamic-import
 // treatment the R3F visualizer components above get.
 import { MicFrequencyBars } from './components/visualizer/MicFrequencyBars';
@@ -177,19 +180,6 @@ function ReasoningSection({
   );
 }
 
-// Fullscreen API support (see isFullscreenSupported below) never changes at
-// runtime, so the store has nothing to notify subscribers about - the
-// subscribe function is a permanent no-op.
-function fullscreenSupportSubscribe() {
-  return () => {};
-}
-function getFullscreenSupportSnapshot() {
-  return typeof document !== 'undefined' && !!document.fullscreenEnabled;
-}
-function getFullscreenSupportServerSnapshot() {
-  return false;
-}
-
 export default function Page() {
   const { isMobile } = useMobile();
   const [query, setQuery] = useState('');
@@ -266,40 +256,9 @@ export default function Page() {
   // /api/huggingface-image instead of a chat model, and the result is a
   // generated image appended to history instead of streamed text.
   const [isImageGenMode, setIsImageGenMode] = useState(false);
-  const [hideImageGen, setHideImageGen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [hideOpenRouterModels, setHideOpenRouterModels] = useState(false);
-  const [hideHuggingFaceModels, setHideHuggingFaceModels] = useState(false);
-
-  // Check OpenRouter/Hugging Face rate limits on mount and periodically -
-  // same pattern for both: each provider's GET endpoint reports whether this
-  // client has exhausted that provider's quota, so exhausted-provider models
-  // hide from the picker instead of failing on click.
-  useEffect(() => {
-    const checkRateLimit = async (endpoint: string, setHidden: (hidden: boolean) => void) => {
-      try {
-        const res = await fetch(endpoint);
-        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
-          return; // Skip if not JSON response
-        }
-        const data = await res.json();
-        setHidden(data.shouldHide || false);
-      } catch {
-        // Silently handle errors - non-critical
-      }
-    };
-
-    const checkAll = () => {
-      checkRateLimit('/api/openrouter', setHideOpenRouterModels);
-      checkRateLimit('/api/huggingface', setHideHuggingFaceModels);
-      checkRateLimit('/api/huggingface-image', setHideImageGen);
-    };
-
-    checkAll();
-    const interval = setInterval(checkAll, 60000); // Check every minute
-    return () => clearInterval(interval);
-  }, []);
+  const { hideOpenRouterModels, hideHuggingFaceModels, hideImageGen } = useProviderRateLimits();
 
   // Get available models (combine HUGGINGFACE_MODELS, MODELS, and
   // OPENROUTER_MODELS, filtering each provider's models out if that
@@ -348,21 +307,31 @@ export default function Page() {
   });
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const { isFullscreen, isFullscreenSupported, toggleFullscreen } = useFullscreen();
   const [closedWidgets, setClosedWidgets] = useState<Set<string>>(new Set());
-  // Visualizer state - the app ships a full react-three-fiber background
-  // visualizer + config panel; it previously had no way to ever be enabled
-  // or opened (dead feature) and wasn't actually audio-reactive despite the
-  // name (its "audioIntensity" was driven by mouse movement, unused). Now
-  // reachable via the nav's Waves button, genuinely reacts to real audio via
-  // the mic, and stays off by default since enabling it requests mic access.
-  const [visualizerEnabled, setVisualizerEnabled] = useState(false);
-  // Gates whether the nav's Waves button (the only entry point to the
-  // visualizer/config panel) renders at all. Off by default so the feature
-  // is fully hidden from the landing page until explicitly turned on in
-  // Settings; turning it back off also force-disables the visualizer itself
-  // so it can't keep running with its only control gone.
-  const [showVisualizerButton, setShowVisualizerButton] = useState(false);
+  const {
+    visualizerEnabled, setVisualizerEnabled,
+    showVisualizerButton, setShowVisualizerButton,
+    visualizerConfigOpen, setVisualizerConfigOpen,
+    visualizerMode, setVisualizerMode,
+    visualizerSpeed,
+    visualizerColor1, setVisualizerColor1,
+    visualizerColor2, setVisualizerColor2,
+    visualizerDensity,
+    visualizerInvertY,
+    visualizerScaleY,
+    waveFormPreset, setWaveFormPreset,
+    waveFormDouble, setWaveFormDouble,
+    maxAmplitude, setMaxAmplitude,
+    waveFreq, setWaveFreq,
+    colorBackground, setColorBackground,
+    colorsFollowMusic, setColorsFollowMusic,
+    autoOrbit, setAutoOrbit,
+    gridPreset, setGridPreset,
+    selectedPalette, setSelectedPalette,
+    toggleVisualizerFromNav,
+    resetVisualizerSettings,
+  } = useVisualizerSettings();
   // Single shared mic stream for both the nav's pulsing indicator and the
   // 3D visualizer's particle motion - only requested while the visualizer
   // is actually on.
@@ -370,27 +339,6 @@ export default function Page() {
     level: micLevel, burst: micBurst, levelRef: micLevelRef,
     bandsRef: micBandsRef, burstRef: micBurstRef, status: micStatus,
   } = useMicLevel(visualizerEnabled);
-  const [visualizerConfigOpen, setVisualizerConfigOpen] = useState(false);
-  const [visualizerMode, setVisualizerMode] = useState<VisualizerMode>('orb');
-  const [visualizerSpeed, setVisualizerSpeed] = useState(0.3);
-  const [visualizerColor1, setVisualizerColor1] = useState('#4a90e2');
-  const [visualizerColor2, setVisualizerColor2] = useState('#7b68ee');
-  const [visualizerDensity, setVisualizerDensity] = useState(0.5);
-  const [visualizerInvertY, setVisualizerInvertY] = useState(false);
-  const [visualizerScaleY, setVisualizerScaleY] = useState(true);
-  // New wave form settings
-  const [waveFormPreset, setWaveFormPreset] = useState<'default' | 'custom'>('default');
-  const [waveFormDouble, setWaveFormDouble] = useState(false);
-  const [maxAmplitude, setMaxAmplitude] = useState(1.36);
-  const [waveFreq, setWaveFreq] = useState(2.0);
-  // New general settings
-  const [colorBackground, setColorBackground] = useState(false);
-  const [colorsFollowMusic, setColorsFollowMusic] = useState(false);
-  const [autoOrbit, setAutoOrbit] = useState(false);
-  // Grid presets
-  const [gridPreset, setGridPreset] = useState<'default' | 'bands' | 'custom'>('default');
-  // Palette selection
-  const [selectedPalette, setSelectedPalette] = useState(0);
 
   // Parallel orchestration - no UI control sets this, pinned at its default.
   const [runParallel] = useState(false);
@@ -853,49 +801,6 @@ export default function Page() {
       inputRef.current?.focus();
     });
   };
-
-  // iOS Safari (the dominant mobile browser on the one platform where this
-  // app has no alternative rendering engine) has no Fullscreen API support -
-  // document.fullscreenEnabled is false there. Without this check the button
-  // below rendered unconditionally and just silently did nothing when
-  // tapped, unlike every other unsupported-feature control in this file
-  // (dictation, image-gen) which hide themselves instead of looking broken.
-  // useSyncExternalStore reads this browser-only value without a
-  // setState-in-effect: the server snapshot is always `false` (matching SSR,
-  // where `document` doesn't exist), and the real value is read on the
-  // client during render, avoiding a hydration mismatch and the extra
-  // post-mount render a `useEffect` + `useState` pair would cause.
-  const isFullscreenSupported = useSyncExternalStore(
-    fullscreenSupportSubscribe,
-    getFullscreenSupportSnapshot,
-    getFullscreenSupportServerSnapshot
-  );
-
-  const toggleFullscreen = async () => {
-    try {
-      if (!document.fullscreenElement) {
-        // Enter fullscreen
-        await document.documentElement.requestFullscreen();
-        setIsFullscreen(true);
-      } else {
-        // Exit fullscreen
-        await document.exitFullscreen();
-        setIsFullscreen(false);
-      }
-    } catch (error) {
-      console.error('Fullscreen toggle error:', error);
-    }
-  };
-
-  // Listen for fullscreen changes (e.g., user pressing ESC)
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
 
   const handleExportChat = () => {
     const text = history.map(h => {
@@ -1531,67 +1436,16 @@ export default function Page() {
   };
 
   // Keyboard shortcuts
-  useEffect(() => {
-    // Whether the key event originated in a text input/textarea/contentEditable
-    // element - guards single-character shortcuts (like "?") so they don't
-    // hijack normal typing. Modifier-combo shortcuts (Cmd+K etc.) don't need
-    // this: holding Cmd/Ctrl means no character is actually being typed.
-    const isTypingTarget = (target: EventTarget | null) => {
-      const el = target as HTMLElement | null;
-      if (!el) return false;
-      const tag = el.tagName;
-      return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + Enter to submit
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        e.preventDefault();
-        if (!isProcessing && query.trim()) {
-          handleSubmit(e);
-        }
-        return;
-      }
-      // Escape to stop
-      if (e.key === 'Escape' && isProcessing) {
-        handleStop();
-        return;
-      }
-      // Cmd/Ctrl + K - open the quick-actions command palette
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setIsCommandPaletteOpen(true);
-        return;
-      }
-      // Cmd/Ctrl + Shift + O - start a new chat (matches Claude.ai; avoids
-      // Cmd+N, which browsers/OSes reserve for "new window")
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
-        e.preventDefault();
-        startNewChat();
-        return;
-      }
-      // Cmd/Ctrl + , - open settings (standard app-preferences convention)
-      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
-        e.preventDefault();
-        setIsSettingsOpen(true);
-        return;
-      }
-      // ? - open the shortcuts help overlay, but only outside of text input
-      // (so typing a literal "?" in the composer or a search box works normally)
-      if (e.key === '?' && !isTypingTarget(e.target)) {
-        e.preventDefault();
-        setIsShortcutsHelpOpen(true);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-    // handleSubmit/handleStop/startNewChat intentionally omitted: they're
-    // recreated every render (not memoized) and this effect already
-    // re-subscribes on every query/isProcessing change, so including them
-    // would add churn with no behavioral difference.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, isProcessing]);
+  useKeyboardShortcuts({
+    query,
+    isProcessing,
+    onSubmit: handleSubmit,
+    onStop: handleStop,
+    onNewChat: startNewChat,
+    onOpenCommandPalette: () => setIsCommandPaletteOpen(true),
+    onOpenSettings: () => setIsSettingsOpen(true),
+    onOpenShortcutsHelp: () => setIsShortcutsHelpOpen(true),
+  });
 
   // Small 3-dot "thinking" indicator, reused for both the single-model
   // "processing" state and each Multi-Perspective card while that model is
@@ -1746,24 +1600,7 @@ export default function Page() {
         onGridPresetChange={setGridPreset}
         selectedPalette={selectedPalette}
         onSelectedPaletteChange={setSelectedPalette}
-        onReset={() => {
-          setVisualizerMode('orb');
-          setVisualizerSpeed(0.3);
-          setVisualizerColor1('#ff6b35');
-          setVisualizerColor2('#00d4ff');
-          setVisualizerDensity(0.5);
-          setVisualizerInvertY(false);
-          setVisualizerScaleY(true);
-          setWaveFormPreset('default');
-          setWaveFormDouble(false);
-          setMaxAmplitude(1.36);
-          setWaveFreq(2.0);
-          setColorBackground(false);
-          setColorsFollowMusic(false);
-          setAutoOrbit(false);
-          setGridPreset('default');
-          setSelectedPalette(0);
-        }}
+        onReset={resetVisualizerSettings}
       />
 
       {/* Navigation - a slim desktop icon rail (SidebarRail) replacing the
@@ -1787,14 +1624,7 @@ export default function Page() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           showVisualizerButton={showVisualizerButton}
           visualizerEnabled={visualizerEnabled}
-          onToggleVisualizer={() => {
-            // Single click both toggles the visualizer directly (this
-            // control visually reads as a toggle, so it needs to behave
-            // like one) and opens the settings panel so mode/color options
-            // stay reachable - same behavior the old nav button had.
-            setVisualizerEnabled(!visualizerEnabled);
-            setVisualizerConfigOpen(true);
-          }}
+          onToggleVisualizer={toggleVisualizerFromNav}
           micStatus={micStatus}
           micLevel={micLevel}
           micBurst={micBurst}
@@ -1808,10 +1638,7 @@ export default function Page() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           showVisualizerButton={showVisualizerButton}
           visualizerEnabled={visualizerEnabled}
-          onToggleVisualizer={() => {
-            setVisualizerEnabled(!visualizerEnabled);
-            setVisualizerConfigOpen(true);
-          }}
+          onToggleVisualizer={toggleVisualizerFromNav}
         />
         <TopStrip isChatMode={isChatMode} focusMode={focusMode} isMobile={isMobile} />
       </div>
@@ -1845,15 +1672,7 @@ export default function Page() {
             neuralNoiseEnabled={neuralNoiseEnabled}
             setNeuralNoiseEnabled={setNeuralNoiseEnabled}
             showVisualizerButton={showVisualizerButton}
-            setShowVisualizerButton={(value) => {
-              setShowVisualizerButton(value);
-              if (!value) {
-                // The nav button is the visualizer's only on/off control -
-                // hiding it while the visualizer is still running would leave
-                // it stuck on with no way to turn it off.
-                setVisualizerEnabled(false);
-              }
-            }}
+            setShowVisualizerButton={setShowVisualizerButton}
             availableModels={availableModels}
           />
         )}
