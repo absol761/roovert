@@ -123,6 +123,8 @@ Optional environment variables:
 - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` - shared rate-limit storage (required for multi-instance production deployments)
 - `NEXT_PUBLIC_SEGMENT_WRITE_KEY` - Segment.io write key for anonymous analytics (get from [app.segment.com](https://app.segment.com/))
 
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment walkthrough (Vercel dashboard/CLI, verification, troubleshooting), [docs/CUSTOM_DOMAIN_SETUP.md](docs/CUSTOM_DOMAIN_SETUP.md) for pointing a custom domain at your deployment, and [docs/SECURITY.md](docs/SECURITY.md) for the current security posture.
+
 ## Design
 
 The interface supports multiple visual themes and layouts. Users can customize the appearance, font size, and layout style. The design emphasizes clarity and performance with smooth animations and responsive layouts.
