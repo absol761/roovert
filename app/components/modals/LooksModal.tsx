@@ -1,9 +1,11 @@
 'use client';
 
+import { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Palette, X } from 'lucide-react';
 import { LOOKS, LOOK_CATEGORIES } from '../../lib/looks';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MODAL_TRANSITION, EASE_OUT } from '../../lib/motion';
 
 interface LooksModalProps {
@@ -15,6 +17,8 @@ interface LooksModalProps {
 
 export function LooksModal({ isOpen, onClose, currentLook, setLook }: LooksModalProps) {
   useModalDismiss(isOpen, onClose);
+  const containerRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isOpen, containerRef);
   if (!isOpen) return null;
 
   const looksByCategory = LOOK_CATEGORIES.map(cat => ({
@@ -26,9 +30,11 @@ export function LooksModal({ isOpen, onClose, currentLook, setLook }: LooksModal
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
       <motion.div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="looks-modal-title"
+        tabIndex={-1}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}

@@ -1,8 +1,10 @@
 'use client';
 
+import { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Keyboard, X } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface ShortcutsHelpModalProps {
   isOpen: boolean;
@@ -23,15 +25,19 @@ const SHORTCUTS: Array<{ keys: string[]; description: string }> = [
 
 export function ShortcutsHelpModal({ isOpen, onClose }: ShortcutsHelpModalProps) {
   useModalDismiss(isOpen, onClose);
+  const containerRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isOpen, containerRef);
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
       <motion.div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="shortcuts-modal-title"
+        tabIndex={-1}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
