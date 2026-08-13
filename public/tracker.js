@@ -63,12 +63,12 @@
           // Could update a global counter here if needed
         }
       })
-      .catch(function(error) {
+      .catch(function() {
         clearTimeout(timeoutId);
         // Silently fail - tracking should never break the page
         // Suppress all errors - tracking is non-critical
       });
-    } catch (e) {
+    } catch {
       // Silently fail - tracking should never break the page
     }
   });

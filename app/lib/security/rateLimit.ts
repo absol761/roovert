@@ -255,13 +255,18 @@ async function checkAndConsumeRateLimit(
  * the quota itself. Kept as a no-op so existing call sites (every API
  * route calls this after applyRateLimit) don't need to change and don't
  * silently double-count if this file is touched again later.
+ *
+ * `endpointType` is kept in the signature (but intentionally unused)
+ * purely so every existing call site - which all pass it positionally -
+ * keeps type-checking without modification. `customConfig` was dropped
+ * since no call site has ever passed one.
  */
 export async function incrementRateLimit(
   _request: { headers: { get: (key: string) => string | null } },
-  _endpointType: keyof typeof DEFAULT_LIMITS = 'general',
-  _customConfig?: Partial<RateLimitConfig>
+  endpointType: keyof typeof DEFAULT_LIMITS = 'general'
 ): Promise<void> {
   // Intentionally a no-op - see checkAndConsumeRateLimit.
+  void endpointType;
 }
 
 /**

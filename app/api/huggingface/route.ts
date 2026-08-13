@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
                       }
                     }
                   }
-                } catch (parseError) {
+                } catch {
                   // Skip malformed JSON
                 }
               }
@@ -318,8 +318,8 @@ export async function POST(request: NextRequest) {
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ content: getUserFriendlyErrorMessage('generic'), done: true })}\n\n`)
               );
-            } catch (ignore) { }
-            try { controller.close(); } catch (ignore) { }
+            } catch { }
+            try { controller.close(); } catch { }
           }
         },
       });
