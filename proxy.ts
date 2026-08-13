@@ -8,7 +8,7 @@ import { applyRateLimit } from './app/lib/security/rateLimit';
 // of this general one.
 const GENERAL_CONFIG = { windowMs: 60 * 1000, maxRequests: 30 };
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Only apply rate limiting to API routes
   if (!request.nextUrl.pathname.startsWith('/api/')) {
     return NextResponse.next();
