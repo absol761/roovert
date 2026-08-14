@@ -96,7 +96,7 @@ export function validateModelId(
 /**
  * A single content part of a multimodal (text + image) message.
  */
-export interface MessageTextContent {
+interface MessageTextContent {
   type: 'text';
   text: string;
 }
@@ -224,7 +224,7 @@ export function validateImage(image: unknown): { valid: boolean; error?: string;
  * Fields produced by validateAIQueryRequest once a payload has passed
  * validation - i.e. the shape consumers can rely on.
  */
-export interface SanitizedAIQueryRequest {
+interface SanitizedAIQueryRequest {
   query: string;
   model?: string;
   systemPrompt?: string;
@@ -430,7 +430,7 @@ export function validateTrackingRequest(
  * Fields produced by validateFeedbackRequest once a payload has passed
  * validation.
  */
-export interface SanitizedFeedbackRequest {
+interface SanitizedFeedbackRequest {
   rating: 'up' | 'down';
   modelId: string;
 }
