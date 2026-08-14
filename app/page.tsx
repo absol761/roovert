@@ -292,11 +292,14 @@ export default function Page() {
     ...(hideOpenRouterModels ? [] : OPENROUTER_MODELS),
   ];
 
-  // Default selection stays Multi-Perspective (the flagship feature) by id,
-  // not by array position - the HF-first ordering above would otherwise
-  // silently change which model a fresh visitor starts with.
+  // Default selection is Llama 3.3 70B, not Multi-Perspective. Multi-
+  // Perspective and every Hugging Face/OpenRouter model currently fail on
+  // load (HF: depleted Inference Providers credits; OpenRouter: invalid
+  // API key; Ooverta/Llama 4 Scout: erroring on Groq's side) - Llama 3.3
+  // 70B and 3.1 8B are the only models confirmed working, so a fresh
+  // visitor should land on one of those instead of a broken default.
   const [selectedModelId, setSelectedModelId] = useState(
-    availableModels.find(m => m.id === 'multi-perspective')?.id || availableModels[0]?.id || MODELS[0].id
+    availableModels.find(m => m.id === 'llama-3.3-70b')?.id || availableModels[0]?.id || MODELS[0].id
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   // Lifted out of SidebarRail so the main content area and composer bar can
@@ -375,8 +378,12 @@ export default function Page() {
   const [runParallel] = useState(false);
   // Response length (Short/Medium/Long) - like responseStyle above, lazily
   // hydrated from localStorage since this only ever runs client-side.
+  // Defaults to 'small' (800 max output tokens vs. medium's 2000) to keep
+  // per-request cost down against the paid providers (HF, OpenRouter) -
+  // relevant after burning through HF's included Inference Providers
+  // credits faster than expected on the larger HF models.
   const [outputLength, setOutputLength] = useState<OutputLength>(() => {
-    if (typeof window === 'undefined') return 'medium';
+    if (typeof window === 'undefined') return 'small';
     const saved = window.localStorage.getItem(OUTPUT_LENGTH_STORAGE_KEY);
     return saved === 'small' || saved === 'large' ? saved : 'medium';
   });
@@ -390,8 +397,11 @@ export default function Page() {
     ...MODELS.filter(m => m.id !== 'multi-perspective'),
     ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
   ];
-  const [parallelModel1, setParallelModel1] = useState(combineModels[0]?.id || 'ooverta');
-  const [parallelModel2, setParallelModel2] = useState(combineModels[1]?.id || 'llama-3.3-70b');
+  // Ooverta (Llama 4 Scout) currently errors on Groq's side, so it's a bad
+  // default combine leg alongside Llama 3.3 70B - default to the other
+  // confirmed-working Groq model instead.
+  const [parallelModel1, setParallelModel1] = useState('llama-3.1-8b');
+  const [parallelModel2, setParallelModel2] = useState('llama-3.3-70b');
   // Live per-model text for an in-flight Multi-Perspective request, keyed by
   // model id (e.g. parallelModel1's value). Null when not in a
   // multi-perspective request.
