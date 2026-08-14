@@ -5,6 +5,7 @@ import {
   validateString,
   validateModelId,
   validateConversationHistory,
+  historyContentToText,
   validateImage,
   validateAIQueryRequest,
   validateTrackingRequest,
@@ -149,6 +150,40 @@ describe('validateConversationHistory', () => {
     const result = validateConversationHistory([null]);
     expect(result.valid).toBe(false);
     expect(result.error).toMatch(/is invalid/);
+  });
+});
+
+describe('historyContentToText', () => {
+  it('passes plain string content through unchanged', () => {
+    expect(historyContentToText('hello there')).toBe('hello there');
+  });
+
+  it('extracts the text portion of multimodal content, dropping the image', () => {
+    expect(historyContentToText([
+      { type: 'text', text: 'what is this' },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
+    ])).toBe('what is this');
+  });
+
+  it('joins multiple text parts with a space', () => {
+    expect(historyContentToText([
+      { type: 'text', text: 'first part' },
+      { type: 'text', text: 'second part' },
+    ])).toBe('first part second part');
+  });
+
+  it('returns null for an image with no caption text at all', () => {
+    expect(historyContentToText([
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
+    ])).toBeNull();
+  });
+
+  it('returns null for whitespace-only text content', () => {
+    expect(historyContentToText([{ type: 'text', text: '   ' }])).toBeNull();
+  });
+
+  it('returns null for an empty content array', () => {
+    expect(historyContentToText([])).toBeNull();
   });
 });
 

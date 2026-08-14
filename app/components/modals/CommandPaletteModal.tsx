@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 export interface CommandAction {
   id: string;
@@ -30,14 +31,16 @@ export function CommandPaletteModal({ isOpen, onClose, actions }: CommandPalette
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // The parent only mounts this component while isOpen is true (it's
   // conditionally rendered inside an AnimatePresence block), so every open
   // is a fresh mount - query/activeIndex already start at their initial
-  // values above with no reset effect needed. Just focus the input.
-  useEffect(() => {
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
+  // values above with no reset effect needed. useFocusTrap moves focus to
+  // the first focusable element in the dialog on open (the search input,
+  // since it's first in DOM order), traps Tab/Shift+Tab inside it, and
+  // returns focus to the trigger on close.
+  useFocusTrap(isOpen, containerRef);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -95,9 +98,11 @@ export function CommandPaletteModal({ isOpen, onClose, actions }: CommandPalette
     <div className="fixed inset-0 z-[130] flex items-start justify-center p-4 pt-[12vh] text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
       <motion.div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
+        tabIndex={-1}
         initial={{ opacity: 0, scale: 0.97, y: -8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: -8 }}

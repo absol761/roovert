@@ -244,11 +244,14 @@ function OrbHalo({
     return result;
   });
 
-  const { positions, colors, sizes } = useMemo(() => ({
-    positions: new Float32Array(count * 3),
-    colors: new Float32Array(count * 3),
-    sizes: new Float32Array(count),
-  }), []);
+  const buffersRef = useRef<{ positions: Float32Array; colors: Float32Array; sizes: Float32Array } | null>(null);
+  if (buffersRef.current == null) {
+    buffersRef.current = {
+      positions: new Float32Array(count * 3),
+      colors: new Float32Array(count * 3),
+      sizes: new Float32Array(count),
+    };
+  }
 
   useFrame(() => {
     const points = pointsRef.current;
@@ -260,6 +263,7 @@ function OrbHalo({
     const c1 = hexToRgbVec(color1);
     const c2 = hexToRgbVec(color2);
     const audioPulse = bands.bass * 0.5 + burst * 0.6;
+    const { positions, colors, sizes } = buffersRef.current!;
 
     for (let i = 0; i < count; i++) {
       const p = particles[i];

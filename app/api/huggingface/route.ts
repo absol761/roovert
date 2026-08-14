@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSystemPrompt, filterResponse, containsOffensiveContent } from '../../lib/prompts';
 import { applyRateLimit, incrementRateLimit, getRateLimitStatus } from '../../lib/security/rateLimit';
-import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse, MAX_LENGTHS } from '../../lib/security/validation';
+import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse, historyContentToText, MAX_LENGTHS } from '../../lib/security/validation';
 import { HUGGINGFACE_MODEL_MAP, extractThinkChunks, type ThinkState } from '../../lib/huggingface';
 
 // Route segment config
@@ -153,12 +153,15 @@ export async function POST(request: NextRequest) {
         // Security: only 'user'/'assistant' are accepted here - a client-
         // supplied 'system' role would otherwise let conversationHistory
         // smuggle in a fake system-level instruction (prompt injection).
-        if (msg && typeof msg === 'object' && msg.role && msg.content &&
-          (msg.role === 'user' || msg.role === 'assistant') &&
-          typeof msg.content === 'string' && msg.content.length <= MAX_LENGTHS.MESSAGE_CONTENT) {
+        if (!msg || typeof msg !== 'object' || !msg.role || !msg.content ||
+          (msg.role !== 'user' && msg.role !== 'assistant')) {
+          continue;
+        }
+        const textContent = historyContentToText(msg.content);
+        if (textContent !== null && textContent.length <= MAX_LENGTHS.MESSAGE_CONTENT) {
           messages.push({
             role: msg.role,
-            content: msg.content,
+            content: textContent,
           });
         }
       }
@@ -270,7 +273,7 @@ export async function POST(request: NextRequest) {
                       }
                     }
                   }
-                } catch (parseError) {
+                } catch {
                   // Skip malformed JSON
                 }
               }
@@ -318,8 +321,8 @@ export async function POST(request: NextRequest) {
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ content: getUserFriendlyErrorMessage('generic'), done: true })}\n\n`)
               );
-            } catch (ignore) { }
-            try { controller.close(); } catch (ignore) { }
+            } catch { }
+            try { controller.close(); } catch { }
           }
         },
       });

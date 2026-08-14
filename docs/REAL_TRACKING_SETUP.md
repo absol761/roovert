@@ -1,6 +1,8 @@
 # How to Enable Real User Tracking
 
-To track **actual unique visitors** persistently, you need to connect a database (Vercel KV). Otherwise, the count resets on every deployment or falls back to a simulation.
+To track **actual unique visitors** persistently, you need to connect a database (Vercel KV). Otherwise, tracking falls back to local SQLite (`app/lib/db.ts`), which doesn't work on Vercel's serverless runtime and isn't persisted across deployments there.
+
+This is one piece of the broader environment setup covered in [DEPLOYMENT.md](./DEPLOYMENT.md) — see that doc for the full environment variable list.
 
 ## Step 1: Create Vercel KV Database
 1. Go to your [Vercel Dashboard](https://vercel.com/dashboard).

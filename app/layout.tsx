@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import Script from "next/script";
+import { headers } from "next/headers";
 import "./globals.css";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -57,16 +58,23 @@ export const viewport: Viewport = {
   themeColor: "#1c1917",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Set by proxy.ts on every page request so this inline <script> can carry
+  // a nonce matching the one in the Content-Security-Policy header - without
+  // it the browser would refuse to execute the script now that script-src
+  // no longer includes 'unsafe-inline'.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="en">
       <head>
         {/* Suppress play() Promise rejection errors from browser extensions/third-party scripts */}
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `
               // Suppress errors from browser extensions and third-party scripts
