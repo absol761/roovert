@@ -1,8 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSystemPrompt, filterResponse, containsOffensiveContent } from '../../lib/prompts';
-import { applyRateLimit, incrementRateLimit, getRateLimitStatus } from '../../lib/security/rateLimit';
+import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
 import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse, MAX_LENGTHS } from '../../lib/security/validation';
 import { HUGGINGFACE_MODEL_MAP, extractThinkChunks, type ThinkState } from '../../lib/huggingface';
+import { sseError } from '../../lib/security/sse';
+import { resolveMaxTokens } from '../../lib/ai/tokens';
+import { parseOpenAISSEStream } from '../../lib/ai/parseOpenAISSEStream';
+import { rateLimitStatusHandler } from '../../lib/security/rateLimitHelpers';
 
 // Route segment config
 export const maxDuration = 60;
@@ -94,40 +98,21 @@ export async function POST(request: NextRequest) {
     // Use sanitized payload
     const { query, model, systemPrompt: customSystemPrompt, conversationHistory, image, outputLength } = validation.sanitized!;
 
-    // Response length control - mirrors query-gateway's maxTokensMap so the
-    // setting has the same effect regardless of which provider handles the
-    // model.
-    const maxTokensMap = { small: 800, medium: 2000, large: 4000 };
-    const maxTokens = maxTokensMap[outputLength as 'small' | 'medium' | 'large'] || maxTokensMap.medium;
+    // Response length control - mirrors query-gateway's max_tokens handling so
+    // the setting has the same effect regardless of which provider handles
+    // the model.
+    const maxTokens = resolveMaxTokens(outputLength);
 
     // Security: Content moderation - check for offensive content
     const queryCheck = containsOffensiveContent(query);
     if (queryCheck.isOffensive) {
-      return new Response(
-        `data: ${JSON.stringify({ content: "I apologize, but I cannot assist with that type of request. Please ask me something else, and I'll be happy to help.", done: true })}\n\n`,
-        {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        }
-      );
+      return sseError("I apologize, but I cannot assist with that type of request. Please ask me something else, and I'll be happy to help.");
     }
 
     // Security: API key validation - ensure key exists in environment (never exposed to client)
     if (!process.env.HUGGINGFACE_API_KEY) {
       console.error('HUGGINGFACE_API_KEY is missing from environment variables');
-      return new Response(
-        `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage('unavailable'), done: true })}\n\n`,
-        {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        }
-      );
+      return sseError(getUserFriendlyErrorMessage('unavailable'));
     }
 
     // Security: Model selection - use validated model from allowlist only
@@ -189,16 +174,7 @@ export async function POST(request: NextRequest) {
         const errorText = await hfResponse.text();
         console.error('Hugging Face API error:', hfResponse.status, errorText);
         const errorType = getErrorType(hfResponse.status, errorText);
-        return new Response(
-          `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(errorType), done: true })}\n\n`,
-          {
-            headers: {
-              'Content-Type': 'text/event-stream',
-              'Cache-Control': 'no-cache',
-              'Connection': 'keep-alive',
-            },
-          }
-        );
+        return sseError(getUserFriendlyErrorMessage(errorType));
       }
 
       // Security: Increment rate limit after successful request
@@ -210,65 +186,41 @@ export async function POST(request: NextRequest) {
       const stream = new ReadableStream({
         async start(controller) {
           const encoder = new TextEncoder();
-          const decoder = new TextDecoder();
           let fullResponse = '';
           let fullReasoning = '';
           let thinkState: ThinkState = { insideThink: false, pending: '' };
 
           try {
-            const reader = hfResponse.body?.getReader();
-            if (!reader) throw new Error('No response body');
+            if (!hfResponse.body) throw new Error('No response body');
 
-            let buffer = '';
+            for await (const delta of parseOpenAISSEStream(hfResponse.body)) {
+              // Kimi K3 shape: reasoning arrives pre-split in its own field.
+              const reasoningContent = delta?.reasoning_content;
+              if (typeof reasoningContent === 'string' && reasoningContent) {
+                fullReasoning += reasoningContent;
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ reasoning: reasoningContent, done: false })}\n\n`)
+                );
+              }
 
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split('\n');
-              buffer = lines.pop() || '';
-
-              for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || trimmed === 'data: [DONE]') continue;
-                if (!trimmed.startsWith('data: ')) continue;
-
-                try {
-                  const json = JSON.parse(trimmed.slice(6));
-                  const delta = json.choices?.[0]?.delta;
-
-                  // Kimi K3 shape: reasoning arrives pre-split in its own field.
-                  const reasoningContent = delta?.reasoning_content;
-                  if (typeof reasoningContent === 'string' && reasoningContent) {
-                    fullReasoning += reasoningContent;
+              // DeepSeek R1 shape (and default passthrough for every other
+              // model): plain content, possibly inlining <think> tags.
+              const content = delta?.content;
+              if (content) {
+                const result = extractThinkChunks(content as string, thinkState);
+                thinkState = result.state;
+                for (const chunk of result.chunks) {
+                  if (chunk.type === 'reasoning') {
+                    fullReasoning += chunk.text;
                     controller.enqueue(
-                      encoder.encode(`data: ${JSON.stringify({ reasoning: reasoningContent, done: false })}\n\n`)
+                      encoder.encode(`data: ${JSON.stringify({ reasoning: chunk.text, done: false })}\n\n`)
+                    );
+                  } else {
+                    fullResponse += chunk.text;
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ content: chunk.text, done: false })}\n\n`)
                     );
                   }
-
-                  // DeepSeek R1 shape (and default passthrough for every other
-                  // model): plain content, possibly inlining <think> tags.
-                  const content = delta?.content;
-                  if (content) {
-                    const result = extractThinkChunks(content, thinkState);
-                    thinkState = result.state;
-                    for (const chunk of result.chunks) {
-                      if (chunk.type === 'reasoning') {
-                        fullReasoning += chunk.text;
-                        controller.enqueue(
-                          encoder.encode(`data: ${JSON.stringify({ reasoning: chunk.text, done: false })}\n\n`)
-                        );
-                      } else {
-                        fullResponse += chunk.text;
-                        controller.enqueue(
-                          encoder.encode(`data: ${JSON.stringify({ content: chunk.text, done: false })}\n\n`)
-                        );
-                      }
-                    }
-                  }
-                } catch (parseError) {
-                  // Skip malformed JSON
                 }
               }
             }
@@ -334,56 +286,15 @@ export async function POST(request: NextRequest) {
       // Security: Still increment rate limit on error (to prevent retry abuse)
       await incrementRateLimit(request, 'huggingface');
       await incrementRateLimit(request, 'ai-query');
-      return new Response(
-        `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage('generic'), done: true })}\n\n`,
-        {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        }
-      );
+      return sseError(getUserFriendlyErrorMessage('generic'));
     }
   } catch (error) {
     console.error('Query processing error:', error);
-    return new Response(
-      `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage('generic'), done: true })}\n\n`,
-      {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      }
-    );
+    return sseError(getUserFriendlyErrorMessage('generic'));
   }
 }
 
 // GET endpoint to check rate limit status
 export async function GET(request: NextRequest) {
-  // Security: Apply rate limiting to status check endpoint
-  const rateLimitResponse = await applyRateLimit(request, 'stats');
-  if (rateLimitResponse) {
-    try {
-      const errorData = await rateLimitResponse.json();
-      return NextResponse.json(errorData, {
-        status: 429,
-        headers: Object.fromEntries(rateLimitResponse.headers.entries())
-      });
-    } catch {
-      return rateLimitResponse;
-    }
-  }
-
-  const status = await getRateLimitStatus(request, 'huggingface');
-  await incrementRateLimit(request, 'stats');
-
-  return NextResponse.json({
-    shouldHide: status.isBlocked,
-    count: status.count,
-    limit: status.limit,
-    remaining: status.remaining,
-    resetAt: status.resetAt,
-  });
+  return rateLimitStatusHandler(request, 'huggingface');
 }

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSystemPrompt, filterResponse, containsOffensiveContent } from '../../lib/prompts';
-import { applyRateLimit, incrementRateLimit, getRateLimitStatus } from '../../lib/security/rateLimit';
+import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
 import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse, MAX_LENGTHS } from '../../lib/security/validation';
+import { sseError } from '../../lib/security/sse';
+import { resolveMaxTokens } from '../../lib/ai/tokens';
+import { parseOpenAISSEStream } from '../../lib/ai/parseOpenAISSEStream';
+import { rateLimitStatusHandler } from '../../lib/security/rateLimitHelpers';
 
 // Route segment config
 export const maxDuration = 60;
@@ -73,20 +77,7 @@ export async function POST(request: NextRequest) {
     // actually consumed and this limit never triggered.
     const openRouterRateLimitResponse = await applyRateLimit(request, 'openrouter');
     if (openRouterRateLimitResponse) {
-      return new Response(
-        `data: ${JSON.stringify({ 
-          content: getUserFriendlyErrorMessage('rate_limit'), 
-          done: true 
-        })}\n\n`,
-        {
-          status: 429,
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        }
-      );
+      return sseError(getUserFriendlyErrorMessage('rate_limit'), 429);
     }
 
     // Security: Validate request body size before parsing
@@ -348,28 +339,5 @@ export async function POST(request: NextRequest) {
 
 // GET endpoint to check rate limit status
 export async function GET(request: NextRequest) {
-  // Security: Apply rate limiting to status check endpoint
-  const rateLimitResponse = await applyRateLimit(request, 'stats');
-  if (rateLimitResponse) {
-    try {
-      const errorData = await rateLimitResponse.json();
-      return NextResponse.json(errorData, {
-        status: 429,
-        headers: Object.fromEntries(rateLimitResponse.headers.entries())
-      });
-    } catch {
-      return rateLimitResponse;
-    }
-  }
-
-  const status = await getRateLimitStatus(request, 'openrouter');
-  await incrementRateLimit(request, 'stats');
-  
-  return NextResponse.json({
-    shouldHide: status.isBlocked,
-    count: status.count,
-    limit: status.limit,
-    remaining: status.remaining,
-    resetAt: status.resetAt,
-  });
+  return rateLimitStatusHandler(request, 'openrouter');
 }

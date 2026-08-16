@@ -367,20 +367,11 @@ export function validateAIQueryRequest(
 }
 
 /**
- * Fields produced by validateTrackingRequest once a payload has passed
- * validation.
- */
-export interface SanitizedTrackingRequest {
-  visitorId?: string;
-  fingerprint?: string;
-}
-
-/**
  * Validate tracking request payload
  */
 export function validateTrackingRequest(
   payload: Record<string, unknown>
-): { valid: boolean; errors: string[]; sanitized?: SanitizedTrackingRequest } {
+): { valid: boolean; errors: string[]; sanitized?: { visitorId?: string; fingerprint?: string } } {
   const errors: string[] = [];
 
   // Validate visitorId (optional)
