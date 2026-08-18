@@ -817,6 +817,17 @@ textarea:focus {
   opacity: 0.9;
 }
 
+/* Thin scrollbar for horizontally-scrolling rows (e.g. the composer
+   toolbar) - same accent-colored thin-scrollbar look as .custom-scrollbar
+   below, but without forcing a vertical overflow-y/overflow-x axis so it
+   can be paired with Tailwind's overflow-x-auto on the element itself. */
+.scrollbar-thin-x {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--background);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
 /* Smooth scrolling container - GPU accelerated */
 .custom-scrollbar {
   scroll-behavior: smooth;
