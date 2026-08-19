@@ -2424,3 +2424,56 @@ textarea:focus {
     @apply font-sans;
   }
 }
+
+/* ============================================================
+   SKEUOMORPHIC LOOK ("Leatherbound") — see
+   docs/design/SKEUOMORPHIC_LOOK_SPEC.md for the full spec.
+   ============================================================ */
+
+/* §3b: Embossed panel with stitched edge. Targets .glass-panel and
+   .intel-card — the shared card/panel classes used for response cards, the
+   model-picker panel, and modal-adjacent surfaces throughout app/page.tsx.
+   Adds a dashed inset border (::after) to depict brass-thread top-stitching.
+   .glass-panel already defines its own ::before for a glass-refraction
+   highlight — this rule deliberately uses ::after instead so the two don't
+   collide; the existing ::before is left in place. */
+[data-look='skeuomorphic'] .glass-panel,
+[data-look='skeuomorphic'] .intel-card {
+  background: linear-gradient(160deg, rgba(84, 62, 43, 0.92) 0%, rgba(43, 30, 21, 0.95) 100%) !important;
+  border: 1px solid rgba(20, 13, 7, 0.6) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-look='skeuomorphic'] .glass-panel::after,
+[data-look='skeuomorphic'] .intel-card::after {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: calc(var(--panel-radius, 16px) - 9px);
+  border: 1.5px dashed rgba(195, 138, 66, 0.4);
+  pointer-events: none;
+}
+
+/* §3c: Global surface/background texture. Body gradient + fine grain,
+   following the same pattern retrowave/evergreen use (body sets the base
+   gradient, body::before layers a decorative texture at reduced opacity —
+   the shared base rule for body::before lives earlier in this file and is
+   position: fixed; inset: 0; z-index: -1; pointer-events: none, so this
+   per-look override only needs to set background/opacity). The grain uses
+   an inline SVG feTurbulence filter encoded as a data: URI — zero binary
+   image assets, per the project constraint. */
+[data-look='skeuomorphic'] body {
+  background:
+    radial-gradient(ellipse 900px 500px at 20% -10%, rgba(255, 226, 178, 0.05), transparent 60%),
+    linear-gradient(165deg, #3e2b1e 0%, #2c1e15 55%, #241910 100%);
+  background-attachment: fixed;
+}
+
+[data-look='skeuomorphic'] body::before {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E"),
+    radial-gradient(circle at 80% 90%, rgba(0, 0, 0, 0.25), transparent 55%);
+  background-size: 140px 140px, cover;
+  mix-blend-mode: overlay;
+  opacity: 0.5;
+}
