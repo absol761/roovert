@@ -236,12 +236,20 @@ function validateCustomProvider(raw: unknown, index: number, takenIds: Set<strin
     return null;
   }
 
-  // Deployer-supplied but still worth catching a typo'd URL early rather
-  // than failing obscurely on first request.
+  // Deployer-supplied but still worth catching a typo'd or non-http(s)
+  // URL early rather than failing obscurely on first request. `new URL()`
+  // alone only confirms the string is *some* parseable URL - schemes like
+  // "file:" or a bare "localhost:8000" (parsed as scheme "localhost") pass
+  // that check silently, so the protocol is checked explicitly too.
+  let parsedBaseURL: URL;
   try {
-    void new URL(baseURL);
+    parsedBaseURL = new URL(baseURL);
   } catch {
     console.error(`[providers] CUSTOM_PROVIDERS[${index}] ("${id}") has an invalid baseURL "${baseURL}" - skipping it.`);
+    return null;
+  }
+  if (parsedBaseURL.protocol !== 'http:' && parsedBaseURL.protocol !== 'https:') {
+    console.error(`[providers] CUSTOM_PROVIDERS[${index}] ("${id}") has a non-http(s) baseURL "${baseURL}" - skipping it.`);
     return null;
   }
 

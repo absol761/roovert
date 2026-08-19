@@ -319,11 +319,11 @@ describe('parseCustomProviders - adversarial CUSTOM_PROVIDERS payloads', () => {
     }
   });
 
-  it('accepts a syntactically-valid-but-not-actually-http URL (missing "//") as a baseURL, since only URL-parseability is checked, not scheme', () => {
-    // Documents current behavior rather than asserting it's ideal: "localhost:8000"
-    // parses successfully as a URL with scheme "localhost" and opaque path "8000" -
-    // it slips through validateCustomProvider's `new URL()` check even though it is
-    // not a usable http(s) endpoint. See report for a suggested follow-up.
+  it('rejects a syntactically-valid-but-not-actually-http URL (missing "//") as a baseURL', () => {
+    // "localhost:8000" parses successfully as a URL with scheme "localhost"
+    // and opaque path "8000" - `new URL()` alone accepts it even though it's
+    // not a usable http(s) endpoint, so validateCustomProvider also checks
+    // the parsed protocol explicitly.
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const raw = JSON.stringify([
       {
@@ -335,16 +335,10 @@ describe('parseCustomProviders - adversarial CUSTOM_PROVIDERS payloads', () => {
       },
     ]);
     const result = parseCustomProviders(raw);
-    expect(result).toHaveLength(1);
-    expect(result[0].baseURL).toBe('localhost:8000');
+    expect(result).toHaveLength(0);
   });
 
-  it('accepts a non-http(s) scheme baseURL (e.g. "file://") since only URL-parseability is checked, not an http(s) allowlist', () => {
-    // Same class of gap as above - see report. Low severity here because
-    // baseURL only ever comes from the deployer's own env var, never a
-    // client request, but flagged since the validation comment frames this
-    // check as catching "a typo'd URL" and a non-http(s) scheme is a
-    // meaningfully different class of typo than what actually gets caught.
+  it('rejects a non-http(s) scheme baseURL (e.g. "file://")', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const raw = JSON.stringify([
       {
@@ -356,8 +350,7 @@ describe('parseCustomProviders - adversarial CUSTOM_PROVIDERS payloads', () => {
       },
     ]);
     const result = parseCustomProviders(raw);
-    expect(result).toHaveLength(1);
-    expect(result[0].baseURL).toBe('file:///etc/passwd');
+    expect(result).toHaveLength(0);
   });
 });
 
