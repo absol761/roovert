@@ -8,6 +8,7 @@ export const LOOKS = [
   { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s aesthetic', category: 'themed' },
   { id: 'evergreen', name: 'Evergreen', description: 'Deep forest jewel-tone with an antique-gold accent', category: 'dark' },
   { id: 'aurora', name: 'Aurora', description: 'Iridescent violet-teal-rose glow drifting over a calm near-black canvas', category: 'dark' },
+  { id: 'skeuomorphic', name: 'Leatherbound', description: 'Stitched saddle-leather journal with brass rivets and warm parchment ink', category: 'themed' },
 ];
 
 export const LOOK_CATEGORIES = ['essential', 'modern', 'dark', 'themed'];
