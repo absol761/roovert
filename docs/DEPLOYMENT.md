@@ -2,7 +2,7 @@
 
 This guide covers deploying Roovert to production: environment variables, deploying to Vercel (dashboard or CLI), verifying the deploy, and alternative hosting options.
 
-For pointing a custom domain (e.g. `roovert.com`) at your deployment, see [CUSTOM_DOMAIN_SETUP.md](./CUSTOM_DOMAIN_SETUP.md). For enabling persistent visitor tracking via Vercel KV, see [REAL_TRACKING_SETUP.md](./REAL_TRACKING_SETUP.md).
+For pointing a custom domain (e.g. `roovert.com`) at your deployment, see [CUSTOM_DOMAIN_SETUP.md](./CUSTOM_DOMAIN_SETUP.md). For enabling persistent visitor tracking via Vercel KV, see [REAL_TRACKING_SETUP.md](./REAL_TRACKING_SETUP.md). For adding AI model providers beyond the default (Cerebras/Gemini/Mistral, or your own OpenAI-compatible endpoint), see [PROVIDERS.md](./PROVIDERS.md).
 
 ## Prerequisites
 
@@ -28,6 +28,10 @@ Set these in your deployment platform's dashboard (never commit them to git). Th
 | `ADMIN_API_KEY` | Admin key required to call `/api/admin/visitors`. If unset, that endpoint returns `503` rather than serving data unauthenticated. `AI_GATEWAY_API_KEY` is accepted as a fallback name for the same purpose, kept only for backward compatibility — prefer `ADMIN_API_KEY` for new setups. |
 | `OPENROUTER_API_KEY` | Enables the OpenRouter multi-provider model picker. |
 | `HUGGINGFACE_API_KEY` | Enables the Hugging Face model picker entries (Qwen, DeepSeek, Phi-4, Kimi, GPT-OSS) and image generation. |
+| `CEREBRAS_API_KEY` | Enables the built-in Cerebras provider (Llama 3.3 70B, Llama 3.1 8B, GPT-OSS 120B) via `/api/provider`. See [PROVIDERS.md](./PROVIDERS.md). |
+| `GEMINI_API_KEY` | Enables the built-in Google Gemini provider (2.5 Flash, Flash-Lite, Pro) via `/api/provider`. See [PROVIDERS.md](./PROVIDERS.md). |
+| `MISTRAL_API_KEY` | Enables the built-in Mistral provider (Large, Small, Nemo) via `/api/provider`. See [PROVIDERS.md](./PROVIDERS.md). |
+| `CUSTOM_PROVIDERS` | JSON array adding any other OpenAI-compatible endpoint (including a self-hosted Ollama/vLLM/LM Studio instance) via `/api/provider`, with zero code changes. See [PROVIDERS.md](./PROVIDERS.md) for the exact shape and a worked example. |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Visitor tracking storage (Vercel KV / Upstash Redis REST API). Falls back to local SQLite if unset — see [REAL_TRACKING_SETUP.md](./REAL_TRACKING_SETUP.md). |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Shared rate-limit storage, checked before the `KV_REST_API_*` pair. Required for multi-instance production deployments — without it, rate limiting falls back to a per-instance in-memory store that isn't shared across serverless instances. |
 | `NEXT_PUBLIC_SEGMENT_WRITE_KEY` | Segment.io write key for anonymous analytics. Get one from [app.segment.com](https://app.segment.com/). If unset, analytics is silently disabled — no warning is shown in production. |
