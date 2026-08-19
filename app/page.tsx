@@ -2128,7 +2128,7 @@ while (true) {
                 )}
 
                 {/* Main Chat Stack (Right/Center) */}
-                <section className={`chat-stack flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen || (closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot')) || isMobile ? 'col-span-full' : ''} ${isMobile ? 'px-0' : ''}`}>
+                <section className={`chat-stack min-w-0 flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen || (closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot')) || isMobile ? 'col-span-full' : ''} ${isMobile ? 'px-0' : ''}`}>
                   {/* Search Bar */}
                   {showSearch && (
                     <div className="mb-4 glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-3">
@@ -2238,7 +2238,14 @@ while (true) {
                                           ? 'Image Generation (HF)'
                                           : filteredAvailableModels.find(m => m.id === entry.model)?.name || availableModels.find(m => m.id === entry.model)?.name || 'AI'}
                                       </div>
-                                      <div className="flex items-center gap-2 shrink-0">
+                                      {/* This icon row's own minimum width (several
+                                          buttons + gaps) can exceed the space left
+                                          beside the label on a narrow phone even when
+                                          given its own line, so it scrolls instead of
+                                          wrapping - same overflow-x-auto fallback as
+                                          the composer toolbar (see globals.css
+                                          .scrollbar-thin-x). */}
+                                      <div className="flex items-center gap-2 shrink-0 overflow-x-auto scrollbar-thin-x max-w-full">
                                         {!entry.generatedImage && (
                                           <button
                                             onClick={() => copyResponseToClipboard(originalIdx, entry.response)}

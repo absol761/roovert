@@ -564,8 +564,37 @@ button.glass-panel:hover,
 }
 
 [data-layout='standard'] .interface-grid {
-  grid-template-columns: 280px 1fr;
+  /* minmax(0, 1fr), not a bare 1fr: a bare `1fr` track has an implicit
+     `auto` (min-content) floor, so once the chat column's own content
+     (message text, response cards) needed more than the sliver of space
+     left after the fixed 280px sidebar column, the grid silently grew
+     past its container's width instead of the content wrapping/shrinking -
+     invisibly clipped on narrow screens rather than visibly overflowing,
+     which is what made it look like "half the chat is off the screen"
+     rather than an obvious scrollbar. */
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 2.5rem;
+}
+
+/* .grid-cols-1 is the Tailwind utility page.tsx conditionally applies
+   alongside .interface-grid when isMobile is true, intending a genuine
+   single-column layout once the (lg-only) sidebar panel is hidden. Plain
+   `.grid-cols-1` alone can't win against `[data-layout='standard']
+   .interface-grid` above - same class-count specificity, but the
+   attribute-selector rule sits later in source order - so the mobile
+   override was silently never applying, leaving the two-column 280px
+   template active (and clipped, per the fix above) even on phones. This
+   selector matches the same two classes already on the element to win on
+   specificity instead of relying on source order.
+
+   minmax(0, 1fr) here too, same reasoning as above: chat-stack (the grid
+   item spanning this track via col-span-full) is a flex container whose
+   default min-width is auto, so its own descendants' min-content width
+   (e.g. the per-message action icon row, or the Multi-Perspective
+   comparison cards) can still force a bare `1fr` track wider than the
+   viewport even in an otherwise-correct single-column grid. */
+[data-layout='standard'] .interface-grid.grid-cols-1 {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* Auto-adjust layout when widgets are closed */
