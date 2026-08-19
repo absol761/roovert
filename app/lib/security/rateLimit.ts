@@ -85,6 +85,20 @@ const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
     maxRequests: 10, // 10 images per hour
     message: 'Image generation rate limit exceeded. Please wait before generating another image.',
   },
+  // Generic OpenAI-compatible provider route (app/api/provider/route.ts) -
+  // covers Cerebras/Gemini/Mistral plus whatever a deployer adds via
+  // CUSTOM_PROVIDERS. Unlike 'openrouter'/'huggingface', this single bucket
+  // has to cover many providers with very different real quotas (a
+  // generous 1M-tokens/day free tier vs. a deployer's own unmetered
+  // self-hosted Ollama instance), so it isn't tuned to match any one
+  // vendor's actual ceiling the way those two are - it exists purely to
+  // stop a single client from hammering the deployer's configured keys,
+  // sized in the same ballpark as 'huggingface' as a reasonable default.
+  'provider': {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: 30, // 30 requests per hour
+    message: 'Rate limit exceeded for this provider. Please wait before making another request.',
+  },
   // Creating a share link writes content that gets publicly republished, so
   // it's throttled more tightly than general write endpoints.
   'share': {
