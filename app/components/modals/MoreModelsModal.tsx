@@ -8,6 +8,13 @@ import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { MODAL_TRANSITION, EASE_OUT } from '../../lib/motion';
 
+// Curated categories, shown first and in this fixed order. Any other
+// category present in `models` (e.g. "Cerebras"/"Gemini"/"Mistral" from the
+// dynamic provider registry in app/lib/providers.ts, or a deployer's own
+// CUSTOM_PROVIDERS name) is appended after these automatically below - see
+// modelsByCategory - so a new or custom provider's models are never
+// silently hidden from this modal just because their category string isn't
+// hardcoded here.
 const CATEGORIES = ['Hugging Face', 'Standard', 'Advanced', 'Premium', 'OpenRouter'];
 
 export function MoreModelsModal({
@@ -30,10 +37,15 @@ export function MoreModelsModal({
   useFocusTrap(isOpen, containerRef);
   if (!isOpen) return null;
 
-  const modelsByCategory = CATEGORIES.map(cat => ({
-    category: cat,
-    models: models.filter(m => m.category === cat),
-  })).filter(cat => cat.models.length > 0);
+  const extraCategories = Array.from(new Set(models.map(m => m.category))).filter(
+    cat => !CATEGORIES.includes(cat)
+  );
+  const modelsByCategory = [...CATEGORIES, ...extraCategories]
+    .map(cat => ({
+      category: cat,
+      models: models.filter(m => m.category === cat),
+    }))
+    .filter(cat => cat.models.length > 0);
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 text-[var(--foreground)]">
