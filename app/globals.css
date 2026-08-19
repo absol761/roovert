@@ -2477,3 +2477,65 @@ textarea:focus {
   --radius-cta: 22px;
   --radius-pill: 9999px;
 }
+
+/* Primary button — raised brass rivet, rest -> hover -> active. Targets
+   components/ui/button.tsx's `default` variant, which renders as
+   [data-slot="button"][data-variant="default"] and already carries a Tailwind
+   active:not-aria-[haspopup]:translate-y-px utility for a 1px press. This
+   override adds the material (gradient + bevel + engraved-highlight text) on
+   top of that existing press mechanic; its :active rule increases the press
+   depth to 2px and swaps the shadow to a debossed (inset-only) treatment so
+   it visually sinks, which the current translate-only utility doesn't do on
+   its own. See spec §3a. */
+[data-look='skeuomorphic'] [data-slot='button'][data-variant='default'] {
+  background: linear-gradient(180deg, #d9a35e 0%, #c38a42 45%, #a8722f 100%);
+  color: #2b1e15; /* dark ink on brass — see §4 for the contrast math */
+  border: 1px solid rgba(75, 48, 20, 0.5);
+  text-shadow: 0 1px 0 rgba(255, 240, 210, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.5),
+    inset 0 -2px 3px rgba(75, 48, 20, 0.4),
+    0 3px 0 rgba(93, 61, 26, 0.9),
+    0 6px 10px -2px rgba(18, 11, 5, 0.55);
+  transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, filter 0.15s ease-out;
+}
+
+[data-look='skeuomorphic'] [data-slot='button'][data-variant='default']:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.55),
+    inset 0 -2px 3px rgba(75, 48, 20, 0.4),
+    0 4px 0 rgba(93, 61, 26, 0.9),
+    0 8px 14px -3px rgba(18, 11, 5, 0.6);
+}
+
+[data-look='skeuomorphic'] [data-slot='button'][data-variant='default']:active:not([aria-haspopup]) {
+  transform: translateY(2px);
+  filter: brightness(0.96);
+  box-shadow:
+    inset 0 2px 4px rgba(18, 11, 5, 0.6),
+    0 1px 2px rgba(18, 11, 5, 0.4);
+}
+
+/* Composer bar — inset "groove." Targets .composer-bar (the actual visual
+   container in app/page.tsx; the <textarea> inside it is already border-none
+   bg-transparent, so the groove treatment belongs on the bar, not the
+   textarea). This is debossed — inset shadow only, no outer raised shadow —
+   the opposite of the button above: the composer should read as a
+   carved/tooled channel you write into, not a raised object. See spec §3a. */
+[data-look='skeuomorphic'] .composer-bar {
+  background: linear-gradient(180deg, rgba(36, 25, 17, 0.92), rgba(48, 34, 23, 0.88)) !important;
+  border: 1px solid rgba(20, 13, 7, 0.65) !important;
+  box-shadow:
+    inset 0 2px 5px rgba(10, 6, 3, 0.65),
+    inset 0 -1px 0 rgba(255, 235, 200, 0.05),
+    0 1px 0 rgba(255, 235, 200, 0.06);
+}
+
+[data-look='skeuomorphic'] .composer-bar:focus-within {
+  border-color: var(--accent) !important;
+  box-shadow:
+    inset 0 2px 5px rgba(10, 6, 3, 0.65),
+    0 0 0 3px var(--accent-glow);
+}
