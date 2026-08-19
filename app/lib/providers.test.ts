@@ -183,6 +183,229 @@ describe('parseCustomProviders', () => {
   });
 });
 
+describe('parseCustomProviders - adversarial CUSTOM_PROVIDERS payloads', () => {
+  it('treats a JSON array of only totally-malformed entries (null/number/string/array) as producing no providers, without throwing', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const raw = JSON.stringify([null, 42, 'oops', ['nested', 'array'], true]);
+    expect(() => parseCustomProviders(raw)).not.toThrow();
+    expect(parseCustomProviders(raw)).toEqual([]);
+  });
+
+  it('keeps every valid entry in a large array mixing several valid and several invalid/malformed entries, in original order', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const validEntry = (id: string) => ({
+      id,
+      name: `Provider ${id}`,
+      baseURL: `http://localhost:9000/${id}/v1/chat/completions`,
+      apiKeyEnvVar: `${id.toUpperCase()}_KEY`,
+      models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: 'd' }],
+    });
+    const raw = JSON.stringify([
+      validEntry('alpha'),
+      null, // totally malformed
+      { id: 'no-base-url', name: 'x', apiKeyEnvVar: 'X_KEY', models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: 'd' }] },
+      validEntry('beta'),
+      { id: 'bad-url', name: 'x', baseURL: 'not a url', apiKeyEnvVar: 'X_KEY', models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: 'd' }] },
+      42, // totally malformed
+      validEntry('gamma'),
+    ]);
+    const result = parseCustomProviders(raw);
+    expect(result.map((p) => p.id)).toEqual(['alpha', 'beta', 'gamma']);
+  });
+
+  it('rejects a custom provider id colliding with any built-in provider id (cerebras, gemini, or mistral), not just the first one', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const builtinId of BUILTIN_PROVIDERS.map((p) => p.id)) {
+      const raw = JSON.stringify([
+        {
+          id: builtinId,
+          name: 'Impersonator',
+          baseURL: 'http://localhost:9999/v1/chat/completions',
+          apiKeyEnvVar: 'FAKE_KEY',
+          models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: 'd' }],
+        },
+      ]);
+      expect(parseCustomProviders(raw)).toEqual([]);
+    }
+  });
+
+  it('treats an explicit empty array the same as an unset env var: no custom providers, no error needed', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(parseCustomProviders('[]')).toEqual([]);
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('parses a large CUSTOM_PROVIDERS payload (1000 unique providers) without throwing, dropping entries, or colliding flattened ids', () => {
+    const N = 1000;
+    const entries = Array.from({ length: N }, (_, i) => ({
+      id: `provider-${i}`,
+      name: `Provider ${i}`,
+      baseURL: `http://localhost:9000/${i}/v1/chat/completions`,
+      apiKeyEnvVar: `PROVIDER_${i}_KEY`,
+      models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: 'd' }],
+    }));
+    const raw = JSON.stringify(entries);
+    const result = parseCustomProviders(raw);
+    expect(result).toHaveLength(N);
+
+    const flatIds = result.flatMap((p) => p.models.map((m) => flattenedModelId(p, m)));
+    expect(new Set(flatIds).size).toBe(flatIds.length);
+  });
+
+  it('accepts (rather than crashes on) a very large single string field, since these are deployer-supplied values with no enforced length cap', () => {
+    const hugeDescription = 'x'.repeat(2_000_000); // 2MB
+    const raw = JSON.stringify([
+      {
+        id: 'big',
+        name: 'Big',
+        baseURL: 'http://localhost:9000/v1/chat/completions',
+        apiKeyEnvVar: 'BIG_KEY',
+        models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: hugeDescription }],
+      },
+    ]);
+    expect(() => parseCustomProviders(raw)).not.toThrow();
+    const result = parseCustomProviders(raw);
+    expect(result[0]?.models[0]?.description.length).toBe(2_000_000);
+  });
+
+  it('does not let a "__proto__" key in a CUSTOM_PROVIDERS entry pollute Object.prototype, and ignores it as just another unrecognized field', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const raw = `[{"__proto__": {"polluted": "yes"}, "id": "good", "name": "Good", "baseURL": "http://localhost:9000/v1/chat/completions", "apiKeyEnvVar": "GOOD_KEY", "models": [{"id": "m", "name": "M", "apiId": "m", "category": "c", "description": "d"}]}]`;
+    const result = parseCustomProviders(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('good');
+    // Object.prototype itself must never be mutated by parsing attacker/
+    // deployer-controlled JSON - JSON.parse assigns "__proto__" as an own
+    // property, not the actual prototype, but this pins that guarantee down
+    // at this call site rather than trusting it silently.
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call({}, 'polluted')).toBe(false);
+  });
+
+  it('treats a provider id of the literal string "__proto__" as an ordinary string, still subject to normal collision detection', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const entry = {
+      name: 'Proto',
+      baseURL: 'http://localhost:9000/v1/chat/completions',
+      apiKeyEnvVar: 'PROTO_KEY',
+      models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: 'd' }],
+    };
+    const raw = JSON.stringify([
+      { ...entry, id: '__proto__' },
+      { ...entry, id: '__proto__' }, // duplicate - must still be rejected as a collision
+    ]);
+    const result = parseCustomProviders(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('__proto__');
+  });
+
+  it('accepts unicode in provider and model ids/names and still produces a correctly-namespaced, unique flattened id', () => {
+    process.env.CUSTOM_PROVIDERS = JSON.stringify([
+      {
+        id: 'ollama-🦙',
+        name: '日本語プロバイダー',
+        baseURL: 'http://localhost:9000/v1/chat/completions',
+        apiKeyEnvVar: 'UNICODE_KEY',
+        models: [{ id: 'ラマ-3', name: 'Ünïcödé Model', apiId: 'llama3', category: 'c', description: 'd' }],
+      },
+    ]);
+    process.env.UNICODE_KEY = 'set';
+    try {
+      const models = getAvailableProviderModels();
+      expect(models).toHaveLength(1);
+      expect(models[0].id).toBe('ollama-🦙-ラマ-3');
+    } finally {
+      delete process.env.UNICODE_KEY;
+    }
+  });
+
+  it('accepts a syntactically-valid-but-not-actually-http URL (missing "//") as a baseURL, since only URL-parseability is checked, not scheme', () => {
+    // Documents current behavior rather than asserting it's ideal: "localhost:8000"
+    // parses successfully as a URL with scheme "localhost" and opaque path "8000" -
+    // it slips through validateCustomProvider's `new URL()` check even though it is
+    // not a usable http(s) endpoint. See report for a suggested follow-up.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const raw = JSON.stringify([
+      {
+        id: 'schemeless',
+        name: 'Schemeless',
+        baseURL: 'localhost:8000',
+        apiKeyEnvVar: 'X_KEY',
+        models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: 'd' }],
+      },
+    ]);
+    const result = parseCustomProviders(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].baseURL).toBe('localhost:8000');
+  });
+
+  it('accepts a non-http(s) scheme baseURL (e.g. "file://") since only URL-parseability is checked, not an http(s) allowlist', () => {
+    // Same class of gap as above - see report. Low severity here because
+    // baseURL only ever comes from the deployer's own env var, never a
+    // client request, but flagged since the validation comment frames this
+    // check as catching "a typo'd URL" and a non-http(s) scheme is a
+    // meaningfully different class of typo than what actually gets caught.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const raw = JSON.stringify([
+      {
+        id: 'fileproto',
+        name: 'File',
+        baseURL: 'file:///etc/passwd',
+        apiKeyEnvVar: 'X_KEY',
+        models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: 'd' }],
+      },
+    ]);
+    const result = parseCustomProviders(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].baseURL).toBe('file:///etc/passwd');
+  });
+});
+
+describe('registry stability under concurrent/racing calls', () => {
+  it('returns identical results across many concurrent getAvailableProviderModels() calls in the same process tick', async () => {
+    process.env.CEREBRAS_API_KEY = 'test-key';
+    process.env.CUSTOM_PROVIDERS = JSON.stringify([
+      {
+        id: 'concurrent',
+        name: 'Concurrent',
+        baseURL: 'http://localhost:9000/v1/chat/completions',
+        apiKeyEnvVar: 'CONCURRENT_KEY',
+        models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: 'd' }],
+      },
+    ]);
+    process.env.CONCURRENT_KEY = 'set';
+
+    try {
+      const results = await Promise.all(Array.from({ length: 50 }, () => Promise.resolve(getAvailableProviderModels())));
+      const first = results[0];
+      for (const result of results) {
+        expect(result).toEqual(first);
+      }
+      expect(first.some((m) => m.id.startsWith('cerebras-'))).toBe(true);
+      expect(first.some((m) => m.id.startsWith('concurrent-'))).toBe(true);
+    } finally {
+      delete process.env.CONCURRENT_KEY;
+    }
+  });
+
+  it('runs multiple parseCustomProviders calls with different payloads concurrently without leaking state between them (no shared mutable module state)', async () => {
+    const rawA = JSON.stringify([
+      { id: 'race-a', name: 'A', baseURL: 'http://localhost:9001/v1/chat/completions', apiKeyEnvVar: 'A_KEY', models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: 'd' }] },
+    ]);
+    const rawB = JSON.stringify([
+      { id: 'race-b', name: 'B', baseURL: 'http://localhost:9002/v1/chat/completions', apiKeyEnvVar: 'B_KEY', models: [{ id: 'm', name: 'M', apiId: 'm', category: 'c', description: 'd' }] },
+    ]);
+
+    const [resultsA, resultsB] = await Promise.all([
+      Promise.all(Array.from({ length: 25 }, () => Promise.resolve(parseCustomProviders(rawA)))),
+      Promise.all(Array.from({ length: 25 }, () => Promise.resolve(parseCustomProviders(rawB)))),
+    ]);
+
+    for (const r of resultsA) expect(r.map((p) => p.id)).toEqual(['race-a']);
+    for (const r of resultsB) expect(r.map((p) => p.id)).toEqual(['race-b']);
+  });
+});
+
 describe('getAvailableProviders / getAvailableProviderModels / findAvailableProviderModel', () => {
   it('returns nothing when no API keys and no CUSTOM_PROVIDERS are set (graceful no-op)', () => {
     expect(getAllProviders().length).toBeGreaterThan(0); // still registered...

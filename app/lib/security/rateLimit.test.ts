@@ -335,6 +335,66 @@ describe('incrementRateLimit (deprecated no-op)', () => {
   });
 });
 
+describe('endpoint bucket independence with real production configs', () => {
+  // Unlike the tests above (which pass a custom config to isolate the
+  // mechanism), these exercise the actual DEFAULT_LIMITS for 'provider'
+  // (30/hour - see app/api/provider/route.ts), 'ai-query' (10/min),
+  // 'openrouter' (45/24h), and 'huggingface' (30/hour) to pin down the
+  // exact production boundary for the new provider route and confirm it
+  // doesn't share state with any of the other three AI-query buckets.
+  it('provider bucket (30/hour) allows exactly 30 requests then blocks the 31st (boundary)', async () => {
+    const request = requestFromIp(freshIp());
+    for (let i = 0; i < 30; i++) {
+      expect(await applyRateLimit(request, 'provider')).toBeNull();
+    }
+    const blocked = await applyRateLimit(request, 'provider');
+    expect(blocked).not.toBeNull();
+    expect(blocked?.status).toBe(429);
+  });
+
+  it('exhausting the provider bucket does not affect ai-query/openrouter/huggingface for the same IP', async () => {
+    const request = requestFromIp(freshIp());
+    await consumeTimes(request, 'provider', undefined, 30);
+    expect((await applyRateLimit(request, 'provider'))?.status).toBe(429); // confirm actually exhausted
+
+    expect(await applyRateLimit(request, 'ai-query')).toBeNull();
+    expect(await applyRateLimit(request, 'openrouter')).toBeNull();
+    expect(await applyRateLimit(request, 'huggingface')).toBeNull();
+  });
+
+  it('exhausting ai-query (10/min) does not affect the provider bucket (30/hour) for the same IP', async () => {
+    const request = requestFromIp(freshIp());
+    await consumeTimes(request, 'ai-query', undefined, 10);
+    expect((await applyRateLimit(request, 'ai-query'))?.status).toBe(429); // confirm actually exhausted
+
+    const providerStatus = await checkRateLimit(request, 'provider');
+    expect(providerStatus).toMatchObject({ allowed: true, remaining: 30, limit: 30 });
+  });
+
+  it('exhausting openrouter (45/24h) and huggingface (30/hour) does not affect the provider bucket for the same IP', async () => {
+    const request = requestFromIp(freshIp());
+    await consumeTimes(request, 'openrouter', undefined, 45);
+    await consumeTimes(request, 'huggingface', undefined, 30);
+    expect((await applyRateLimit(request, 'openrouter'))?.status).toBe(429);
+    expect((await applyRateLimit(request, 'huggingface'))?.status).toBe(429);
+
+    const providerStatus = await checkRateLimit(request, 'provider');
+    expect(providerStatus).toMatchObject({ allowed: true, remaining: 30, limit: 30 });
+  });
+
+  it('different IPs each get their own independent 30/hour provider bucket', async () => {
+    const requestA = requestFromIp(freshIp());
+    const requestB = requestFromIp(freshIp());
+
+    await consumeTimes(requestA, 'provider', undefined, 30);
+    expect((await applyRateLimit(requestA, 'provider'))?.status).toBe(429);
+
+    // B has made no requests yet - must still be fully allowed.
+    const statusB = await checkRateLimit(requestB, 'provider');
+    expect(statusB).toMatchObject({ allowed: true, remaining: 30, limit: 30 });
+  });
+});
+
 describe('createRateLimitResponse', () => {
   it('builds a 429 response whose headers and body match the given result/config', async () => {
     vi.useFakeTimers();

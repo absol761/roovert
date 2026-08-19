@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST } from './route';
+import { checkRateLimit } from '../../lib/security/rateLimit';
 
 // ---------------------------------------------------------------------------
 // Request-construction helpers - see app/api/query-gateway/route.test.ts for
@@ -277,5 +278,133 @@ describe('POST /api/provider', () => {
     }
     const blocked = await POST(makeRequest({}, ip));
     expect(blocked.status).toBe(429);
+  });
+
+  it('is blocked by its own 30/hour "provider" bucket, not the 10/minute "ai-query" bucket, once the provider-specific limit is hit', async () => {
+    setUpTestProvider();
+    const ip = freshIp();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+
+    try {
+      // Space requests 61s apart so the 1-minute ai-query bucket resets
+      // every time, while the 1-hour provider bucket keeps accumulating -
+      // this isolates which bucket is actually doing the blocking. All 30
+      // stay within validation-failure territory (empty body) since the
+      // point here is purely the rate-limit layer, which runs first.
+      for (let i = 0; i < 30; i++) {
+        if (i > 0) vi.advanceTimersByTime(61_000);
+        const response = await POST(makeRequest({}, ip));
+        expect(response.status).toBe(400);
+      }
+
+      vi.advanceTimersByTime(61_000);
+      const blocked = await POST(makeRequest({}, ip));
+      expect(blocked.status).toBe(429);
+
+      // Confirm it really was the provider bucket (not some stray ai-query
+      // accumulation) that tripped: ai-query's own 1-minute window was just
+      // reset by the last advanceTimersByTime, so it still has headroom.
+      const aiQueryStatus = await checkRateLimit(makeRequest({}, ip), 'ai-query');
+      expect(aiQueryStatus.allowed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('POST /api/provider - upstream failure modes', () => {
+  it('degrades to the generic friendly error, without leaking details, when the upstream connection fails outright', async () => {
+    setUpTestProvider();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('fetch failed: ECONNREFUSED');
+      })
+    );
+
+    const response = await POST(makeRequest({ query: 'hi', model: TEST_MODEL_ID }));
+    expect(response.status).toBe(200); // errors are surfaced via the SSE body, not HTTP status
+    const text = await response.text();
+    expect(text).toContain('"done":true');
+    expect(text).toMatch(/Something went wrong|try again/i);
+    expect(text).not.toContain('ECONNREFUSED');
+  });
+
+  it('degrades to the "unavailable" friendly error, without leaking the body, on a non-200 status with an HTML (non-JSON) error body', async () => {
+    setUpTestProvider();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('<html><body>500 Internal Server Error</body></html>', { status: 500, headers: { 'Content-Type': 'text/html' } }))
+    );
+
+    const response = await POST(makeRequest({ query: 'hi', model: TEST_MODEL_ID }));
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain('"done":true');
+    expect(text).toMatch(/temporarily unable|high demand/i);
+    expect(text).not.toContain('<html>');
+    expect(text).not.toContain('Internal Server Error');
+  });
+
+  it('skips malformed/truncated JSON lines in an SSE stream but still delivers the valid content and completes normally', async () => {
+    setUpTestProvider();
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: 'Hello' } }] })}\n\n`));
+        // Truncated mid-object - JSON.parse throws, must be silently skipped.
+        controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"trunc\n\n'));
+        // Line that isn't valid JSON at all.
+        controller.enqueue(encoder.encode('data: not-json-at-all\n\n'));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: ' world' } }] })}\n\n`));
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })));
+
+    const response = await POST(makeRequest({ query: 'hi', model: TEST_MODEL_ID }));
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain('"content":"Hello"');
+    expect(text).toContain('"content":" world"');
+    expect(text).toContain('"done":true');
+  });
+
+  it('completes gracefully with just a done marker when the upstream stream is empty (200 status, zero content chunks)', async () => {
+    setUpTestProvider();
+    const fetchMock = stubProviderFetch([]); // sseResponse([]) emits only [DONE]
+    const response = await POST(makeRequest({ query: 'hi', model: TEST_MODEL_ID }));
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain('"content":""');
+    expect(text).toContain('"done":true');
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it('does not hang or error out on a slow upstream response - it eventually completes with the real content', async () => {
+    setUpTestProvider();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        const encoder = new TextEncoder();
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: 'slow but ok' } }] })}\n\n`));
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+            controller.close();
+          },
+        });
+        return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+      })
+    );
+
+    const response = await POST(makeRequest({ query: 'hi', model: TEST_MODEL_ID }));
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain('"content":"slow but ok"');
+    expect(text).toContain('"done":true');
   });
 });
