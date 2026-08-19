@@ -2630,8 +2630,8 @@ while (true) {
                     model picker + secondary actions + mic + send on the
                     right, matching the reference composer's low bottom
                     toolbar instead of one crowded single row. */}
-                <div className={`flex items-center justify-between gap-2 pt-2 ${isMobile ? 'flex-wrap' : ''}`}>
-                  <div className={`flex items-center gap-1 ${isMobile ? 'flex-wrap' : ''}`}>
+                <div className={`flex items-center justify-between gap-2 pt-2 ${isMobile ? 'flex-wrap' : 'flex-nowrap overflow-x-auto scrollbar-thin-x'}`}>
+                  <div className={`flex items-center gap-1 ${isMobile ? 'flex-wrap' : 'flex-shrink-0'}`}>
                     {/* Attach Image */}
                     <input
                       ref={fileInputRef}
@@ -2745,7 +2745,7 @@ while (true) {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     {isProcessing && (
                       <Button
                         type="button"
