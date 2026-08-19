@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
@@ -10,6 +10,7 @@ import { useMicLevel } from './hooks/useMicLevel';
 import { useSpeechToText } from './hooks/useSpeechToText';
 import { useVisualizerSettings } from './hooks/useVisualizerSettings';
 import { useProviderRateLimits } from './hooks/useProviderRateLimits';
+import { useAvailableProviderModels } from './hooks/useAvailableProviderModels';
 import { useFullscreen } from './hooks/useFullscreen';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { LooksModal } from './components/modals/LooksModal';
@@ -31,7 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from './lib/models';
+import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS, type Model } from './lib/models';
 import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
 import { getSystemPrompt, getStyleInstruction, getLengthInstruction, type ResponseStyle, type OutputLength } from './lib/prompts';
 // Plain 2D canvas, not three.js - cheap enough to not need the dynamic-import
@@ -138,6 +139,23 @@ function persistConversations(conversations: Conversation[], activeConversationI
     // Quota exceeded or storage unavailable - persistence is best-effort and
     // must never crash the app.
   }
+}
+
+// Which backend/upstream actually serves a model - used only to make the
+// unavailable-model fallback below prefer a model from a *different* group
+// than the one that just failed, rather than another model that shares the
+// same struggling backend and would likely fail again immediately. Static
+// arrays each map to one shared backend (all of MODELS goes through
+// query-gateway's single upstream, etc.); dynamic provider-registry models
+// (Cerebras/Gemini/Mistral/CUSTOM_PROVIDERS) are grouped by `category`
+// instead, since that already holds each provider's own display name
+// (e.g. "Cerebras" vs "Gemini") and those are genuinely independent
+// upstreams even though they share one route (/api/provider).
+function getModelProviderGroup(model: Model): string {
+  if (HUGGINGFACE_MODELS.some(m => m.id === model.id)) return 'huggingface';
+  if (OPENROUTER_MODELS.some(m => m.id === model.id)) return 'openrouter';
+  if (MODELS.some(m => m.id === model.id)) return 'query-gateway';
+  return `provider:${model.category}`;
 }
 
 // Extended-thinking disclosure for reasoning-capable models (DeepSeek R1,
@@ -259,18 +277,34 @@ export default function Page() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const { hideOpenRouterModels, hideHuggingFaceModels, hideImageGen } = useProviderRateLimits();
+  // Dynamic OpenAI-compatible provider models (Cerebras/Gemini/Mistral/
+  // CUSTOM_PROVIDERS - see app/lib/providers.ts) - polled from GET
+  // /api/models since availability depends on server-only env vars this
+  // client component can't read directly. Empty (and the picker unchanged
+  // from before this existed) on any deployment with none of those env
+  // vars set - see useAvailableProviderModels' doc comment.
+  const providerModels = useAvailableProviderModels();
 
-  // Get available models (combine HUGGINGFACE_MODELS, MODELS, and
-  // OPENROUTER_MODELS, filtering each provider's models out if that
-  // provider's rate limit is currently exhausted). Hugging Face models are
-  // listed first so they're the most visible entries in every model list
-  // that renders off this array (composer dropdown, "Browse AI Models",
-  // command palette).
-  const availableModels = [
+  // Get available models (combine HUGGINGFACE_MODELS, MODELS,
+  // OPENROUTER_MODELS, and the dynamic provider registry's models,
+  // filtering each static provider's models out if that provider's rate
+  // limit is currently exhausted). Hugging Face models are listed first so
+  // they're the most visible entries in every model list that renders off
+  // this array (composer dropdown, "Browse AI Models", command palette);
+  // the dynamic provider models are appended last since they're additive
+  // extras a deployer opts into, not part of the app's curated defaults.
+  // Memoized (rather than a fresh array literal every render, like the rest
+  // of this file's derived arrays) specifically because it's now a
+  // dependency of the fallback-selection effect below - see
+  // getModelProviderGroup's usage there. Without this, that effect's
+  // dependency array would reference a new array identity on every render
+  // and never settle.
+  const availableModels = useMemo(() => [
     ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
     ...MODELS,
     ...(hideOpenRouterModels ? [] : OPENROUTER_MODELS),
-  ];
+    ...providerModels,
+  ], [hideHuggingFaceModels, hideOpenRouterModels, providerModels]);
 
   // Default selection stays Multi-Perspective (the flagship feature) by id,
   // not by array position - the HF-first ordering above would otherwise
@@ -697,18 +731,31 @@ export default function Page() {
   const filteredAvailableModels = availableModels.filter(m => !unavailableModels.has(m.id));
   const selectedModel = filteredAvailableModels.find(m => m.id === selectedModelId) || filteredAvailableModels[0];
 
-  // If selected model becomes unavailable, switch to first available.
+  // If selected model becomes unavailable, switch to another available one -
+  // preferring a model from a *different* provider group (see
+  // getModelProviderGroup) than the one that just failed, since that's the
+  // actual point of having multiple providers: if Cerebras is struggling,
+  // falling back to another Cerebras model is likely to just fail again,
+  // where falling back to Gemini/Mistral/OpenRouter/etc. has a real chance
+  // of working. Falls back to the first available model of any group (the
+  // pre-existing behavior) only when nothing from a different group is
+  // available.
   // Deferred (not a synchronous setState-in-effect) so React doesn't
   // cascade a render while this effect is still committing - same pattern
   // used in app/hooks/useMicLevel.ts for the same lint rule.
   useEffect(() => {
     if (selectedModelId && unavailableModels.has(selectedModelId)) {
       if (filteredAvailableModels.length > 0) {
-        const fallbackId = filteredAvailableModels[0].id;
+        const strugglingModel = availableModels.find(m => m.id === selectedModelId);
+        const strugglingGroup = strugglingModel ? getModelProviderGroup(strugglingModel) : null;
+        const preferredFallback = strugglingGroup
+          ? filteredAvailableModels.find(m => getModelProviderGroup(m) !== strugglingGroup)
+          : undefined;
+        const fallbackId = (preferredFallback || filteredAvailableModels[0]).id;
         queueMicrotask(() => setSelectedModelId(fallbackId));
       }
     }
-  }, [unavailableModels, selectedModelId, filteredAvailableModels]);
+  }, [unavailableModels, selectedModelId, filteredAvailableModels, availableModels]);
 
   // Check if image upload should be disabled
   // Disable if:
@@ -1144,11 +1191,19 @@ export default function Page() {
       // Determine if this is an OpenRouter model
       const isOpenRouterModel = OPENROUTER_MODELS.some(m => m.id === selectedModel.id);
       const isHuggingFaceModel = HUGGINGFACE_MODELS.some(m => m.id === selectedModel.id);
+      // Dynamic provider-registry model (Cerebras/Gemini/Mistral/
+      // CUSTOM_PROVIDERS) - anything present in the polled providerModels
+      // list. /api/provider's request/response contract is identical to
+      // /api/openrouter's (same body shape, same SSE chunk shape), so it
+      // slots into this same fetch below with no other changes.
+      const isProviderModel = providerModels.some(m => m.id === selectedModel.id);
       const apiEndpoint = isOpenRouterModel
         ? '/api/openrouter'
         : isHuggingFaceModel
           ? '/api/huggingface'
-          : '/api/query-gateway';
+          : isProviderModel
+            ? '/api/provider'
+            : '/api/query-gateway';
 
       // Automatically enable parallel mode if Multi-Perspective is selected
       const isMultiPerspective = selectedModel.id === 'multi-perspective';
@@ -1205,9 +1260,10 @@ export default function Page() {
           }
 
           // Preserve the pre-existing behavior of marking OpenRouter/Hugging
-          // Face models unavailable on rate limit so the picker auto-switches
-          // the user away from a model that will just 429 again immediately.
-          if (isOpenRouterModel || isHuggingFaceModel) {
+          // Face models (and now dynamic provider models) unavailable on
+          // rate limit so the picker auto-switches the user away from a
+          // model that will just 429 again immediately.
+          if (isOpenRouterModel || isHuggingFaceModel || isProviderModel) {
             setUnavailableModels(prev => new Set(prev).add(selectedModelId));
             setTimeout(() => {
               setUnavailableModels(prev => {
