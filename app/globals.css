@@ -2424,3 +2424,56 @@ textarea:focus {
     @apply font-sans;
   }
 }
+
+/* ============================================================
+   SKEUOMORPHIC LOOK ("Leatherbound") — see
+   docs/design/SKEUOMORPHIC_LOOK_SPEC.md for the full spec.
+   ============================================================ */
+
+/* Skeuomorphic — stitched saddle-leather journal with brass hardware. A literal,
+   representational material (not neumorphism/"soft UI" — see docs/design/
+   SKEUOMORPHIC_LOOK_SPEC.md §1 for the distinction). Warm cognac/espresso leather,
+   cream parchment ink, aged-brass accent, directional single-source top-left light
+   implying real embossed/debossed depth. */
+[data-look='skeuomorphic'] {
+  --background: #34241a;
+  --foreground: #f1e4c9;
+  --accent: #c38a42;
+  --accent-glow: rgba(195, 138, 66, 0.32);
+  --panel-bg: rgba(74, 54, 38, 0.82);
+  --border: rgba(196, 154, 91, 0.32);
+  --panel-radius: 16px;
+  --surface: rgba(241, 228, 201, 0.06);
+  --surface-strong: rgba(241, 228, 201, 0.14);
+  --chip-bg: rgba(41, 29, 20, 0.82);
+  --muted: rgba(241, 228, 201, 0.6);
+  --muted-strong: rgba(241, 228, 201, 0.85);
+  --hud-bg: rgba(41, 29, 20, 0.95);
+
+  /* Elevation ladder — warm, dark, brown-cast shadows (never pure black) plus a
+     thin inset top highlight standing in for a raking top-left light catching the
+     leather grain. This is what actually reads as "embossed" instead of "flat with
+     a color swap" — do not drop the inset layer. */
+  --shadow-sm: 0 1px 2px rgba(18, 11, 5, 0.55);
+  --shadow-md:
+    0 10px 24px -10px rgba(18, 11, 5, 0.55),
+    0 3px 8px -2px rgba(18, 11, 5, 0.4),
+    inset 0 1px 0 rgba(255, 235, 200, 0.08);
+  --shadow-lg:
+    0 26px 50px -18px rgba(12, 7, 3, 0.65),
+    0 8px 16px -6px rgba(12, 7, 3, 0.45),
+    inset 0 1px 0 rgba(255, 235, 200, 0.1);
+  --shadow-glow:
+    0 0 0 1px var(--border),
+    0 8px 20px -8px var(--accent-glow),
+    inset 0 1px 0 rgba(255, 235, 200, 0.12);
+
+  /* Radius ladder — a bound book has a small, firm corner radius, not a soft
+     "glassy app" curve. Deliberately tighter than the app-wide defaults
+     (--radius: 14px / --radius-card: 20px / --radius-cta: 32px). */
+  --radius: 10px;
+  --radius-tight: 4px;
+  --radius-card: 16px;
+  --radius-cta: 22px;
+  --radius-pill: 9999px;
+}
