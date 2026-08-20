@@ -19,8 +19,10 @@ Set the corresponding environment variable and the provider activates automatica
 | `CEREBRAS_API_KEY` | [Cerebras](https://cloud.cerebras.ai) | Llama 3.3 70B, Llama 3.1 8B, GPT-OSS 120B. Free tier as of writing is 1M tokens/day. |
 | `GEMINI_API_KEY` | [Google Gemini](https://aistudio.google.com/apikey) | Gemini 2.5 Flash, Flash-Lite, and Pro. Generous free tier. |
 | `MISTRAL_API_KEY` | [Mistral](https://console.mistral.ai) | Mistral Large, Mistral Small, Mistral Nemo (open-weight). Free tier as of writing is ~1B tokens/month. |
+| `DEEPSEEK_API_KEY` | [DeepSeek](https://platform.deepseek.com) | DeepSeek V4 Flash and V4 Pro. Pay-as-you-go, no free tier, but low per-token cost. |
+| `TOGETHER_API_KEY` | [Together AI](https://api.together.ai) | Llama 3.3 70B Turbo and DeepSeek V4 Pro, served from Together's hosted infrastructure. |
 
-These three ship pre-configured in `BUILTIN_PROVIDERS` (`app/lib/providers.ts`). Each provider's models, base URL, and env var name are hardcoded there — see that file's comments for exact model IDs and where they were verified against the provider's own docs.
+These five ship pre-configured in `BUILTIN_PROVIDERS` (`app/lib/providers.ts`). Each provider's models, base URL, and env var name are hardcoded there — see that file's comments for exact model IDs and where they were verified against the provider's own docs. Note that DeepSeek's V4 Pro model is deliberately listed under both `deepseek` and `together` as two independent registry entries (flattened ids `deepseek-v4-pro` and `together-deepseek-v4-pro`) — they hit different upstream endpoints with different pricing/rate limits, so enabling one has no effect on the other.
 
 ## Adding a custom provider
 

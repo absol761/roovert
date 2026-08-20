@@ -122,6 +122,8 @@ Optional environment variables:
 - `CEREBRAS_API_KEY` - enables the built-in Cerebras provider (Llama 3.3 70B, Llama 3.1 8B, GPT-OSS 120B)
 - `GEMINI_API_KEY` - enables the built-in Google Gemini provider (2.5 Flash, Flash-Lite, Pro)
 - `MISTRAL_API_KEY` - enables the built-in Mistral provider (Large, Small, Nemo)
+- `DEEPSEEK_API_KEY` - enables the built-in DeepSeek provider (V4 Flash, V4 Pro)
+- `TOGETHER_API_KEY` - enables the built-in Together AI provider (Llama 3.3 70B Turbo, DeepSeek V4 Pro)
 - `CUSTOM_PROVIDERS` - JSON array adding any other OpenAI-compatible endpoint (e.g. a self-hosted Ollama/vLLM/LM Studio instance) with zero code changes - see [Bring your own model provider](#bring-your-own-model-provider) below
 - `KV_REST_API_URL` / `KV_REST_API_TOKEN` - visitor tracking storage (falls back to local SQLite)
 - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` - shared rate-limit storage (required for multi-instance production deployments)
@@ -131,7 +133,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment walkthrough
 
 ## Bring your own model provider
 
-Roovert ships with three built-in AI providers beyond the default Groq-backed model: [Cerebras](https://cloud.cerebras.ai), [Google Gemini](https://aistudio.google.com/apikey), and [Mistral](https://console.mistral.ai). Each one turns on independently the moment you set its API key (`CEREBRAS_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`) - no other configuration needed.
+Roovert ships with five built-in AI providers beyond the default Groq-backed model: [Cerebras](https://cloud.cerebras.ai), [Google Gemini](https://aistudio.google.com/apikey), [Mistral](https://console.mistral.ai), [DeepSeek](https://platform.deepseek.com), and [Together AI](https://api.together.ai). Each one turns on independently the moment you set its API key (`CEREBRAS_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `DEEPSEEK_API_KEY`, `TOGETHER_API_KEY`) - no other configuration needed.
 
 You can also add **any** OpenAI-compatible endpoint - another hosted provider, or your own self-hosted Ollama/vLLM/LM Studio instance - via the `CUSTOM_PROVIDERS` environment variable, a JSON array of provider definitions. For example, a local Ollama instance:
 
