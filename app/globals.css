@@ -2446,7 +2446,14 @@ textarea:focus {
   --surface: rgba(241, 228, 201, 0.06);
   --surface-strong: rgba(241, 228, 201, 0.14);
   --chip-bg: rgba(41, 29, 20, 0.82);
-  --muted: rgba(241, 228, 201, 0.6);
+  /* 0.65, not the spec's originally-proposed 0.6: real-rendered contrast of
+     --muted text on --panel-bg measured at exactly 4.52:1 (WCAG AA floor is
+     4.5:1) - technically passing but with a margin thin enough that normal
+     subpixel/antialiasing variance could tip it under the floor for some
+     users. The spec explicitly pre-approved this exact alpha bump for this
+     exact scenario (see docs/design/SKEUOMORPHIC_LOOK_SPEC.md §4); it lifts
+     the same pairing to ~5.0:1. */
+  --muted: rgba(241, 228, 201, 0.65);
   --muted-strong: rgba(241, 228, 201, 0.85);
   --hud-bg: rgba(41, 29, 20, 0.95);
 
