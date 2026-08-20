@@ -177,7 +177,39 @@ const MISTRAL_PROVIDER: ProviderConfig = {
   ],
 };
 
-export const BUILTIN_PROVIDERS: ProviderConfig[] = [CEREBRAS_PROVIDER, GEMINI_PROVIDER, MISTRAL_PROVIDER];
+const DEEPSEEK_PROVIDER: ProviderConfig = {
+  id: 'deepseek',
+  name: 'DeepSeek',
+  // Confirmed 2026-08-20: DeepSeek's own documented OpenAI-compatible base.
+  baseURL: 'https://api.deepseek.com/chat/completions',
+  apiKeyEnvVar: 'DEEPSEEK_API_KEY',
+  // The legacy model ids (deepseek-chat / deepseek-reasoner) were
+  // discontinued 2026-07-24 - both now silently redirect to the V4-Flash
+  // tier's non-thinking/thinking modes. Using the current tier ids
+  // directly rather than the deprecated aliases.
+  models: [
+    { id: 'v4-flash', name: 'DeepSeek V4 Flash', apiId: 'deepseek-v4-flash', category: 'DeepSeek', description: 'Fast, cost-efficient DeepSeek model with a 1M-token context window.' },
+    { id: 'v4-pro', name: 'DeepSeek V4 Pro', apiId: 'deepseek-v4-pro', category: 'DeepSeek', description: "DeepSeek's top reasoning/agentic model, 1M-token context window." },
+  ],
+};
+
+const TOGETHER_PROVIDER: ProviderConfig = {
+  id: 'together',
+  name: 'Together AI',
+  // Confirmed 2026-08-20: Together's documented OpenAI-compatible base.
+  baseURL: 'https://api.together.ai/v1/chat/completions',
+  apiKeyEnvVar: 'TOGETHER_API_KEY',
+  // Together hosts hundreds of open-weight models behind one OpenAI-
+  // compatible API; ids follow a "<publisher>/<Model-Name>" convention,
+  // not a flat namespace like the other providers here - keep that shape
+  // when adding more entries rather than assuming a short slug works.
+  models: [
+    { id: 'llama-3.3-70b-turbo', name: 'Llama 3.3 70B Turbo (Together)', apiId: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', category: 'Together AI', description: "Meta's Llama 3.3 70B, served via Together AI's turbo (FP8) endpoint." },
+    { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro (Together)', apiId: 'deepseek-ai/DeepSeek-V4-Pro', category: 'Together AI', description: 'DeepSeek V4 Pro served through Together, independent of the direct DeepSeek provider above.' },
+  ],
+};
+
+export const BUILTIN_PROVIDERS: ProviderConfig[] = [CEREBRAS_PROVIDER, GEMINI_PROVIDER, MISTRAL_PROVIDER, DEEPSEEK_PROVIDER, TOGETHER_PROVIDER];
 
 // ---------------------------------------------------------------------------
 // CUSTOM_PROVIDERS parsing

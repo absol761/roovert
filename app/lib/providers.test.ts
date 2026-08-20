@@ -9,7 +9,7 @@ import {
   flattenedModelId,
 } from './providers';
 
-const ENV_KEYS = ['CEREBRAS_API_KEY', 'GEMINI_API_KEY', 'MISTRAL_API_KEY', 'CUSTOM_PROVIDERS'] as const;
+const ENV_KEYS = ['CEREBRAS_API_KEY', 'GEMINI_API_KEY', 'MISTRAL_API_KEY', 'DEEPSEEK_API_KEY', 'TOGETHER_API_KEY', 'CUSTOM_PROVIDERS'] as const;
 let savedEnv: Record<string, string | undefined>;
 
 beforeEach(() => {
@@ -32,9 +32,9 @@ afterEach(() => {
 });
 
 describe('BUILTIN_PROVIDERS', () => {
-  it('includes Cerebras, Gemini, and Mistral', () => {
+  it('includes Cerebras, Gemini, Mistral, DeepSeek, and Together AI', () => {
     const ids = BUILTIN_PROVIDERS.map((p) => p.id);
-    expect(ids).toEqual(expect.arrayContaining(['cerebras', 'gemini', 'mistral']));
+    expect(ids).toEqual(expect.arrayContaining(['cerebras', 'gemini', 'mistral', 'deepseek', 'together']));
   });
 
   it('has a unique id for every provider', () => {
@@ -213,7 +213,7 @@ describe('parseCustomProviders - adversarial CUSTOM_PROVIDERS payloads', () => {
     expect(result.map((p) => p.id)).toEqual(['alpha', 'beta', 'gamma']);
   });
 
-  it('rejects a custom provider id colliding with any built-in provider id (cerebras, gemini, or mistral), not just the first one', () => {
+  it('rejects a custom provider id colliding with any built-in provider id, not just the first one', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     for (const builtinId of BUILTIN_PROVIDERS.map((p) => p.id)) {
       const raw = JSON.stringify([
@@ -416,6 +416,32 @@ describe('getAvailableProviders / getAvailableProviderModels / findAvailableProv
     for (const m of models) {
       expect(m.id.startsWith('cerebras-')).toBe(true);
     }
+  });
+
+  it('exposes DeepSeek and Together AI models once their keys are set, independently of each other', () => {
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+    let available = getAvailableProviders();
+    expect(available.map((p) => p.id)).toEqual(['deepseek']);
+    let models = getAvailableProviderModels();
+    expect(models.length).toBe(BUILTIN_PROVIDERS.find((p) => p.id === 'deepseek')!.models.length);
+    for (const m of models) {
+      expect(m.id.startsWith('deepseek-')).toBe(true);
+    }
+
+    process.env.TOGETHER_API_KEY = 'test-together-key';
+    available = getAvailableProviders();
+    expect(available.map((p) => p.id).sort()).toEqual(['deepseek', 'together']);
+    models = getAvailableProviderModels();
+    const togetherModels = models.filter((m) => m.id.startsWith('together-'));
+    expect(togetherModels.length).toBe(BUILTIN_PROVIDERS.find((p) => p.id === 'together')!.models.length);
+
+    // Together AI happens to also serve a model called "DeepSeek V4 Pro" -
+    // its flattened id must stay distinct from the direct DeepSeek
+    // provider's own v4-pro entry despite the display-name overlap.
+    expect(findAvailableProviderModel('together-deepseek-v4-pro')).toBeDefined();
+    expect(findAvailableProviderModel('deepseek-v4-pro')).toBeDefined();
+    expect(findAvailableProviderModel('together-deepseek-v4-pro')?.provider.id).toBe('together');
+    expect(findAvailableProviderModel('deepseek-v4-pro')?.provider.id).toBe('deepseek');
   });
 
   it('includes an available custom provider from CUSTOM_PROVIDERS once its key is set', () => {
