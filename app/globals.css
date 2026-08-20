@@ -2571,6 +2571,36 @@ textarea:focus {
   pointer-events: none;
 }
 
+/* QA fix: the "You" message-turn container (app/page.tsx, `.chat-turn-user`)
+   is the app's single most-repeated surface and the material story's stated
+   #1 rationale ("message bubbles / response cards read as journal entries" -
+   see spec §1) - yet it was left with only bg-[var(--surface)]/
+   border-[var(--border)], which already inherits on-brand leather/parchment
+   *colors* from the token block above but none of the actual leather
+   material identity (gradient, embossed shadow, stitched edge) - it read as
+   a flat recolor, not a depicted material, on the app's most-visible
+   surface. Give it the same embossed-panel + stitched-edge treatment as
+   .glass-panel/.intel-card in §3b above. Scoped to a dedicated
+   `.chat-turn-user` hook (added directly in the JSX) rather than
+   piggybacking on the shared `.glass-panel` class, so this doesn't also
+   change corner-radius/shadow for every other Look's user bubble - only
+   skeuomorphic is touched. */
+[data-look='skeuomorphic'] .chat-turn-user {
+  position: relative;
+  background: linear-gradient(160deg, rgba(84, 62, 43, 0.92) 0%, rgba(43, 30, 21, 0.95) 100%) !important;
+  border: 1px solid rgba(20, 13, 7, 0.6) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-look='skeuomorphic'] .chat-turn-user::after {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: calc(var(--panel-radius, 16px) - 9px);
+  border: 1.5px dashed rgba(195, 138, 66, 0.4);
+  pointer-events: none;
+}
+
 /* §3c: Global surface/background texture. Body gradient + fine grain,
    following the same pattern retrowave/evergreen use (body sets the base
    gradient, body::before layers a decorative texture at reduced opacity —

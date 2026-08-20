@@ -2191,7 +2191,7 @@ while (true) {
                               <motion.div
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl px-6 py-5"
+                                className="chat-turn-user bg-[var(--surface)] border border-[var(--border)] rounded-2xl px-6 py-5"
                               >
                                 <div className="flex items-start gap-4 max-w-[70ch]">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
