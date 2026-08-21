@@ -2082,7 +2082,7 @@ while (true) {
               <div className={`interface-grid h-full ${isMobile ? 'grid-cols-1' : ''}`}>
                 {/* Intel Panel (Left) - Hidden in Fullscreen and Mobile */}
                 {!isFullscreen && !isMobile && (
-                  <section className={`intel-panel hidden lg:grid content-start gap-4 transition-all duration-300 ${closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot') ? 'hidden' : ''}`}>
+                  <section className={`intel-panel hidden lg:grid content-start gap-4 transition-all duration-300 ${closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot') ? 'intel-panel-collapsed' : ''}`}>
                     {!closedWidgets.has('active-intel') && (
                       <div className="intel-card relative">
                         <button
