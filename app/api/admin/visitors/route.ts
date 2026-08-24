@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         { status: 503 }
       );
     }
-    
+
     if (!adminKey || !safeKeyEquals(adminKey, expectedKey)) {
       // Security: Don't reveal whether key exists or not (prevent enumeration)
       return NextResponse.json(

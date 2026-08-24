@@ -96,7 +96,7 @@ export function validateModelId(
 /**
  * A single content part of a multimodal (text + image) message.
  */
-export interface MessageTextContent {
+interface MessageTextContent {
   type: 'text';
   text: string;
 }
@@ -257,7 +257,7 @@ export function validateImage(image: unknown): { valid: boolean; error?: string;
  * Fields produced by validateAIQueryRequest once a payload has passed
  * validation - i.e. the shape consumers can rely on.
  */
-export interface SanitizedAIQueryRequest {
+interface SanitizedAIQueryRequest {
   query: string;
   model?: string;
   systemPrompt?: string;
@@ -400,20 +400,11 @@ export function validateAIQueryRequest(
 }
 
 /**
- * Fields produced by validateTrackingRequest once a payload has passed
- * validation.
- */
-export interface SanitizedTrackingRequest {
-  visitorId?: string;
-  fingerprint?: string;
-}
-
-/**
  * Validate tracking request payload
  */
 export function validateTrackingRequest(
   payload: Record<string, unknown>
-): { valid: boolean; errors: string[]; sanitized?: SanitizedTrackingRequest } {
+): { valid: boolean; errors: string[]; sanitized?: { visitorId?: string; fingerprint?: string } } {
   const errors: string[] = [];
 
   // Validate visitorId (optional)
@@ -463,7 +454,7 @@ export function validateTrackingRequest(
  * Fields produced by validateFeedbackRequest once a payload has passed
  * validation.
  */
-export interface SanitizedFeedbackRequest {
+interface SanitizedFeedbackRequest {
   rating: 'up' | 'down';
   modelId: string;
 }

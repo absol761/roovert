@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import {
   getClientIP,
   checkRateLimit,
@@ -428,5 +428,66 @@ describe('createRateLimitResponse', () => {
     );
     const body = await response.json();
     expect(body.error).toBe('Rate limit exceeded');
+  });
+});
+
+describe('rate limiting backed by Redis', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.doUnmock('../redis');
+    vi.resetModules();
+  });
+
+  it('uses redis incr/pexpire/pttl instead of the in-memory store when Redis is configured', async () => {
+    const store = new Map<string, number>();
+    const mockRedis = {
+      incr: vi.fn(async (key: string) => {
+        const next = (store.get(key) ?? 0) + 1;
+        store.set(key, next);
+        return next;
+      }),
+      pexpire: vi.fn(async () => 1),
+      pttl: vi.fn(async () => 60_000),
+      get: vi.fn(async (key: string) => store.get(key) ?? null),
+    };
+
+    vi.doMock('../redis', () => ({ getRedis: () => mockRedis }));
+
+    const { applyRateLimit: redisApplyRateLimit } = await import('./rateLimit');
+    const request = requestFromIp(freshIp());
+
+    const response = await redisApplyRateLimit(request, 'general', { windowMs: 60_000, maxRequests: 5 });
+
+    expect(response).toBeNull();
+    expect(mockRedis.incr).toHaveBeenCalledTimes(1);
+    expect(mockRedis.pexpire).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks once the Redis-backed counter exceeds maxRequests', async () => {
+    const store = new Map<string, number>();
+    const mockRedis = {
+      incr: vi.fn(async (key: string) => {
+        const next = (store.get(key) ?? 0) + 1;
+        store.set(key, next);
+        return next;
+      }),
+      pexpire: vi.fn(async () => 1),
+      pttl: vi.fn(async () => 60_000),
+      get: vi.fn(async (key: string) => store.get(key) ?? null),
+    };
+
+    vi.doMock('../redis', () => ({ getRedis: () => mockRedis }));
+
+    const { applyRateLimit: redisApplyRateLimit } = await import('./rateLimit');
+    const request = requestFromIp(freshIp());
+    const config = { windowMs: 60_000, maxRequests: 1 };
+
+    await redisApplyRateLimit(request, 'general', config);
+    const blocked = await redisApplyRateLimit(request, 'general', config);
+
+    expect(blocked?.status).toBe(429);
   });
 });

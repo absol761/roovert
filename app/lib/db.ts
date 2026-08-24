@@ -70,6 +70,10 @@ export function getDatabase(): Database.Database {
       `);
     } catch (error) {
       console.error('Database initialization error:', error);
+      // Don't cache a half-initialized instance - let the next call retry
+      // construction from scratch instead of silently reusing a db handle
+      // whose schema may not have been created.
+      db = null;
       throw error;
     }
   }

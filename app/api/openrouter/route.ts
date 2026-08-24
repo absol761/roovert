@@ -1,7 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSystemPrompt, filterResponse, containsOffensiveContent } from '../../lib/prompts';
-import { applyRateLimit, incrementRateLimit, getRateLimitStatus } from '../../lib/security/rateLimit';
+import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
 import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse, historyContentToText, MAX_LENGTHS } from '../../lib/security/validation';
+import { sseError } from '../../lib/security/sse';
+import { resolveMaxTokens } from '../../lib/ai/tokens';
+import { parseOpenAISSEStream } from '../../lib/ai/parseOpenAISSEStream';
+import { rateLimitStatusHandler } from '../../lib/security/rateLimitHelpers';
 
 // Route segment config
 export const maxDuration = 60;
@@ -73,20 +77,7 @@ export async function POST(request: NextRequest) {
     // actually consumed and this limit never triggered.
     const openRouterRateLimitResponse = await applyRateLimit(request, 'openrouter');
     if (openRouterRateLimitResponse) {
-      return new Response(
-        `data: ${JSON.stringify({ 
-          content: getUserFriendlyErrorMessage('rate_limit'), 
-          done: true 
-        })}\n\n`,
-        {
-          status: 429,
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        }
-      );
+      return sseError(getUserFriendlyErrorMessage('rate_limit'), 429);
     }
 
     // Security: Validate request body size before parsing
@@ -123,11 +114,7 @@ export async function POST(request: NextRequest) {
     // Use sanitized payload
     const { query, model, systemPrompt: customSystemPrompt, conversationHistory, image, outputLength } = validation.sanitized!;
 
-    // Response length control - mirrors query-gateway's maxTokensMap so the
-    // setting has the same effect regardless of which provider handles the
-    // model.
-    const maxTokensMap = { small: 800, medium: 2000, large: 4000 };
-    const maxTokens = maxTokensMap[outputLength as 'small' | 'medium' | 'large'] || maxTokensMap.medium;
+    const maxTokens = resolveMaxTokens(outputLength);
 
     // Security: Content moderation - check for offensive content
     const queryCheck = containsOffensiveContent(query);
@@ -252,40 +239,18 @@ export async function POST(request: NextRequest) {
       const stream = new ReadableStream({
         async start(controller) {
           const encoder = new TextEncoder();
-          const decoder = new TextDecoder();
           let fullResponse = '';
 
           try {
-            const reader = openRouterResponse.body?.getReader();
-            if (!reader) throw new Error('No response body');
+            if (!openRouterResponse.body) throw new Error('No response body');
 
-            let buffer = '';
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split('\n');
-              buffer = lines.pop() || '';
-
-              for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || trimmed === 'data: [DONE]') continue;
-                if (!trimmed.startsWith('data: ')) continue;
-
-                try {
-                  const json = JSON.parse(trimmed.slice(6));
-                  const content = json.choices?.[0]?.delta?.content;
-                  if (content) {
-                    fullResponse += content;
-                    controller.enqueue(
-                      encoder.encode(`data: ${JSON.stringify({ content, done: false })}\n\n`)
-                    );
-                  }
-                } catch {
-                  // Skip malformed JSON
-                }
+            for await (const delta of parseOpenAISSEStream(openRouterResponse.body)) {
+              const content = delta.content;
+              if (typeof content === 'string' && content) {
+                fullResponse += content;
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ content, done: false })}\n\n`)
+                );
               }
             }
 
@@ -354,28 +319,5 @@ export async function POST(request: NextRequest) {
 
 // GET endpoint to check rate limit status
 export async function GET(request: NextRequest) {
-  // Security: Apply rate limiting to status check endpoint
-  const rateLimitResponse = await applyRateLimit(request, 'stats');
-  if (rateLimitResponse) {
-    try {
-      const errorData = await rateLimitResponse.json();
-      return NextResponse.json(errorData, {
-        status: 429,
-        headers: Object.fromEntries(rateLimitResponse.headers.entries())
-      });
-    } catch {
-      return rateLimitResponse;
-    }
-  }
-
-  const status = await getRateLimitStatus(request, 'openrouter');
-  await incrementRateLimit(request, 'stats');
-  
-  return NextResponse.json({
-    shouldHide: status.isBlocked,
-    count: status.count,
-    limit: status.limit,
-    remaining: status.remaining,
-    resetAt: status.resetAt,
-  });
+  return rateLimitStatusHandler(request, 'openrouter');
 }

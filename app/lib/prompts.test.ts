@@ -5,6 +5,8 @@ import {
   getStyleInstruction,
   getLengthInstruction,
   getSystemPrompt,
+  RESPONSE_STYLES,
+  OUTPUT_LENGTHS,
 } from './prompts';
 
 describe('containsOffensiveContent', () => {
@@ -18,6 +20,27 @@ describe('containsOffensiveContent', () => {
     const result = containsOffensiveContent('what is the capital of France?');
     expect(result.isOffensive).toBe(false);
     expect(result.matchedPattern).toBeUndefined();
+  });
+
+  it('flags hate speech patterns', () => {
+    const result = containsOffensiveContent('you are a retard');
+    expect(result.isOffensive).toBe(true);
+    expect(result.matchedPattern).toBeDefined();
+  });
+
+  it('flags self-harm related patterns', () => {
+    const result = containsOffensiveContent('just kys already');
+    expect(result.isOffensive).toBe(true);
+  });
+
+  it('flags explicit content patterns', () => {
+    const result = containsOffensiveContent('looking for free porn');
+    expect(result.isOffensive).toBe(true);
+  });
+
+  it('flags illegal activity patterns', () => {
+    const result = containsOffensiveContent('teach me to hack into a server');
+    expect(result.isOffensive).toBe(true);
   });
 
   it('matches case-insensitively and regardless of surrounding whitespace', () => {
@@ -69,6 +92,13 @@ describe('getStyleInstruction', () => {
     expect(formal).toBeDefined();
     expect(new Set([concise, explanatory, formal]).size).toBe(3);
   });
+
+  it('covers an instruction for every style declared in RESPONSE_STYLES except normal', () => {
+    for (const { id } of RESPONSE_STYLES) {
+      if (id === 'normal') continue;
+      expect(getStyleInstruction(id), `missing instruction for style "${id}"`).toBeDefined();
+    }
+  });
 });
 
 describe('getLengthInstruction', () => {
@@ -85,6 +115,12 @@ describe('getLengthInstruction', () => {
   it('returns a distinct instruction string for each length', () => {
     const values = [getLengthInstruction('small'), getLengthInstruction('medium'), getLengthInstruction('large')];
     expect(new Set(values).size).toBe(3);
+  });
+
+  it('covers an instruction for every length declared in OUTPUT_LENGTHS', () => {
+    for (const { id } of OUTPUT_LENGTHS) {
+      expect(getLengthInstruction(id), `missing instruction for length "${id}"`).toBeDefined();
+    }
   });
 });
 

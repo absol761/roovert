@@ -40,6 +40,12 @@ describe('OPENROUTER_MODELS', () => {
     const ids = OPENROUTER_MODELS.map((m) => m.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it('tags every entry with the OpenRouter category', () => {
+    for (const model of OPENROUTER_MODELS) {
+      expect(model.category).toBe('OpenRouter');
+    }
+  });
 });
 
 describe('HUGGINGFACE_MODELS', () => {
@@ -63,6 +69,18 @@ describe('HUGGINGFACE_MODELS', () => {
     const modelIds = new Set(HUGGINGFACE_MODELS.map((m) => m.id));
     for (const key of Object.keys(HUGGINGFACE_MODEL_MAP)) {
       expect(modelIds.has(key), `HUGGINGFACE_MODEL_MAP has orphaned key ${key}`).toBe(true);
+    }
+  });
+
+  it('tags every entry with the Hugging Face category', () => {
+    for (const model of HUGGINGFACE_MODELS) {
+      expect(model.category).toBe('Hugging Face');
+    }
+  });
+
+  it('suffixes every display name with "(HF)" to disambiguate from same-named OpenRouter entries', () => {
+    for (const model of HUGGINGFACE_MODELS) {
+      expect(model.name).toMatch(/\(HF\)$/);
     }
   });
 });

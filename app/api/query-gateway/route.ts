@@ -5,6 +5,9 @@ import { getSystemPrompt, filterResponse, containsOffensiveContent } from '../..
 import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
 import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse, historyContentToText, MAX_LENGTHS } from '../../lib/security/validation';
 import { HUGGINGFACE_MODEL_MAP, extractThinkChunks, type ThinkState } from '../../lib/huggingface';
+import { sseError } from '../../lib/security/sse';
+import { resolveMaxTokens } from '../../lib/ai/tokens';
+import { parseOpenAISSEStream } from '../../lib/ai/parseOpenAISSEStream';
 
 // Route segment config
 export const maxDuration = 60;
@@ -58,37 +61,17 @@ async function streamHuggingFaceLeg(
       return;
     }
 
-    const reader = hfResponse.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
     let thinkState: ThinkState = { insideThink: false, pending: '' };
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed === 'data: [DONE]' || !trimmed.startsWith('data: ')) continue;
-
-        try {
-          const json = JSON.parse(trimmed.slice(6));
-          const content = json.choices?.[0]?.delta?.content;
-          if (content) {
-            const result = extractThinkChunks(content, thinkState);
-            thinkState = result.state;
-            for (const chunk of result.chunks) {
-              if (chunk.type === 'content') {
-                enqueue({ model: selectedModel, content: chunk.text, done: false });
-              }
-            }
+    for await (const delta of parseOpenAISSEStream(hfResponse.body)) {
+      const content = delta?.content;
+      if (typeof content === 'string' && content) {
+        const result = extractThinkChunks(content, thinkState);
+        thinkState = result.state;
+        for (const chunk of result.chunks) {
+          if (chunk.type === 'content') {
+            enqueue({ model: selectedModel, content: chunk.text, done: false });
           }
-        } catch {
-          // Skip malformed JSON
         }
       }
     }
@@ -160,26 +143,12 @@ export async function POST(request: NextRequest) {
     const { query, model, systemPrompt: customSystemPrompt, conversationHistory, image, runParallel, outputLength, parallelModel1, parallelModel2 } = validation.sanitized!;
 
     // Determine max_tokens based on outputLength
-    const maxTokensMap = {
-      small: 800,
-      medium: 2000,
-      large: 4000
-    };
-    const maxTokens = maxTokensMap[outputLength as 'small' | 'medium' | 'large'] || maxTokensMap.medium;
+    const maxTokens = resolveMaxTokens(outputLength);
 
     // Security: Content moderation - check for offensive content
     const queryCheck = containsOffensiveContent(query);
     if (queryCheck.isOffensive) {
-      return new Response(
-        `data: ${JSON.stringify({ content: "I apologize, but I cannot assist with that type of request. Please ask me something else, and I'll be happy to help.", done: true })}\n\n`,
-        {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        }
-      );
+      return sseError("I apologize, but I cannot assist with that type of request. Please ask me something else, and I'll be happy to help.");
     }
 
     // Security: Increment rate limit after successful validation
@@ -188,16 +157,7 @@ export async function POST(request: NextRequest) {
     // Security: API key validation - ensure key exists in environment (never exposed to client)
     if (!process.env.GROQ_API_KEY) {
       console.error('GROQ_API_KEY is missing from environment variables');
-      return new Response(
-        `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(), done: true })}\n\n`,
-        {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        }
-      );
+      return sseError(getUserFriendlyErrorMessage());
     }
 
     // Security: Model selection - use validated model from allowlist only.
@@ -447,28 +407,10 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error('Groq API error:', error);
-      return new Response(
-        `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(), done: true })}\n\n`,
-        {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        }
-      );
+      return sseError(getUserFriendlyErrorMessage());
     }
   } catch (error) {
     console.error('Query processing error:', error);
-    return new Response(
-      `data: ${JSON.stringify({ content: getUserFriendlyErrorMessage(), done: true })}\n\n`,
-      {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      }
-    );
+    return sseError(getUserFriendlyErrorMessage());
   }
 }

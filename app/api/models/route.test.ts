@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { GET } from './route';
 import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from '../../lib/models';
 import * as providers from '../../lib/providers';
+import * as rateLimit from '../../lib/security/rateLimit';
 
 // ---------------------------------------------------------------------------
 // Request-construction helpers - mirrors the conventions in
@@ -65,6 +66,15 @@ describe('GET /api/models', () => {
     expect(flagged.map((m: { id: string }) => m.id)).toEqual(['multi-perspective']);
   });
 
+  it('does not leak apiId (used only server-side to call the provider) in the public catalog', async () => {
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    for (const model of body.models) {
+      expect(model).not.toHaveProperty('apiId');
+    }
+  });
+
   it('returns an empty providerModels array when no provider API keys are configured', async () => {
     const response = await GET(makeRequest());
     const body = await response.json();
@@ -93,6 +103,16 @@ describe('GET /api/models', () => {
     expect(body.providerModels).toEqual([]);
     // The rest of the response must still be intact.
     expect(body.models.length).toBe(MODELS.length + OPENROUTER_MODELS.length + HUGGINGFACE_MODELS.length);
+  });
+
+  it('returns a 500 with a generic error message when something throws unexpectedly', async () => {
+    vi.spyOn(rateLimit, 'applyRateLimit').mockRejectedValue(new Error('redis unreachable'));
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to load models' });
   });
 
   it('is never cached (always revalidated), unlike a typical static catalog response', async () => {
