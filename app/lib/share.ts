@@ -54,25 +54,14 @@ export async function saveSharedConversation(id: string, messages: ConversationM
 }
 
 /**
- * Look up a shared conversation by id. Returns null if it doesn't exist,
- * has expired, or storage is unavailable - callers should treat all of
- * these as "not found" (404), never leak the distinction to the public.
+ * SQLite lookup used both as the primary store (when KV isn't configured)
+ * and as a fallback read when KV is configured but doesn't have the record
+ * (see getSharedConversation below). "SQLite not available" (the
+ * serverless/Vercel case, where getDatabase() throws immediately) is
+ * expected and silent, not logged as an error - it just means this fallback
+ * has nothing to offer, same as any other "not found".
  */
-export async function getSharedConversation(id: string): Promise<SharedConversation | null> {
-  if (isKvConfigured()) {
-    try {
-      const raw = await kv.get<string>(kvKey(id));
-      if (!raw) return null;
-      // @vercel/kv may already deserialize JSON-looking strings for us
-      // depending on version/config, so accept either shape.
-      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      return parsed as SharedConversation;
-    } catch (kvError) {
-      console.error('KV share read error:', kvError);
-      return null;
-    }
-  }
-
+function getFromSqlite(id: string): SharedConversation | null {
   try {
     const db = getDatabase();
     const row = db
@@ -91,7 +80,41 @@ export async function getSharedConversation(id: string): Promise<SharedConversat
 
     return JSON.parse(row.content) as SharedConversation;
   } catch (dbError) {
+    const message = dbError instanceof Error ? dbError.message : String(dbError);
+    if (message.includes('SQLite not available')) {
+      return null;
+    }
     console.error('SQLite share read error:', dbError);
     return null;
   }
+}
+
+/**
+ * Look up a shared conversation by id. Returns null if it doesn't exist,
+ * has expired, or storage is unavailable - callers should treat all of
+ * these as "not found" (404), never leak the distinction to the public.
+ */
+export async function getSharedConversation(id: string): Promise<SharedConversation | null> {
+  if (isKvConfigured()) {
+    try {
+      const raw = await kv.get<string>(kvKey(id));
+      if (raw) {
+        // @vercel/kv may already deserialize JSON-looking strings for us
+        // depending on version/config, so accept either shape.
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return parsed as SharedConversation;
+      }
+      // Not found in KV. saveSharedConversation falls back to writing
+      // SQLite when a KV write fails, so a record can exist there even
+      // while KV is configured - check it before reporting "not found",
+      // otherwise a share created during a transient KV outage would get a
+      // "success" response pointing at a link that 404s forever.
+      return getFromSqlite(id);
+    } catch (kvError) {
+      console.error('KV share read error:', kvError);
+      return null;
+    }
+  }
+
+  return getFromSqlite(id);
 }

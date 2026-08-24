@@ -2,26 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { getDatabase } from '@/app/lib/db';
 import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
-import { Redis } from '@upstash/redis';
-
-// Initialize Redis client if environment variables are available
-let redis: Redis | null = null;
-if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-  redis = new Redis({
-    url: process.env.KV_REST_API_URL,
-    token: process.env.KV_REST_API_TOKEN,
-  });
-}
+import { getRedis } from '@/app/lib/redis';
 
 // Cooldown period in seconds (5 minutes)
 const COOLDOWN_SECONDS = 300;
 
 /**
  * Get user identifier from request (IP-based)
+ *
+ * Security: x-forwarded-for is a hop chain each proxy APPENDS to, not
+ * replaces. With one trusted reverse proxy in front (Vercel's edge), the
+ * LAST entry is the one that proxy appended; earlier entries are whatever
+ * the client sent and must never be trusted as the real client IP.
  */
 function getUserIdentifier(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
-  const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown';
+  const ips = forwarded?.split(',').map(ip => ip.trim()).filter(Boolean);
+  const ip = ips && ips.length > 0 ? ips[ips.length - 1] : 'unknown';
   // Hash the IP for privacy - the raw IP must never be used as (or embedded
   // in) the Redis key.
   const hashedIp = createHash('sha256').update(ip).digest('hex');
@@ -34,26 +31,46 @@ function getUserIdentifier(request: NextRequest): string {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Security: Rate limiting for tracking endpoints (matches track/route.ts
+    // and visit/route.ts - this route was previously missing this check).
+    const rateLimitResponse = await applyRateLimit(request, 'tracking');
+    if (rateLimitResponse) {
+      try {
+        const errorData = await rateLimitResponse.json();
+        return NextResponse.json(errorData, {
+          status: 429,
+          headers: Object.fromEntries(rateLimitResponse.headers.entries())
+        });
+      } catch {
+        return rateLimitResponse;
+      }
+    }
+
     const now = Date.now();
     const userKey = getUserIdentifier(request);
-    
+    const redis = getRedis();
+
     // Try Upstash Redis first (production)
     if (redis) {
       try {
-        // Check if user is on cooldown
-        const lastClick = await redis.get<number>(userKey);
-        
-        if (lastClick) {
+        // Atomically set the cooldown key only if it isn't already set - a
+        // separate get-then-set (as this used to do) is a TOCTOU race: two
+        // concurrent requests from the same IP could both see "no cooldown"
+        // before either had set the key, so both would fall through and
+        // increment the counter, double-counting a single burst of clicks.
+        // SET ... NX makes "start the cooldown" and "was it already active"
+        // a single atomic operation, matching the pattern already used by
+        // /api/track and /api/visit for their own dedupe keys.
+        const setResult = await redis.set(userKey, now, { ex: COOLDOWN_SECONDS, nx: true });
+
+        if (setResult !== 'OK') {
           // User clicked recently, don't increment
           return NextResponse.json({ success: true, counted: false, message: 'Already counted recently' });
         }
-        
-        // Set cooldown for this user (expires after 5 minutes)
-        await redis.set(userKey, now, { ex: COOLDOWN_SECONDS });
-        
+
         // Increment the counter
         await redis.incr('initialize_chat_clicks');
-        
+
         return NextResponse.json({ success: true, counted: true });
       } catch (redisError) {
         console.error('Redis error:', redisError);
@@ -98,6 +115,7 @@ export async function POST(request: NextRequest) {
  */
 async function getInitializeCount(): Promise<number> {
   // Try Upstash Redis first (production)
+  const redis = getRedis();
   if (redis) {
     try {
       const count = await redis.get<number>('initialize_chat_clicks');

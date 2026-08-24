@@ -43,6 +43,7 @@ function RailItem({ action, expanded }: { action: RailAction; expanded: boolean 
       type="button"
       variant="ghost"
       onClick={action.onClick}
+      aria-label={action.label}
       aria-pressed={action.active}
       className={cn(
         'w-full justify-start gap-3 text-[var(--muted)] hover:text-[var(--foreground)]',
@@ -287,6 +288,7 @@ function VisualizerRailButton({
     <button
       type="button"
       onClick={onToggle}
+      aria-label="Visualizer"
       aria-pressed={enabled}
       className={cn(
         'relative overflow-visible flex items-center gap-3 rounded-lg transition-all group w-full',

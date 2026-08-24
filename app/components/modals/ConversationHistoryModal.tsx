@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { History, X, Pencil, Trash2, Check, MessageSquarePlus } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 // Structural subset of the full conversation record page.tsx keeps in
 // memory - the modal only ever needs to list/rename/delete, never touch
@@ -53,6 +54,8 @@ export function ConversationHistoryModal({
   useModalDismiss(isOpen, onClose);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isOpen, containerRef);
 
   if (!isOpen) return null;
 
@@ -86,9 +89,11 @@ export function ConversationHistoryModal({
     <div className="fixed inset-0 z-[110] flex text-[var(--foreground)]">
       <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
       <motion.div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="conversation-history-title"
+        tabIndex={-1}
         initial={{ x: '-100%', opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: '-100%', opacity: 0 }}

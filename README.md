@@ -28,11 +28,11 @@ npm install
 Set up environment variables. Create a `.env.local` file in the root directory:
 
 ```bash
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 # Optional: Admin API key (for testing /api/admin/visitors endpoint locally)
 # If not set, admin endpoint will return 503 in local development
-AI_GATEWAY_API_KEY=your_admin_key_here
+ADMIN_API_KEY=your_admin_key_here
 
 # Optional: Segment.io Analytics (for anonymous user analytics)
 # Get your write key from https://app.segment.com/
@@ -53,13 +53,15 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Features
 
-- Access to multiple AI models
+- Access to multiple AI models, including Hugging Face-hosted open models
 - Default Ooverta model with web search capabilities
 - Image upload and vision support for AI models
-- Conversation memory and history management
-- Message editing and regeneration
+- Multi-conversation history with server-side conversation sharing
+- Command palette and keyboard shortcuts
+- Message editing, regeneration, and thumbs-up/down feedback
+- Response style presets and adjustable response length
 - Privacy-focused visitor tracking using hashed identifiers
-- Customizable themes and interface layouts
+- Customizable themes, layouts, and an audio-reactive 3D visualizer
 - Real-time streaming responses
 - Code block syntax highlighting and copy functionality
 
@@ -67,10 +69,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 - Next.js 16 (App Router)
 - TypeScript
-- Tailwind CSS 4
+- Tailwind CSS 4, shadcn/ui, and Radix UI primitives
 - Framer Motion for animations
+- React Three Fiber / drei for the 3D visualizer
 - React Markdown for response rendering
-- Vercel KV for visitor tracking (production)
+- Vercel KV / Upstash Redis for visitor tracking (production)
 - SQLite for local development
 
 ## Project Structure
@@ -109,11 +112,39 @@ Deploy to Vercel:
 4. Deploy
 
 Required environment variables:
-- `NEXT_PUBLIC_APP_URL` - Your application URL
+- `GROQ_API_KEY` - Groq API key for the default (Ooverta) chat model
 
 Optional environment variables:
-- `AI_GATEWAY_API_KEY` - Admin API key for accessing `/api/admin/visitors` endpoint (required in production, optional for local dev)
+- `NEXT_PUBLIC_SITE_URL` - Your deployed site URL (falls back to `https://roovert.com`)
+- `ADMIN_API_KEY` - Admin API key for accessing `/api/admin/visitors` endpoint
+- `OPENROUTER_API_KEY` - enables the OpenRouter multi-provider model picker
+- `HUGGINGFACE_API_KEY` - enables the Hugging Face model picker and image generation
+- `CEREBRAS_API_KEY` - enables the built-in Cerebras provider (Llama 3.3 70B, Llama 3.1 8B, GPT-OSS 120B)
+- `GEMINI_API_KEY` - enables the built-in Google Gemini provider (2.5 Flash, Flash-Lite, Pro)
+- `MISTRAL_API_KEY` - enables the built-in Mistral provider (Large, Small, Nemo)
+- `DEEPSEEK_API_KEY` - enables the built-in DeepSeek provider (V4 Flash, V4 Pro)
+- `TOGETHER_API_KEY` - enables the built-in Together AI provider (Llama 3.3 70B Turbo, DeepSeek V4 Pro)
+- `CUSTOM_PROVIDERS` - JSON array adding any other OpenAI-compatible endpoint (e.g. a self-hosted Ollama/vLLM/LM Studio instance) with zero code changes - see [Bring your own model provider](#bring-your-own-model-provider) below
+- `KV_REST_API_URL` / `KV_REST_API_TOKEN` - visitor tracking storage (falls back to local SQLite)
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` - shared rate-limit storage (required for multi-instance production deployments)
 - `NEXT_PUBLIC_SEGMENT_WRITE_KEY` - Segment.io write key for anonymous analytics (get from [app.segment.com](https://app.segment.com/))
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment walkthrough (Vercel dashboard/CLI, verification, troubleshooting), [docs/CUSTOM_DOMAIN_SETUP.md](docs/CUSTOM_DOMAIN_SETUP.md) for pointing a custom domain at your deployment, [docs/PROVIDERS.md](docs/PROVIDERS.md) for the full "bring your own model provider" reference, and [docs/SECURITY.md](docs/SECURITY.md) for the current security posture.
+
+## Bring your own model provider
+
+Roovert ships with five built-in AI providers beyond the default Groq-backed model: [Cerebras](https://cloud.cerebras.ai), [Google Gemini](https://aistudio.google.com/apikey), [Mistral](https://console.mistral.ai), [DeepSeek](https://platform.deepseek.com), and [Together AI](https://api.together.ai). Each one turns on independently the moment you set its API key (`CEREBRAS_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `DEEPSEEK_API_KEY`, `TOGETHER_API_KEY`) - no other configuration needed.
+
+You can also add **any** OpenAI-compatible endpoint - another hosted provider, or your own self-hosted Ollama/vLLM/LM Studio instance - via the `CUSTOM_PROVIDERS` environment variable, a JSON array of provider definitions. For example, a local Ollama instance:
+
+```bash
+CUSTOM_PROVIDERS=[{"id":"ollama","name":"My Ollama","baseURL":"http://localhost:11434/v1/chat/completions","apiKeyEnvVar":"OLLAMA_API_KEY","models":[{"id":"llama3","name":"Llama 3 (local)","apiId":"llama3","category":"Self-hosted","description":"Local Ollama model."}]}]
+OLLAMA_API_KEY=local-placeholder
+```
+
+This is entirely a deploy-time, environment-variable decision - there is deliberately no in-app UI for a visitor to a hosted Roovert instance to add their own provider or API key. Every endpoint a request can reach is one the *deployer* configured before the app went live; letting an end user supply an arbitrary fetch target on a public-facing app is a textbook SSRF (server-side request forgery) risk.
+
+See [docs/PROVIDERS.md](docs/PROVIDERS.md) for the full reference, including the exact JSON shape, validation rules, and how to test a provider locally.
 
 ## Design
 

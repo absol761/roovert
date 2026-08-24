@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Security: don't fingerprint the framework via the X-Powered-By header
+  poweredByHeader: false,
   // Security headers
   async headers() {
     return [
@@ -35,20 +37,11 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(self), geolocation=()'
           },
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.segment.com",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https:",
-              "font-src 'self' data:",
-              "connect-src 'self' https://api.segment.io",
-              "frame-ancestors 'self'",
-              "base-uri 'self'",
-              "form-action 'self'",
-            ].join('; ')
-          },
+          // Content-Security-Policy is set dynamically per-request in
+          // proxy.ts instead of here, because it embeds a fresh nonce on
+          // every request (needed to allow the inline <script> in
+          // app/layout.tsx without 'unsafe-inline') and this static
+          // headers() config can't vary per-request.
           {
             key: 'Cross-Origin-Embedder-Policy',
             value: 'require-corp'

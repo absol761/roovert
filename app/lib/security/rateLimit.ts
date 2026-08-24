@@ -85,6 +85,20 @@ const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
     maxRequests: 10, // 10 images per hour
     message: 'Image generation rate limit exceeded. Please wait before generating another image.',
   },
+  // Generic OpenAI-compatible provider route (app/api/provider/route.ts) -
+  // covers Cerebras/Gemini/Mistral plus whatever a deployer adds via
+  // CUSTOM_PROVIDERS. Unlike 'openrouter'/'huggingface', this single bucket
+  // has to cover many providers with very different real quotas (a
+  // generous 1M-tokens/day free tier vs. a deployer's own unmetered
+  // self-hosted Ollama instance), so it isn't tuned to match any one
+  // vendor's actual ceiling the way those two are - it exists purely to
+  // stop a single client from hammering the deployer's configured keys,
+  // sized in the same ballpark as 'huggingface' as a reasonable default.
+  'provider': {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    maxRequests: 30, // 30 requests per hour
+    message: 'Rate limit exceeded for this provider. Please wait before making another request.',
+  },
   // Creating a share link writes content that gets publicly republished, so
   // it's throttled more tightly than general write endpoints.
   'share': {
@@ -105,22 +119,23 @@ const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
 /**
  * Get client IP address from request headers
  * Handles various proxy headers (X-Forwarded-For, X-Real-IP, CF-Connecting-IP)
+ *
+ * Security: x-forwarded-for is a comma-separated hop chain where each proxy
+ * APPENDS its view of the connecting peer - it does not replace whatever the
+ * client already sent. With exactly one trusted reverse proxy in front of
+ * this app (Vercel's edge network), the LAST entry is the one that proxy
+ * appended and is the only value in the header that isn't fully attacker-
+ * controlled; the first entry can be set to anything by the client and must
+ * never be trusted for rate limiting.
  */
 export function getClientIP(request: { headers: { get: (key: string) => string | null } }): string {
   const forwarded = request.headers.get('x-forwarded-for');
   const realIp = request.headers.get('x-real-ip');
   const cfConnectingIp = request.headers.get('cf-connecting-ip'); // Cloudflare
-  const ip = forwarded?.split(',')[0]?.trim() || realIp?.trim() || cfConnectingIp?.trim() || 'unknown';
+  const forwardedIps = forwarded?.split(',').map(ip => ip.trim()).filter(Boolean);
+  const trustedForwardedIp = forwardedIps?.[forwardedIps.length - 1];
+  const ip = trustedForwardedIp || realIp?.trim() || cfConnectingIp?.trim() || 'unknown';
   return ip;
-}
-
-/**
- * Get user identifier (for user-based rate limiting)
- * Can be extended to use session IDs, API keys, etc.
- */
-export function getUserIdentifier(request: { headers: { get: (key: string) => string | null } }): string | null {
-  const userId = request.headers.get('x-user-id');
-  return userId || null;
 }
 
 /**
@@ -186,10 +201,12 @@ function storeKey(endpointType: string, config: RateLimitConfig, identifierType:
 }
 
 function resolveIdentifier(request: { headers: { get: (key: string) => string | null } }): { identifier: string; identifierType: string } {
-  const userId = getUserIdentifier(request);
-  return userId
-    ? { identifier: userId, identifierType: 'user' }
-    : { identifier: getClientIP(request), identifierType: 'ip' };
+  // Security: identity used to be resolvable via a client-supplied
+  // 'x-user-id' header with zero verification - since nothing in this
+  // app's own frontend ever sent that header, it was pure unverified
+  // attack surface (trivially rotate it to get a fresh rate-limit bucket
+  // per request) with no legitimate use. IP is the only identifier here.
+  return { identifier: getClientIP(request), identifierType: 'ip' };
 }
 
 /**
@@ -252,13 +269,18 @@ async function checkAndConsumeRateLimit(
  * the quota itself. Kept as a no-op so existing call sites (every API
  * route calls this after applyRateLimit) don't need to change and don't
  * silently double-count if this file is touched again later.
+ *
+ * `endpointType` is kept in the signature (but intentionally unused)
+ * purely so every existing call site - which all pass it positionally -
+ * keeps type-checking without modification. `customConfig` was dropped
+ * since no call site has ever passed one.
  */
 export async function incrementRateLimit(
   _request: { headers: { get: (key: string) => string | null } },
-  _endpointType: keyof typeof DEFAULT_LIMITS = 'general',
-  _customConfig?: Partial<RateLimitConfig>
+  endpointType: keyof typeof DEFAULT_LIMITS = 'general'
 ): Promise<void> {
   // Intentionally a no-op - see checkAndConsumeRateLimit.
+  void endpointType;
 }
 
 /**
@@ -333,4 +355,16 @@ export async function getRateLimitStatus(
     resetAt: result.resetAt,
     isBlocked: !result.allowed,
   };
+}
+
+/**
+ * Check if OpenRouter models should be hidden for this user
+ * Used by the /api/openrouter/status endpoint to tell the client whether to
+ * hide OpenRouter models (rate limit reached).
+ */
+export async function shouldHideOpenRouterModels(
+  request: { headers: { get: (key: string) => string | null } }
+): Promise<boolean> {
+  const status = await getRateLimitStatus(request, 'openrouter');
+  return status.isBlocked;
 }

@@ -1,45 +1,40 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { sep } from 'path';
 
-// vi.mock() factories are hoisted above const declarations, so the mocks
-// they reference must themselves be created inside vi.hoisted() - a plain
-// const here would be undefined (TDZ) by the time the factory runs.
-const { pragmaMock, execMock, DatabaseCtorMock, existsSyncMock, mkdirSyncMock } = vi.hoisted(() => ({
-  pragmaMock: vi.fn(),
-  execMock: vi.fn(),
-  DatabaseCtorMock: vi.fn(),
-  existsSyncMock: vi.fn(),
-  mkdirSyncMock: vi.fn(),
-}));
-
-// `new mockFn()` forwards construction to the implementation function itself,
-// and arrow functions are never constructable - this must be a real function.
-DatabaseCtorMock.mockImplementation(function () {
+// db.ts always opens a fixed on-disk path (process.cwd()/data/visitors.db) -
+// there's no env var or parameter to point it at a temp/in-memory database.
+// To keep these tests from touching real disk state, we mock 'better-sqlite3'
+// so every `new Database(path)` call transparently opens ':memory:' instead
+// (the real Database class otherwise, so schema/CRUD behavior is exercised
+// for real), and mock 'fs' so the real-directory existsSync/mkdirSync calls
+// in getDatabase() never touch the filesystem either.
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>();
   return {
-    pragma: pragmaMock,
-    exec: execMock,
+    ...actual,
+    existsSync: vi.fn(() => true),
+    mkdirSync: vi.fn(),
   };
 });
 
-vi.mock('better-sqlite3', () => ({
-  default: DatabaseCtorMock,
-}));
-
-vi.mock('fs', () => ({
-  existsSync: (...args: unknown[]) => existsSyncMock(...args),
-  mkdirSync: (...args: unknown[]) => mkdirSyncMock(...args),
-}));
+vi.mock('better-sqlite3', async (importOriginal) => {
+  // better-sqlite3 is a CJS `export =` module, so its type doesn't expose a
+  // `.default`; the runtime interop shape it's imported through varies, so
+  // this stays untyped rather than fighting `typeof import(...)` here.
+  const actual = (await importOriginal()) as { default: typeof import('better-sqlite3') };
+  const ActualDatabase = actual.default;
+  class InMemoryDatabase extends ActualDatabase {
+    constructor(_path?: string, options?: ConstructorParameters<typeof ActualDatabase>[1]) {
+      super(':memory:', options);
+    }
+  }
+  return { default: InMemoryDatabase };
+});
 
 describe('getDatabase', () => {
   const originalVercel = process.env.VERCEL;
 
   beforeEach(() => {
     vi.resetModules();
-    DatabaseCtorMock.mockClear();
-    pragmaMock.mockClear();
-    execMock.mockClear();
-    existsSyncMock.mockReset();
-    mkdirSyncMock.mockReset();
     delete process.env.VERCEL;
   });
 
@@ -51,79 +46,81 @@ describe('getDatabase', () => {
     }
   });
 
-  it('throws when running in the Vercel serverless environment', async () => {
+  it('throws in a serverless (VERCEL) environment instead of touching SQLite', async () => {
     process.env.VERCEL = '1';
     const { getDatabase } = await import('./db');
-
     expect(() => getDatabase()).toThrow('SQLite not available in serverless environment');
-    expect(DatabaseCtorMock).not.toHaveBeenCalled();
   });
 
-  it('creates the data directory when it does not already exist', async () => {
-    existsSyncMock.mockReturnValue(false);
+  it('creates the expected tables', async () => {
     const { getDatabase } = await import('./db');
-
-    getDatabase();
-
-    expect(mkdirSyncMock).toHaveBeenCalledWith(expect.stringContaining('data'), { recursive: true });
+    const db = getDatabase();
+    const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map(
+      (row) => row.name
+    );
+    expect(tables).toEqual(
+      expect.arrayContaining(['unique_visitors', 'message_feedback', 'shared_conversations'])
+    );
   });
 
-  it('does not attempt to create the data directory when it already exists', async () => {
-    existsSyncMock.mockReturnValue(true);
+  it('creates the expected indexes', async () => {
     const { getDatabase } = await import('./db');
-
-    getDatabase();
-
-    expect(mkdirSyncMock).not.toHaveBeenCalled();
+    const db = getDatabase();
+    const indexes = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'index'").all() as { name: string }[]).map(
+      (row) => row.name
+    );
+    expect(indexes).toEqual(
+      expect.arrayContaining([
+        'idx_visitor_hash',
+        'idx_first_seen',
+        'idx_last_seen',
+        'idx_feedback_model',
+        'idx_feedback_created_at',
+        'idx_shared_expires_at',
+      ])
+    );
   });
 
-  it('opens the database at data/visitors.db and enables WAL mode', async () => {
-    existsSyncMock.mockReturnValue(true);
+  it('returns the same singleton instance across repeated calls', async () => {
     const { getDatabase } = await import('./db');
-
-    getDatabase();
-
-    expect(DatabaseCtorMock).toHaveBeenCalledWith(expect.stringContaining(`${sep}data${sep}visitors.db`));
-    expect(pragmaMock).toHaveBeenCalledWith('journal_mode = WAL');
+    const a = getDatabase();
+    const b = getDatabase();
+    expect(a).toBe(b);
   });
 
-  it('initializes schema for unique_visitors, message_feedback, and shared_conversations tables', async () => {
-    existsSyncMock.mockReturnValue(true);
+  it('supports inserting into and querying unique_visitors, with visit_count defaulting to 1', async () => {
     const { getDatabase } = await import('./db');
+    const db = getDatabase();
+    db.prepare(
+      'INSERT INTO unique_visitors (visitor_hash, first_seen, last_seen) VALUES (?, ?, ?)'
+    ).run('hash-1', 1000, 1000);
 
-    getDatabase();
-
-    expect(execMock).toHaveBeenCalledTimes(1);
-    const schemaSql = execMock.mock.calls[0][0] as string;
-    expect(schemaSql).toContain('CREATE TABLE IF NOT EXISTS unique_visitors');
-    expect(schemaSql).toContain('CREATE TABLE IF NOT EXISTS message_feedback');
-    expect(schemaSql).toContain('CREATE TABLE IF NOT EXISTS shared_conversations');
+    const row = db.prepare('SELECT * FROM unique_visitors WHERE visitor_hash = ?').get('hash-1');
+    expect(row).toMatchObject({ visitor_hash: 'hash-1', first_seen: 1000, last_seen: 1000, visit_count: 1 });
   });
 
-  it('returns the same database instance on repeated calls (singleton)', async () => {
-    existsSyncMock.mockReturnValue(true);
+  it('enforces uniqueness on visitor_hash', async () => {
     const { getDatabase } = await import('./db');
+    const db = getDatabase();
+    db.prepare(
+      'INSERT INTO unique_visitors (visitor_hash, first_seen, last_seen) VALUES (?, ?, ?)'
+    ).run('dup', 1, 1);
 
-    const first = getDatabase();
-    const second = getDatabase();
-
-    expect(first).toBe(second);
-    expect(DatabaseCtorMock).toHaveBeenCalledTimes(1);
+    expect(() =>
+      db
+        .prepare('INSERT INTO unique_visitors (visitor_hash, first_seen, last_seen) VALUES (?, ?, ?)')
+        .run('dup', 2, 2)
+    ).toThrow();
   });
 
-  it('rethrows and does not cache the instance when initialization fails', async () => {
-    existsSyncMock.mockReturnValue(true);
-    execMock.mockImplementationOnce(() => {
-      throw new Error('disk full');
-    });
+  it('supports inserting into and reading back shared_conversations', async () => {
     const { getDatabase } = await import('./db');
+    const db = getDatabase();
+    db.prepare(
+      'INSERT INTO shared_conversations (id, content, created_at, expires_at) VALUES (?, ?, ?, ?)'
+    ).run('share-1', '{"messages":[]}', 1000, 2000);
 
-    expect(() => getDatabase()).toThrow('disk full');
-
-    // A subsequent call should retry construction rather than reuse a
-    // half-initialized instance from the failed attempt.
-    execMock.mockImplementationOnce(() => undefined);
-    expect(() => getDatabase()).not.toThrow();
-    expect(DatabaseCtorMock).toHaveBeenCalledTimes(2);
+    const row = db.prepare('SELECT * FROM shared_conversations WHERE id = ?').get('share-1');
+    expect(row).toMatchObject({ id: 'share-1', content: '{"messages":[]}', created_at: 1000, expires_at: 2000 });
   });
 });

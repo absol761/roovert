@@ -1,3 +1,14 @@
+// NOTE: this file is not the *only* source of models the picker in
+// app/page.tsx offers. It's the complete, static list of the three
+// built-in curated providers (Groq/OpenRouter/Hugging Face below); a
+// fourth, dynamic source - generic OpenAI-compatible providers configured
+// at deploy time (Cerebras/Gemini/Mistral/CUSTOM_PROVIDERS, see
+// app/lib/providers.ts) - is appended to `availableModels` in page.tsx at
+// runtime via GET /api/models, since which of those are actually available
+// depends on server-only env vars this file can't (and shouldn't) know
+// about statically. Every entry from either source shares this same
+// `Model` shape, so if you're reading page.tsx and wondering where a model
+// not listed here came from, that's why.
 export interface Model {
   id: string;
   name: string;

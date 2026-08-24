@@ -4,7 +4,7 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, X } from 'lucide-react';
 
 /**
  * Shared markdown renderer for chat message content - used for both the
@@ -15,14 +15,22 @@ import { Copy, Check } from 'lucide-react';
  */
 export function MarkdownMessage({ content }: { content: string }) {
   const [copiedBlockIndex, setCopiedBlockIndex] = useState<number | null>(null);
+  // Brief self-resetting "Copy failed" state for the same button, shown when
+  // the Clipboard API throws (insecure context, permission denied, unsupported
+  // browser) so the UI doesn't silently do nothing.
+  const [copyFailedBlockIndex, setCopyFailedBlockIndex] = useState<number | null>(null);
 
   const copyCodeBlock = async (code: string, blockIndex: number) => {
     try {
       await navigator.clipboard.writeText(code);
+      setCopyFailedBlockIndex(null);
       setCopiedBlockIndex(blockIndex);
       setTimeout(() => setCopiedBlockIndex(null), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      setCopiedBlockIndex(null);
+      setCopyFailedBlockIndex(blockIndex);
+      setTimeout(() => setCopyFailedBlockIndex(null), 2000);
     }
   };
 
@@ -37,6 +45,7 @@ export function MarkdownMessage({ content }: { content: string }) {
       const code = String(children).replace(/\n$/, '');
       const blockIndex = codeBlockIndex++;
       const isCopied = copiedBlockIndex === blockIndex;
+      const isCopyFailed = copyFailedBlockIndex === blockIndex;
       // react-markdown v9+ no longer passes an `inline` prop - block code is
       // the only kind that gets a `language-x` className from
       // rehype-highlight, so its presence is the reliable signal.
@@ -52,7 +61,12 @@ export function MarkdownMessage({ content }: { content: string }) {
               onClick={() => copyCodeBlock(code, blockIndex)}
               className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
             >
-              {isCopied ? (
+              {isCopyFailed ? (
+                <>
+                  <X className="w-3 h-3 text-red-500" />
+                  Copy failed
+                </>
+              ) : isCopied ? (
                 <>
                   <Check className="w-3 h-3" />
                   Copied

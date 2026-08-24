@@ -8,6 +8,11 @@ import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { useMicLevel } from './hooks/useMicLevel';
 import { useSpeechToText } from './hooks/useSpeechToText';
+import { useVisualizerSettings } from './hooks/useVisualizerSettings';
+import { useProviderRateLimits } from './hooks/useProviderRateLimits';
+import { useAvailableProviderModels } from './hooks/useAvailableProviderModels';
+import { useFullscreen } from './hooks/useFullscreen';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { LooksModal } from './components/modals/LooksModal';
 import { MoreModelsModal } from './components/modals/MoreModelsModal';
 import { SettingsModal } from './components/modals/SettingsModal';
@@ -27,10 +32,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from './lib/models';
+import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS, type Model } from './lib/models';
 import { QUICK_PROMPTS, SIGNALS } from './lib/constants';
 import { getSystemPrompt, getStyleInstruction, getLengthInstruction, type ResponseStyle, type OutputLength } from './lib/prompts';
-import type { VisualizerMode } from './components/visualizer/R3FVisualizer';
 // Plain 2D canvas, not three.js - cheap enough to not need the dynamic-import
 // treatment the R3F visualizer components above get.
 import { MicFrequencyBars } from './components/visualizer/MicFrequencyBars';
@@ -137,6 +141,23 @@ function persistConversations(conversations: Conversation[], activeConversationI
   }
 }
 
+// Which backend/upstream actually serves a model - used only to make the
+// unavailable-model fallback below prefer a model from a *different* group
+// than the one that just failed, rather than another model that shares the
+// same struggling backend and would likely fail again immediately. Static
+// arrays each map to one shared backend (all of MODELS goes through
+// query-gateway's single upstream, etc.); dynamic provider-registry models
+// (Cerebras/Gemini/Mistral/CUSTOM_PROVIDERS) are grouped by `category`
+// instead, since that already holds each provider's own display name
+// (e.g. "Cerebras" vs "Gemini") and those are genuinely independent
+// upstreams even though they share one route (/api/provider).
+function getModelProviderGroup(model: Model): string {
+  if (HUGGINGFACE_MODELS.some(m => m.id === model.id)) return 'huggingface';
+  if (OPENROUTER_MODELS.some(m => m.id === model.id)) return 'openrouter';
+  if (MODELS.some(m => m.id === model.id)) return 'query-gateway';
+  return `provider:${model.category}`;
+}
+
 // Extended-thinking disclosure for reasoning-capable models (DeepSeek R1,
 // Kimi K3). Collapsed/muted by default like the rest of the app's
 // modal/panel disclosures; forced open via `isStreaming` while reasoning is
@@ -218,13 +239,21 @@ export default function Page() {
   // button - keyed by message index the same way messageFeedback is, since
   // multiple responses can each show their own copy state independently.
   const [copiedResponseIdx, setCopiedResponseIdx] = useState<number | null>(null);
+  // Brief self-resetting "Copy failed" state for the same button, shown when
+  // the Clipboard API throws (insecure context, permission denied, unsupported
+  // browser) so the UI doesn't silently do nothing.
+  const [copyFailedResponseIdx, setCopyFailedResponseIdx] = useState<number | null>(null);
   const copyResponseToClipboard = async (idx: number, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
+      setCopyFailedResponseIdx((prev) => (prev === idx ? null : prev));
       setCopiedResponseIdx(idx);
       setTimeout(() => setCopiedResponseIdx((prev) => (prev === idx ? null : prev)), 2000);
     } catch (err) {
       console.error('Failed to copy response:', err);
+      setCopiedResponseIdx((prev) => (prev === idx ? null : prev));
+      setCopyFailedResponseIdx(idx);
+      setTimeout(() => setCopyFailedResponseIdx((prev) => (prev === idx ? null : prev)), 2000);
     }
   };
   // Feedback state for the "Share Conversation" action in Settings - mirrors
@@ -245,52 +274,37 @@ export default function Page() {
   // /api/huggingface-image instead of a chat model, and the result is a
   // generated image appended to history instead of streamed text.
   const [isImageGenMode, setIsImageGenMode] = useState(false);
-  const [hideImageGen, setHideImageGen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [hideOpenRouterModels, setHideOpenRouterModels] = useState(false);
-  const [hideHuggingFaceModels, setHideHuggingFaceModels] = useState(false);
+  const { hideOpenRouterModels, hideHuggingFaceModels, hideImageGen } = useProviderRateLimits();
+  // Dynamic OpenAI-compatible provider models (Cerebras/Gemini/Mistral/
+  // CUSTOM_PROVIDERS - see app/lib/providers.ts) - polled from GET
+  // /api/models since availability depends on server-only env vars this
+  // client component can't read directly. Empty (and the picker unchanged
+  // from before this existed) on any deployment with none of those env
+  // vars set - see useAvailableProviderModels' doc comment.
+  const providerModels = useAvailableProviderModels();
 
-  // Check OpenRouter/Hugging Face rate limits on mount and periodically -
-  // same pattern for both: each provider's GET endpoint reports whether this
-  // client has exhausted that provider's quota, so exhausted-provider models
-  // hide from the picker instead of failing on click.
-  useEffect(() => {
-    const checkRateLimit = async (endpoint: string, setHidden: (hidden: boolean) => void) => {
-      try {
-        const res = await fetch(endpoint);
-        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
-          return; // Skip if not JSON response
-        }
-        const data = await res.json();
-        setHidden(data.shouldHide || false);
-      } catch {
-        // Silently handle errors - non-critical
-      }
-    };
-
-    const checkAll = () => {
-      checkRateLimit('/api/openrouter', setHideOpenRouterModels);
-      checkRateLimit('/api/huggingface', setHideHuggingFaceModels);
-      checkRateLimit('/api/huggingface-image', setHideImageGen);
-    };
-
-    checkAll();
-    const interval = setInterval(checkAll, 60000); // Check every minute
-    return () => clearInterval(interval);
-  }, []);
-
-  // Get available models (combine HUGGINGFACE_MODELS, MODELS, and
-  // OPENROUTER_MODELS, filtering each provider's models out if that
-  // provider's rate limit is currently exhausted). Hugging Face models are
-  // listed first so they're the most visible entries in every model list
-  // that renders off this array (composer dropdown, "Browse AI Models",
-  // command palette).
-  const availableModels = [
+  // Get available models (combine HUGGINGFACE_MODELS, MODELS,
+  // OPENROUTER_MODELS, and the dynamic provider registry's models,
+  // filtering each static provider's models out if that provider's rate
+  // limit is currently exhausted). Hugging Face models are listed first so
+  // they're the most visible entries in every model list that renders off
+  // this array (composer dropdown, "Browse AI Models", command palette);
+  // the dynamic provider models are appended last since they're additive
+  // extras a deployer opts into, not part of the app's curated defaults.
+  // Memoized (rather than a fresh array literal every render, like the rest
+  // of this file's derived arrays) specifically because it's now a
+  // dependency of the fallback-selection effect below - see
+  // getModelProviderGroup's usage there. Without this, that effect's
+  // dependency array would reference a new array identity on every render
+  // and never settle.
+  const availableModels = useMemo(() => [
     ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
     ...MODELS,
     ...(hideOpenRouterModels ? [] : OPENROUTER_MODELS),
-  ];
+    ...providerModels,
+  ], [hideHuggingFaceModels, hideOpenRouterModels, providerModels]);
 
   // Default selection is Llama 3.3 70B, not Multi-Perspective. Multi-
   // Perspective and every Hugging Face/OpenRouter model currently fail on
@@ -330,21 +344,31 @@ export default function Page() {
   });
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const { isFullscreen, isFullscreenSupported, toggleFullscreen } = useFullscreen();
   const [closedWidgets, setClosedWidgets] = useState<Set<string>>(new Set());
-  // Visualizer state - the app ships a full react-three-fiber background
-  // visualizer + config panel; it previously had no way to ever be enabled
-  // or opened (dead feature) and wasn't actually audio-reactive despite the
-  // name (its "audioIntensity" was driven by mouse movement, unused). Now
-  // reachable via the nav's Waves button, genuinely reacts to real audio via
-  // the mic, and stays off by default since enabling it requests mic access.
-  const [visualizerEnabled, setVisualizerEnabled] = useState(false);
-  // Gates whether the nav's Waves button (the only entry point to the
-  // visualizer/config panel) renders at all. Off by default so the feature
-  // is fully hidden from the landing page until explicitly turned on in
-  // Settings; turning it back off also force-disables the visualizer itself
-  // so it can't keep running with its only control gone.
-  const [showVisualizerButton, setShowVisualizerButton] = useState(false);
+  const {
+    visualizerEnabled, setVisualizerEnabled,
+    showVisualizerButton, setShowVisualizerButton,
+    visualizerConfigOpen, setVisualizerConfigOpen,
+    visualizerMode, setVisualizerMode,
+    visualizerSpeed,
+    visualizerColor1, setVisualizerColor1,
+    visualizerColor2, setVisualizerColor2,
+    visualizerDensity,
+    visualizerInvertY,
+    visualizerScaleY,
+    waveFormPreset, setWaveFormPreset,
+    waveFormDouble, setWaveFormDouble,
+    maxAmplitude, setMaxAmplitude,
+    waveFreq, setWaveFreq,
+    colorBackground, setColorBackground,
+    colorsFollowMusic, setColorsFollowMusic,
+    autoOrbit, setAutoOrbit,
+    gridPreset, setGridPreset,
+    selectedPalette, setSelectedPalette,
+    toggleVisualizerFromNav,
+    resetVisualizerSettings,
+  } = useVisualizerSettings();
   // Single shared mic stream for both the nav's pulsing indicator and the
   // 3D visualizer's particle motion - only requested while the visualizer
   // is actually on.
@@ -352,27 +376,6 @@ export default function Page() {
     level: micLevel, burst: micBurst, levelRef: micLevelRef,
     bandsRef: micBandsRef, burstRef: micBurstRef, status: micStatus,
   } = useMicLevel(visualizerEnabled);
-  const [visualizerConfigOpen, setVisualizerConfigOpen] = useState(false);
-  const [visualizerMode, setVisualizerMode] = useState<VisualizerMode>('orb');
-  const [visualizerSpeed, setVisualizerSpeed] = useState(0.3);
-  const [visualizerColor1, setVisualizerColor1] = useState('#4a90e2');
-  const [visualizerColor2, setVisualizerColor2] = useState('#7b68ee');
-  const [visualizerDensity, setVisualizerDensity] = useState(0.5);
-  const [visualizerInvertY, setVisualizerInvertY] = useState(false);
-  const [visualizerScaleY, setVisualizerScaleY] = useState(true);
-  // New wave form settings
-  const [waveFormPreset, setWaveFormPreset] = useState<'default' | 'custom'>('default');
-  const [waveFormDouble, setWaveFormDouble] = useState(false);
-  const [maxAmplitude, setMaxAmplitude] = useState(1.36);
-  const [waveFreq, setWaveFreq] = useState(2.0);
-  // New general settings
-  const [colorBackground, setColorBackground] = useState(false);
-  const [colorsFollowMusic, setColorsFollowMusic] = useState(false);
-  const [autoOrbit, setAutoOrbit] = useState(false);
-  // Grid presets
-  const [gridPreset, setGridPreset] = useState<'default' | 'bands' | 'custom'>('default');
-  // Palette selection
-  const [selectedPalette, setSelectedPalette] = useState(0);
 
   // Parallel orchestration - no UI control sets this, pinned at its default.
   const [runParallel] = useState(false);
@@ -738,18 +741,31 @@ export default function Page() {
   const filteredAvailableModels = availableModels.filter(m => !unavailableModels.has(m.id));
   const selectedModel = filteredAvailableModels.find(m => m.id === selectedModelId) || filteredAvailableModels[0];
 
-  // If selected model becomes unavailable, switch to first available.
+  // If selected model becomes unavailable, switch to another available one -
+  // preferring a model from a *different* provider group (see
+  // getModelProviderGroup) than the one that just failed, since that's the
+  // actual point of having multiple providers: if Cerebras is struggling,
+  // falling back to another Cerebras model is likely to just fail again,
+  // where falling back to Gemini/Mistral/OpenRouter/etc. has a real chance
+  // of working. Falls back to the first available model of any group (the
+  // pre-existing behavior) only when nothing from a different group is
+  // available.
   // Deferred (not a synchronous setState-in-effect) so React doesn't
   // cascade a render while this effect is still committing - same pattern
   // used in app/hooks/useMicLevel.ts for the same lint rule.
   useEffect(() => {
     if (selectedModelId && unavailableModels.has(selectedModelId)) {
       if (filteredAvailableModels.length > 0) {
-        const fallbackId = filteredAvailableModels[0].id;
+        const strugglingModel = availableModels.find(m => m.id === selectedModelId);
+        const strugglingGroup = strugglingModel ? getModelProviderGroup(strugglingModel) : null;
+        const preferredFallback = strugglingGroup
+          ? filteredAvailableModels.find(m => getModelProviderGroup(m) !== strugglingGroup)
+          : undefined;
+        const fallbackId = (preferredFallback || filteredAvailableModels[0]).id;
         queueMicrotask(() => setSelectedModelId(fallbackId));
       }
     }
-  }, [unavailableModels, selectedModelId, filteredAvailableModels]);
+  }, [unavailableModels, selectedModelId, filteredAvailableModels, availableModels]);
 
   // Check if image upload should be disabled
   // Disable if:
@@ -842,43 +858,6 @@ export default function Page() {
       inputRef.current?.focus();
     });
   };
-
-  // iOS Safari (the dominant mobile browser on the one platform where this
-  // app has no alternative rendering engine) has no Fullscreen API support -
-  // document.fullscreenEnabled is false there. Without this check the button
-  // below rendered unconditionally and just silently did nothing when
-  // tapped, unlike every other unsupported-feature control in this file
-  // (dictation, image-gen) which hide themselves instead of looking broken.
-  const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
-  useEffect(() => {
-    setIsFullscreenSupported(typeof document !== 'undefined' && !!document.fullscreenEnabled);
-  }, []);
-
-  const toggleFullscreen = async () => {
-    try {
-      if (!document.fullscreenElement) {
-        // Enter fullscreen
-        await document.documentElement.requestFullscreen();
-        setIsFullscreen(true);
-      } else {
-        // Exit fullscreen
-        await document.exitFullscreen();
-        setIsFullscreen(false);
-      }
-    } catch (error) {
-      console.error('Fullscreen toggle error:', error);
-    }
-  };
-
-  // Listen for fullscreen changes (e.g., user pressing ESC)
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
 
   const handleExportChat = () => {
     const text = history.map(h => {
@@ -1222,11 +1201,19 @@ export default function Page() {
       // Determine if this is an OpenRouter model
       const isOpenRouterModel = OPENROUTER_MODELS.some(m => m.id === selectedModel.id);
       const isHuggingFaceModel = HUGGINGFACE_MODELS.some(m => m.id === selectedModel.id);
+      // Dynamic provider-registry model (Cerebras/Gemini/Mistral/
+      // CUSTOM_PROVIDERS) - anything present in the polled providerModels
+      // list. /api/provider's request/response contract is identical to
+      // /api/openrouter's (same body shape, same SSE chunk shape), so it
+      // slots into this same fetch below with no other changes.
+      const isProviderModel = providerModels.some(m => m.id === selectedModel.id);
       const apiEndpoint = isOpenRouterModel
         ? '/api/openrouter'
         : isHuggingFaceModel
           ? '/api/huggingface'
-          : '/api/query-gateway';
+          : isProviderModel
+            ? '/api/provider'
+            : '/api/query-gateway';
 
       // Automatically enable parallel mode if Multi-Perspective is selected
       const isMultiPerspective = selectedModel.id === 'multi-perspective';
@@ -1283,9 +1270,10 @@ export default function Page() {
           }
 
           // Preserve the pre-existing behavior of marking OpenRouter/Hugging
-          // Face models unavailable on rate limit so the picker auto-switches
-          // the user away from a model that will just 429 again immediately.
-          if (isOpenRouterModel || isHuggingFaceModel) {
+          // Face models (and now dynamic provider models) unavailable on
+          // rate limit so the picker auto-switches the user away from a
+          // model that will just 429 again immediately.
+          if (isOpenRouterModel || isHuggingFaceModel || isProviderModel) {
             setUnavailableModels(prev => new Set(prev).add(selectedModelId));
             setTimeout(() => {
               setUnavailableModels(prev => {
@@ -1514,67 +1502,16 @@ export default function Page() {
   };
 
   // Keyboard shortcuts
-  useEffect(() => {
-    // Whether the key event originated in a text input/textarea/contentEditable
-    // element - guards single-character shortcuts (like "?") so they don't
-    // hijack normal typing. Modifier-combo shortcuts (Cmd+K etc.) don't need
-    // this: holding Cmd/Ctrl means no character is actually being typed.
-    const isTypingTarget = (target: EventTarget | null) => {
-      const el = target as HTMLElement | null;
-      if (!el) return false;
-      const tag = el.tagName;
-      return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + Enter to submit
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        e.preventDefault();
-        if (!isProcessing && query.trim()) {
-          handleSubmit(e);
-        }
-        return;
-      }
-      // Escape to stop
-      if (e.key === 'Escape' && isProcessing) {
-        handleStop();
-        return;
-      }
-      // Cmd/Ctrl + K - open the quick-actions command palette
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setIsCommandPaletteOpen(true);
-        return;
-      }
-      // Cmd/Ctrl + Shift + O - start a new chat (matches Claude.ai; avoids
-      // Cmd+N, which browsers/OSes reserve for "new window")
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
-        e.preventDefault();
-        startNewChat();
-        return;
-      }
-      // Cmd/Ctrl + , - open settings (standard app-preferences convention)
-      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
-        e.preventDefault();
-        setIsSettingsOpen(true);
-        return;
-      }
-      // ? - open the shortcuts help overlay, but only outside of text input
-      // (so typing a literal "?" in the composer or a search box works normally)
-      if (e.key === '?' && !isTypingTarget(e.target)) {
-        e.preventDefault();
-        setIsShortcutsHelpOpen(true);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-    // handleSubmit/handleStop/startNewChat intentionally omitted: they're
-    // recreated every render (not memoized) and this effect already
-    // re-subscribes on every query/isProcessing change, so including them
-    // would add churn with no behavioral difference.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, isProcessing]);
+  useKeyboardShortcuts({
+    query,
+    isProcessing,
+    onSubmit: handleSubmit,
+    onStop: handleStop,
+    onNewChat: startNewChat,
+    onOpenCommandPalette: () => setIsCommandPaletteOpen(true),
+    onOpenSettings: () => setIsSettingsOpen(true),
+    onOpenShortcutsHelp: () => setIsShortcutsHelpOpen(true),
+  });
 
   // Small 3-dot "thinking" indicator, reused for both the single-model
   // "processing" state and each Multi-Perspective card while that model is
@@ -1729,24 +1666,7 @@ export default function Page() {
         onGridPresetChange={setGridPreset}
         selectedPalette={selectedPalette}
         onSelectedPaletteChange={setSelectedPalette}
-        onReset={() => {
-          setVisualizerMode('orb');
-          setVisualizerSpeed(0.3);
-          setVisualizerColor1('#ff6b35');
-          setVisualizerColor2('#00d4ff');
-          setVisualizerDensity(0.5);
-          setVisualizerInvertY(false);
-          setVisualizerScaleY(true);
-          setWaveFormPreset('default');
-          setWaveFormDouble(false);
-          setMaxAmplitude(1.36);
-          setWaveFreq(2.0);
-          setColorBackground(false);
-          setColorsFollowMusic(false);
-          setAutoOrbit(false);
-          setGridPreset('default');
-          setSelectedPalette(0);
-        }}
+        onReset={resetVisualizerSettings}
       />
 
       {/* Navigation - a slim desktop icon rail (SidebarRail) replacing the
@@ -1770,14 +1690,7 @@ export default function Page() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           showVisualizerButton={showVisualizerButton}
           visualizerEnabled={visualizerEnabled}
-          onToggleVisualizer={() => {
-            // Single click both toggles the visualizer directly (this
-            // control visually reads as a toggle, so it needs to behave
-            // like one) and opens the settings panel so mode/color options
-            // stay reachable - same behavior the old nav button had.
-            setVisualizerEnabled(!visualizerEnabled);
-            setVisualizerConfigOpen(true);
-          }}
+          onToggleVisualizer={toggleVisualizerFromNav}
           micStatus={micStatus}
           micLevel={micLevel}
           micBurst={micBurst}
@@ -1791,10 +1704,7 @@ export default function Page() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           showVisualizerButton={showVisualizerButton}
           visualizerEnabled={visualizerEnabled}
-          onToggleVisualizer={() => {
-            setVisualizerEnabled(!visualizerEnabled);
-            setVisualizerConfigOpen(true);
-          }}
+          onToggleVisualizer={toggleVisualizerFromNav}
         />
         <TopStrip isChatMode={isChatMode} focusMode={focusMode} isMobile={isMobile} />
       </div>
@@ -1828,15 +1738,7 @@ export default function Page() {
             neuralNoiseEnabled={neuralNoiseEnabled}
             setNeuralNoiseEnabled={setNeuralNoiseEnabled}
             showVisualizerButton={showVisualizerButton}
-            setShowVisualizerButton={(value) => {
-              setShowVisualizerButton(value);
-              if (!value) {
-                // The nav button is the visualizer's only on/off control -
-                // hiding it while the visualizer is still running would leave
-                // it stuck on with no way to turn it off.
-                setVisualizerEnabled(false);
-              }
-            }}
+            setShowVisualizerButton={setShowVisualizerButton}
             availableModels={availableModels}
           />
         )}
@@ -1993,7 +1895,7 @@ export default function Page() {
                       }
                     }}
                     placeholder="Message..."
-                    className="flex-1 resize-none min-h-0 h-auto border-none bg-transparent shadow-none px-0 py-2 text-base md:text-lg placeholder:text-[var(--foreground)]/35 font-light focus-visible:ring-0 focus-visible:border-none"
+                    className="flex-1 resize-none min-h-0 h-auto border-none bg-transparent shadow-none px-0 py-2 text-base md:text-lg placeholder:text-[var(--muted)] font-light focus-visible:ring-0 focus-visible:border-none"
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="off"
@@ -2190,7 +2092,7 @@ while (true) {
               <div className={`interface-grid h-full ${isMobile ? 'grid-cols-1' : ''}`}>
                 {/* Intel Panel (Left) - Hidden in Fullscreen and Mobile */}
                 {!isFullscreen && !isMobile && (
-                  <section className={`intel-panel hidden lg:grid content-start gap-4 transition-all duration-300 ${closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot') ? 'hidden' : ''}`}>
+                  <section className={`intel-panel hidden lg:grid content-start gap-4 transition-all duration-300 ${closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot') ? 'intel-panel-collapsed' : ''}`}>
                     {!closedWidgets.has('active-intel') && (
                       <div className="intel-card relative">
                         <button
@@ -2236,7 +2138,7 @@ while (true) {
                 )}
 
                 {/* Main Chat Stack (Right/Center) */}
-                <section className={`chat-stack flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen || (closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot')) || isMobile ? 'col-span-full' : ''} ${isMobile ? 'px-0' : ''}`}>
+                <section className={`chat-stack min-w-0 flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen || (closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot')) || isMobile ? 'col-span-full' : ''} ${isMobile ? 'px-0' : ''}`}>
                   {/* Search Bar */}
                   {showSearch && (
                     <div className="mb-4 glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-3">
@@ -2288,7 +2190,7 @@ while (true) {
                           const query = searchQuery.toLowerCase();
                           return entry.query.toLowerCase().includes(query) || entry.response.toLowerCase().includes(query);
                         })
-                        .map((entry, idx) => {
+                        .map((entry) => {
                           const originalIdx = history.indexOf(entry);
                           return (
                             <div key={originalIdx} className="space-y-4">
@@ -2299,7 +2201,7 @@ while (true) {
                               <motion.div
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl px-6 py-5"
+                                className="chat-turn-user bg-[var(--surface)] border border-[var(--border)] rounded-2xl px-6 py-5"
                               >
                                 <div className="flex items-start gap-4 max-w-[70ch]">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
@@ -2346,15 +2248,24 @@ while (true) {
                                           ? 'Image Generation (HF)'
                                           : filteredAvailableModels.find(m => m.id === entry.model)?.name || availableModels.find(m => m.id === entry.model)?.name || 'AI'}
                                       </div>
-                                      <div className="flex items-center gap-2 shrink-0">
+                                      {/* This icon row's own minimum width (several
+                                          buttons + gaps) can exceed the space left
+                                          beside the label on a narrow phone even when
+                                          given its own line, so it scrolls instead of
+                                          wrapping - same overflow-x-auto fallback as
+                                          the composer toolbar (see globals.css
+                                          .scrollbar-thin-x). */}
+                                      <div className="flex items-center gap-2 shrink-0 overflow-x-auto scrollbar-thin-x max-w-full">
                                         {!entry.generatedImage && (
                                           <button
                                             onClick={() => copyResponseToClipboard(originalIdx, entry.response)}
                                             className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                                            title="Copy response"
-                                            aria-label={copiedResponseIdx === originalIdx ? 'Copied' : 'Copy response'}
+                                            title={copyFailedResponseIdx === originalIdx ? 'Copy failed' : 'Copy response'}
+                                            aria-label={copyFailedResponseIdx === originalIdx ? 'Copy failed' : copiedResponseIdx === originalIdx ? 'Copied' : 'Copy response'}
                                           >
-                                            {copiedResponseIdx === originalIdx ? (
+                                            {copyFailedResponseIdx === originalIdx ? (
+                                              <X className="w-4 h-4 text-red-500" />
+                                            ) : copiedResponseIdx === originalIdx ? (
                                               <Check className="w-4 h-4" />
                                             ) : (
                                               <Copy className="w-4 h-4" />
@@ -2778,7 +2689,7 @@ while (true) {
                     }
                   }}
                   placeholder={isImageGenMode ? 'Describe an image to generate…' : 'Message...'}
-                  className="composer-textarea w-full resize-none custom-scrollbar border-none bg-transparent shadow-none text-[var(--foreground)] text-lg placeholder:text-[var(--foreground)]/35 transition-colors font-light leading-normal px-1 py-1 focus-visible:ring-0 min-h-0 h-auto"
+                  className="composer-textarea w-full resize-none custom-scrollbar border-none bg-transparent shadow-none text-[var(--foreground)] text-lg placeholder:text-[var(--muted)] transition-colors font-light leading-normal px-1 py-1 focus-visible:ring-0 min-h-0 h-auto"
                   style={{ maxHeight: COMPOSER_MAX_HEIGHT_PX }}
                   disabled={isProcessing}
                   autoComplete="off"
@@ -2792,8 +2703,8 @@ while (true) {
                     model picker + secondary actions + mic + send on the
                     right, matching the reference composer's low bottom
                     toolbar instead of one crowded single row. */}
-                <div className={`flex items-center justify-between gap-2 pt-2 ${isMobile ? 'flex-wrap' : ''}`}>
-                  <div className={`flex items-center gap-1 ${isMobile ? 'flex-wrap' : ''}`}>
+                <div className={`flex items-center justify-between gap-2 pt-2 ${isMobile ? 'flex-wrap' : 'flex-nowrap overflow-x-auto scrollbar-thin-x'}`}>
+                  <div className={`flex items-center gap-1 ${isMobile ? 'flex-wrap' : 'flex-shrink-0'}`}>
                     {/* Attach Image */}
                     <input
                       ref={fileInputRef}
@@ -2907,7 +2818,7 @@ while (true) {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     {isProcessing && (
                       <Button
                         type="button"

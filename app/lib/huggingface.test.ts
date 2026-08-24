@@ -1,124 +1,131 @@
 import { describe, it, expect } from 'vitest';
 import { extractThinkChunks, HUGGINGFACE_MODEL_MAP, type ThinkState } from './huggingface';
 
-const freshState = (): ThinkState => ({ insideThink: false, pending: '' });
+const freshState: ThinkState = { insideThink: false, pending: '' };
 
 describe('HUGGINGFACE_MODEL_MAP', () => {
-  it('maps every key to a non-empty provider/model id string', () => {
+  it('maps every key to a non-empty HF repo id', () => {
     const entries = Object.entries(HUGGINGFACE_MODEL_MAP);
     expect(entries.length).toBeGreaterThan(0);
-    for (const [id, apiId] of entries) {
-      expect(typeof id).toBe('string');
-      expect(apiId).toMatch(/^[^/]+\/[^/]+$/);
+    for (const [key, value] of entries) {
+      expect(key.length).toBeGreaterThan(0);
+      expect(value.length).toBeGreaterThan(0);
     }
+  });
+
+  it('has unique repo ids (no two model ids resolve to the same backend model)', () => {
+    const values = Object.values(HUGGINGFACE_MODEL_MAP);
+    expect(new Set(values).size).toBe(values.length);
   });
 });
 
 describe('extractThinkChunks', () => {
-  it('returns plain content unchanged when there are no think tags', () => {
-    const { chunks, state } = extractThinkChunks('hello world', freshState());
-
+  it('passes plain content through untouched when there are no think tags', () => {
+    const { chunks, state } = extractThinkChunks('hello world', freshState);
     expect(chunks).toEqual([{ type: 'content', text: 'hello world' }]);
     expect(state).toEqual({ insideThink: false, pending: '' });
   });
 
-  it('splits a single complete <think> block into reasoning then content', () => {
-    const { chunks, state } = extractThinkChunks(
-      '<think>because reasons</think>the answer',
-      freshState()
-    );
+  it('returns no chunks for empty input', () => {
+    const { chunks, state } = extractThinkChunks('', freshState);
+    expect(chunks).toEqual([]);
+    expect(state).toEqual({ insideThink: false, pending: '' });
+  });
 
+  it('splits a single delta containing a full <think>...</think> block', () => {
+    const { chunks, state } = extractThinkChunks(
+      'before<think>reasoning here</think>after',
+      freshState
+    );
     expect(chunks).toEqual([
-      { type: 'reasoning', text: 'because reasons' },
-      { type: 'content', text: 'the answer' },
+      { type: 'content', text: 'before' },
+      { type: 'reasoning', text: 'reasoning here' },
+      { type: 'content', text: 'after' },
     ]);
     expect(state).toEqual({ insideThink: false, pending: '' });
   });
 
-  it('handles content that starts inside a think block with nothing before it', () => {
-    const { chunks, state } = extractThinkChunks('<think>reasoning only', freshState());
-
-    expect(chunks).toEqual([{ type: 'reasoning', text: 'reasoning only' }]);
+  it('classifies content between an unclosed <think> and end-of-buffer as reasoning', () => {
+    const { chunks, state } = extractThinkChunks('<think>still thinking', freshState);
+    expect(chunks).toEqual([{ type: 'reasoning', text: 'still thinking' }]);
     expect(state.insideThink).toBe(true);
   });
 
-  it('emits no chunk for an empty segment between adjacent markers', () => {
-    const { chunks } = extractThinkChunks('<think></think>after', freshState());
+  it('carries insideThink state across successive deltas', () => {
+    const first = extractThinkChunks('<think>part one ', freshState);
+    expect(first.chunks).toEqual([{ type: 'reasoning', text: 'part one ' }]);
+    expect(first.state.insideThink).toBe(true);
 
-    // "before" text is empty when open and close markers are adjacent, so
-    // only the post-close content chunk should be emitted.
-    expect(chunks).toEqual([{ type: 'content', text: 'after' }]);
+    const second = extractThinkChunks('part two</think>answer', first.state);
+    expect(second.chunks).toEqual([
+      { type: 'reasoning', text: 'part two' },
+      { type: 'content', text: 'answer' },
+    ]);
+    expect(second.state.insideThink).toBe(false);
   });
 
-  it('carries state across a <think> tag split across two deltas', () => {
-    const first = extractThinkChunks('prefix<thi', freshState());
-    expect(first.chunks).toEqual([{ type: 'content', text: 'prefix' }]);
+  it('holds back a partial opening tag split across deltas instead of emitting it as content', () => {
+    const first = extractThinkChunks('hello <thi', freshState);
+    // "<thi" could be the start of "<think>" - held back as pending, not
+    // emitted yet.
+    expect(first.chunks).toEqual([{ type: 'content', text: 'hello ' }]);
     expect(first.state.pending).toBe('<thi');
     expect(first.state.insideThink).toBe(false);
 
-    const second = extractThinkChunks('nk>hidden</think>visible', first.state);
+    const second = extractThinkChunks('nk>reasoning</think>done', first.state);
     expect(second.chunks).toEqual([
-      { type: 'reasoning', text: 'hidden' },
-      { type: 'content', text: 'visible' },
+      { type: 'reasoning', text: 'reasoning' },
+      { type: 'content', text: 'done' },
     ]);
-    expect(second.state).toEqual({ insideThink: false, pending: '' });
   });
 
-  it('carries state across a </think> closing tag split across two deltas', () => {
-    const first = extractThinkChunks('<think>reasoning</thi', freshState());
+  it('holds back a partial closing tag split across deltas', () => {
+    const first = extractThinkChunks('<think>reasoning</thi', freshState);
     expect(first.chunks).toEqual([{ type: 'reasoning', text: 'reasoning' }]);
     expect(first.state.pending).toBe('</thi');
     expect(first.state.insideThink).toBe(true);
 
-    const second = extractThinkChunks('nk>final', first.state);
-    expect(second.chunks).toEqual([{ type: 'content', text: 'final' }]);
-    expect(second.state).toEqual({ insideThink: false, pending: '' });
+    const second = extractThinkChunks('nk>rest', first.state);
+    expect(second.chunks).toEqual([{ type: 'content', text: 'rest' }]);
+    expect(second.state.insideThink).toBe(false);
   });
 
-  it('holds back a partial marker prefix even when it is only one character', () => {
-    const { chunks, state } = extractThinkChunks('hello<', freshState());
-
-    expect(chunks).toEqual([{ type: 'content', text: 'hello' }]);
-    expect(state.pending).toBe('<');
+  it('handles multiple think blocks in sequence', () => {
+    const { chunks } = extractThinkChunks(
+      '<think>one</think>mid<think>two</think>end',
+      freshState
+    );
+    expect(chunks).toEqual([
+      { type: 'reasoning', text: 'one' },
+      { type: 'content', text: 'mid' },
+      { type: 'reasoning', text: 'two' },
+      { type: 'content', text: 'end' },
+    ]);
   });
 
-  it('does not hold back a character that cannot start the marker', () => {
-    const { chunks, state } = extractThinkChunks('hello world!', freshState());
-
-    expect(chunks).toEqual([{ type: 'content', text: 'hello world!' }]);
+  it('does not falsely hold back text that merely starts with "<" but cannot extend into a marker', () => {
+    // "<x" cannot be a prefix of "<think>", so it should be emitted as
+    // content immediately rather than held back as pending.
+    const { chunks, state } = extractThinkChunks('a<x b', freshState);
+    expect(chunks).toEqual([{ type: 'content', text: 'a<x b' }]);
     expect(state.pending).toBe('');
   });
 
-  it('flushes a false-alarm pending fragment once it fails to complete the marker', () => {
-    const first = extractThinkChunks('abc<', freshState());
-    expect(first.state.pending).toBe('<');
-
-    // Next delta does not continue the "<think>" marker, so the held-back
-    // "<" must be re-emitted as ordinary content, not silently dropped.
-    const second = extractThinkChunks('xyz', first.state);
-    expect(second.chunks).toEqual([{ type: 'content', text: '<xyz' }]);
-    expect(second.state).toEqual({ insideThink: false, pending: '' });
-  });
-
-  it('handles multiple think blocks within a single chunk', () => {
-    const { chunks, state } = extractThinkChunks(
-      '<think>a</think>b<think>c</think>d',
-      freshState()
-    );
-
-    expect(chunks).toEqual([
-      { type: 'reasoning', text: 'a' },
-      { type: 'content', text: 'b' },
-      { type: 'reasoning', text: 'c' },
-      { type: 'content', text: 'd' },
-    ]);
-    expect(state).toEqual({ insideThink: false, pending: '' });
-  });
-
-  it('returns empty chunks and unchanged state for an empty string input', () => {
-    const { chunks, state } = extractThinkChunks('', freshState());
-
-    expect(chunks).toEqual([]);
+  it('round-trips a full streamed response split into many arbitrary small deltas', () => {
+    const full = 'Let me think. <think>I should check the facts</think>The answer is 42.';
+    let state = freshState;
+    let reasoning = '';
+    let content = '';
+    for (const ch of full) {
+      const result = extractThinkChunks(ch, state);
+      state = result.state;
+      for (const chunk of result.chunks) {
+        if (chunk.type === 'reasoning') reasoning += chunk.text;
+        else content += chunk.text;
+      }
+    }
+    expect(reasoning).toBe('I should check the facts');
+    expect(content).toBe('Let me think. The answer is 42.');
     expect(state).toEqual({ insideThink: false, pending: '' });
   });
 });

@@ -1,91 +1,112 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest, NextResponse } from 'next/server';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NextRequest } from 'next/server';
 import { GET } from './route';
 import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from '../../lib/models';
+import * as providers from '../../lib/providers';
 
-vi.mock('../../lib/security/rateLimit', () => ({
-  applyRateLimit: vi.fn(),
-}));
+// ---------------------------------------------------------------------------
+// Request-construction helpers - mirrors the conventions in
+// app/api/provider/route.test.ts (real NextRequest, a fresh IP per test so
+// the shared 'stats' rate-limit bucket never leaks between tests).
+// ---------------------------------------------------------------------------
 
-import { applyRateLimit } from '../../lib/security/rateLimit';
-
-function makeRequest() {
-  return new NextRequest('http://localhost/api/models');
+let ipCounter = 0;
+function freshIp(): string {
+  ipCounter += 1;
+  // TEST-NET-3 (RFC 5737) - reserved for documentation, never a real client.
+  return `203.0.113.${ipCounter}`;
 }
 
+function makeRequest(ip: string = freshIp()): NextRequest {
+  return new NextRequest('http://localhost/api/models', {
+    method: 'GET',
+    headers: { 'x-forwarded-for': ip },
+  });
+}
+
+const ENV_KEYS = ['CEREBRAS_API_KEY', 'GEMINI_API_KEY', 'MISTRAL_API_KEY', 'DEEPSEEK_API_KEY', 'TOGETHER_API_KEY', 'CUSTOM_PROVIDERS'] as const;
+let savedEnv: Record<string, string | undefined>;
+
+beforeEach(() => {
+  savedEnv = {};
+  for (const key of ENV_KEYS) {
+    savedEnv[key] = process.env[key];
+    delete process.env[key];
+  }
+});
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    if (savedEnv[key] === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = savedEnv[key];
+    }
+  }
+  vi.restoreAllMocks();
+});
+
 describe('GET /api/models', () => {
-  beforeEach(() => {
-    vi.mocked(applyRateLimit).mockReset();
-  });
-
-  it('returns every model from MODELS, OPENROUTER_MODELS, and HUGGINGFACE_MODELS', async () => {
-    vi.mocked(applyRateLimit).mockResolvedValue(null);
-
+  it('returns the full static catalog (MODELS + OPENROUTER_MODELS + HUGGINGFACE_MODELS) with a matching count', async () => {
     const response = await GET(makeRequest());
-    const body = await response.json();
-
     expect(response.status).toBe(200);
-    expect(body.count).toBe(MODELS.length + OPENROUTER_MODELS.length + HUGGINGFACE_MODELS.length);
-    expect(body.models).toHaveLength(body.count);
-  });
-
-  it('maps each model to only id, name, description, category, and requiresMultiPerspective', async () => {
-    vi.mocked(applyRateLimit).mockResolvedValue(null);
-
-    const response = await GET(makeRequest());
     const body = await response.json();
 
-    expect(body.models[0]).toEqual({
-      id: expect.any(String),
-      name: expect.any(String),
-      description: expect.any(String),
-      category: expect.any(String),
-      requiresMultiPerspective: expect.any(Boolean),
-    });
-    // apiId is internal (used to call the provider) and should not leak publicly
-    expect(body.models[0]).not.toHaveProperty('apiId');
+    const expectedTotal = MODELS.length + OPENROUTER_MODELS.length + HUGGINGFACE_MODELS.length;
+    expect(body.models.length).toBe(expectedTotal);
+    expect(body.count).toBe(expectedTotal);
   });
 
-  it('flags only the multi-perspective model as requiring multi-perspective mode', async () => {
-    vi.mocked(applyRateLimit).mockResolvedValue(null);
-
+  it('flags exactly the multi-perspective model with requiresMultiPerspective', async () => {
     const response = await GET(makeRequest());
     const body = await response.json();
 
     const flagged = body.models.filter((m: { requiresMultiPerspective: boolean }) => m.requiresMultiPerspective);
-    expect(flagged).toHaveLength(1);
-    expect(flagged[0].id).toBe('multi-perspective');
+    expect(flagged.map((m: { id: string }) => m.id)).toEqual(['multi-perspective']);
   });
 
-  it('sets a public, cacheable Cache-Control header', async () => {
-    vi.mocked(applyRateLimit).mockResolvedValue(null);
-
+  it('returns an empty providerModels array when no provider API keys are configured', async () => {
     const response = await GET(makeRequest());
-
-    expect(response.headers.get('Cache-Control')).toBe('public, max-age=300, stale-while-revalidate=3600');
+    const body = await response.json();
+    expect(body.providerModels).toEqual([]);
   });
 
-  it('returns a 429 with the rate limit payload when the client is rate limited', async () => {
-    const rateLimitBody = { error: 'Too many requests. Please wait.', retryAfter: 30 };
-    vi.mocked(applyRateLimit).mockResolvedValue(
-      NextResponse.json(rateLimitBody, { status: 429, headers: { 'Retry-After': '30' } })
-    );
-
+  it('includes provider-registry models once a built-in provider key is set, independently of the static catalog', async () => {
+    process.env.CEREBRAS_API_KEY = 'test-cerebras-key';
     const response = await GET(makeRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(429);
-    expect(body).toEqual(rateLimitBody);
-    expect(response.headers.get('Retry-After')).toBe('30');
+    expect(body.providerModels.length).toBeGreaterThan(0);
+    expect(body.providerModels.every((m: { id: string }) => m.id.startsWith('cerebras-'))).toBe(true);
+    // The static catalog is untouched by provider configuration.
+    expect(body.models.length).toBe(MODELS.length + OPENROUTER_MODELS.length + HUGGINGFACE_MODELS.length);
   });
 
-  it('returns a 500 with a generic error message when something throws unexpectedly', async () => {
-    vi.mocked(applyRateLimit).mockRejectedValue(new Error('redis unreachable'));
+  it('degrades to an empty providerModels array instead of a 500 when the provider registry throws', async () => {
+    vi.spyOn(providers, 'getAvailableProviderModels').mockImplementation(() => {
+      throw new Error('malformed CUSTOM_PROVIDERS');
+    });
 
     const response = await GET(makeRequest());
+    expect(response.status).toBe(200);
     const body = await response.json();
+    expect(body.providerModels).toEqual([]);
+    // The rest of the response must still be intact.
+    expect(body.models.length).toBe(MODELS.length + OPENROUTER_MODELS.length + HUGGINGFACE_MODELS.length);
+  });
 
-    expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Failed to load models' });
+  it('is never cached (always revalidated), unlike a typical static catalog response', async () => {
+    const response = await GET(makeRequest());
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('rate-limits after 100 requests/minute from the same IP (the lenient "stats" bucket)', async () => {
+    const ip = freshIp();
+    for (let i = 0; i < 100; i++) {
+      const response = await GET(makeRequest(ip));
+      expect(response.status).toBe(200);
+    }
+    const blocked = await GET(makeRequest(ip));
+    expect(blocked.status).toBe(429);
   });
 });

@@ -541,12 +541,46 @@ button.glass-panel:hover,
 }
 
 [data-layout='standard'] .interface-grid {
-  grid-template-columns: 280px 1fr;
+  /* minmax(0, 1fr), not a bare 1fr: a bare `1fr` track has an implicit
+     `auto` (min-content) floor, so once the chat column's own content
+     (message text, response cards) needed more than the sliver of space
+     left after the fixed 280px sidebar column, the grid silently grew
+     past its container's width instead of the content wrapping/shrinking -
+     invisibly clipped on narrow screens rather than visibly overflowing,
+     which is what made it look like "half the chat is off the screen"
+     rather than an obvious scrollbar. */
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: 2.5rem;
 }
 
-/* Auto-adjust layout when widgets are closed */
-.intel-panel.hidden {
+/* .grid-cols-1 is the Tailwind utility page.tsx conditionally applies
+   alongside .interface-grid when isMobile is true, intending a genuine
+   single-column layout once the (lg-only) sidebar panel is hidden. Plain
+   `.grid-cols-1` alone can't win against `[data-layout='standard']
+   .interface-grid` above - same class-count specificity, but the
+   attribute-selector rule sits later in source order - so the mobile
+   override was silently never applying, leaving the two-column 280px
+   template active (and clipped, per the fix above) even on phones. This
+   selector matches the same two classes already on the element to win on
+   specificity instead of relying on source order.
+
+   minmax(0, 1fr) here too, same reasoning as above: chat-stack (the grid
+   item spanning this track via col-span-full) is a flex container whose
+   default min-width is auto, so its own descendants' min-content width
+   (e.g. the per-message action icon row, or the Multi-Perspective
+   comparison cards) can still force a bare `1fr` track wider than the
+   viewport even in an otherwise-correct single-column grid. */
+[data-layout='standard'] .interface-grid.grid-cols-1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Auto-adjust layout when widgets are closed. Deliberately a distinct
+   class from Tailwind's own `hidden` utility (which this panel also
+   carries, for its normal `hidden lg:grid` responsive show/hide) -
+   reusing `hidden` here previously caused this rule to match (and, being
+   !important, always win) at every viewport width, permanently hiding
+   the panel regardless of widget state. */
+.intel-panel.intel-panel-collapsed {
   display: none !important;
 }
 
@@ -555,7 +589,7 @@ button.glass-panel:hover,
 }
 
 /* When intel panel is hidden, chat takes full width */
-.interface-grid:has(.intel-panel.hidden),
+.interface-grid:has(.intel-panel.intel-panel-collapsed),
 .interface-grid:has(.intel-panel:empty) {
   grid-template-columns: 1fr !important;
 }
@@ -765,6 +799,17 @@ textarea:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
   opacity: 0.9;
+}
+
+/* Thin scrollbar for horizontally-scrolling rows (e.g. the composer
+   toolbar) - same accent-colored thin-scrollbar look as .custom-scrollbar
+   below, but without forcing a vertical overflow-y/overflow-x axis so it
+   can be paired with Tailwind's overflow-x-auto on the element itself. */
+.scrollbar-thin-x {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--background);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 /* Smooth scrolling container - GPU accelerated */
@@ -1323,21 +1368,6 @@ button:active {
   transform: scale(0.98);
 }
 
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 0.5rem;
-}
-
-/* Enhanced focus states for accessibility */
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 0.25rem;
-}
-
 /* Subtle hover effects for interactive elements */
 a,
 button,
@@ -1587,4 +1617,204 @@ textarea:focus {
   html {
     @apply font-sans;
   }
+}
+
+/* ============================================================
+   SKEUOMORPHIC LOOK ("Leatherbound") — see
+   docs/design/SKEUOMORPHIC_LOOK_SPEC.md for the full spec.
+   ============================================================ */
+
+/* Skeuomorphic — stitched saddle-leather journal with brass hardware. A literal,
+   representational material (not neumorphism/"soft UI" — see docs/design/
+   SKEUOMORPHIC_LOOK_SPEC.md §1 for the distinction). Warm cognac/espresso leather,
+   cream parchment ink, aged-brass accent, directional single-source top-left light
+   implying real embossed/debossed depth. */
+[data-look='skeuomorphic'] {
+  --background: #34241a;
+  --foreground: #f1e4c9;
+  --accent: #c38a42;
+  --accent-glow: rgba(195, 138, 66, 0.32);
+  --panel-bg: rgba(74, 54, 38, 0.82);
+  --border: rgba(196, 154, 91, 0.32);
+  --panel-radius: 16px;
+  --surface: rgba(241, 228, 201, 0.06);
+  --surface-strong: rgba(241, 228, 201, 0.14);
+  --chip-bg: rgba(41, 29, 20, 0.82);
+  /* 0.65, not the spec's originally-proposed 0.6: real-rendered contrast of
+     --muted text on --panel-bg measured at exactly 4.52:1 (WCAG AA floor is
+     4.5:1) - technically passing but with a margin thin enough that normal
+     subpixel/antialiasing variance could tip it under the floor for some
+     users. The spec explicitly pre-approved this exact alpha bump for this
+     exact scenario (see docs/design/SKEUOMORPHIC_LOOK_SPEC.md §4); it lifts
+     the same pairing to ~5.0:1. */
+  --muted: rgba(241, 228, 201, 0.65);
+  --muted-strong: rgba(241, 228, 201, 0.85);
+  --hud-bg: rgba(41, 29, 20, 0.95);
+
+  /* Elevation ladder — warm, dark, brown-cast shadows (never pure black) plus a
+     thin inset top highlight standing in for a raking top-left light catching the
+     leather grain. This is what actually reads as "embossed" instead of "flat with
+     a color swap" — do not drop the inset layer. */
+  --shadow-sm: 0 1px 2px rgba(18, 11, 5, 0.55);
+  --shadow-md:
+    0 10px 24px -10px rgba(18, 11, 5, 0.55),
+    0 3px 8px -2px rgba(18, 11, 5, 0.4),
+    inset 0 1px 0 rgba(255, 235, 200, 0.08);
+  --shadow-lg:
+    0 26px 50px -18px rgba(12, 7, 3, 0.65),
+    0 8px 16px -6px rgba(12, 7, 3, 0.45),
+    inset 0 1px 0 rgba(255, 235, 200, 0.1);
+  --shadow-glow:
+    0 0 0 1px var(--border),
+    0 8px 20px -8px var(--accent-glow),
+    inset 0 1px 0 rgba(255, 235, 200, 0.12);
+
+  /* Radius ladder — a bound book has a small, firm corner radius, not a soft
+     "glassy app" curve. Deliberately tighter than the app-wide defaults
+     (--radius: 14px / --radius-card: 20px / --radius-cta: 32px). */
+  --radius: 10px;
+  --radius-tight: 4px;
+  --radius-card: 16px;
+  --radius-cta: 22px;
+  --radius-pill: 9999px;
+}
+
+/* Primary button — raised brass rivet, rest -> hover -> active. Targets
+   components/ui/button.tsx's `default` variant, which renders as
+   [data-slot="button"][data-variant="default"] and already carries a Tailwind
+   active:not-aria-[haspopup]:translate-y-px utility for a 1px press. This
+   override adds the material (gradient + bevel + engraved-highlight text) on
+   top of that existing press mechanic; its :active rule increases the press
+   depth to 2px and swaps the shadow to a debossed (inset-only) treatment so
+   it visually sinks, which the current translate-only utility doesn't do on
+   its own. See spec §3a. */
+[data-look='skeuomorphic'] [data-slot='button'][data-variant='default'] {
+  background: linear-gradient(180deg, #d9a35e 0%, #c38a42 45%, #a8722f 100%);
+  color: #2b1e15; /* dark ink on brass — see §4 for the contrast math */
+  border: 1px solid rgba(75, 48, 20, 0.5);
+  text-shadow: 0 1px 0 rgba(255, 240, 210, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.5),
+    inset 0 -2px 3px rgba(75, 48, 20, 0.4),
+    0 3px 0 rgba(93, 61, 26, 0.9),
+    0 6px 10px -2px rgba(18, 11, 5, 0.55);
+  transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, filter 0.15s ease-out;
+}
+
+[data-look='skeuomorphic'] [data-slot='button'][data-variant='default']:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.55),
+    inset 0 -2px 3px rgba(75, 48, 20, 0.4),
+    0 4px 0 rgba(93, 61, 26, 0.9),
+    0 8px 14px -3px rgba(18, 11, 5, 0.6);
+}
+
+[data-look='skeuomorphic'] [data-slot='button'][data-variant='default']:active:not([aria-haspopup]) {
+  transform: translateY(2px);
+  filter: brightness(0.96);
+  box-shadow:
+    inset 0 2px 4px rgba(18, 11, 5, 0.6),
+    0 1px 2px rgba(18, 11, 5, 0.4);
+}
+
+/* Composer bar — inset "groove." Targets .composer-bar (the actual visual
+   container in app/page.tsx; the <textarea> inside it is already border-none
+   bg-transparent, so the groove treatment belongs on the bar, not the
+   textarea). This is debossed — inset shadow only, no outer raised shadow —
+   the opposite of the button above: the composer should read as a
+   carved/tooled channel you write into, not a raised object. See spec §3a. */
+[data-look='skeuomorphic'] .composer-bar {
+  background: linear-gradient(180deg, rgba(36, 25, 17, 0.92), rgba(48, 34, 23, 0.88)) !important;
+  border: 1px solid rgba(20, 13, 7, 0.65) !important;
+  box-shadow:
+    inset 0 2px 5px rgba(10, 6, 3, 0.65),
+    inset 0 -1px 0 rgba(255, 235, 200, 0.05),
+    0 1px 0 rgba(255, 235, 200, 0.06);
+}
+
+[data-look='skeuomorphic'] .composer-bar:focus-within {
+  border-color: var(--accent) !important;
+  box-shadow:
+    inset 0 2px 5px rgba(10, 6, 3, 0.65),
+    0 0 0 3px var(--accent-glow);
+}
+
+/* §3b: Embossed panel with stitched edge. Targets .glass-panel and
+   .intel-card — the shared card/panel classes used for response cards, the
+   model-picker panel, and modal-adjacent surfaces throughout app/page.tsx.
+   Adds a dashed inset border (::after) to depict brass-thread top-stitching.
+   .glass-panel already defines its own ::before for a glass-refraction
+   highlight — this rule deliberately uses ::after instead so the two don't
+   collide; the existing ::before is left in place. */
+[data-look='skeuomorphic'] .glass-panel,
+[data-look='skeuomorphic'] .intel-card {
+  background: linear-gradient(160deg, rgba(84, 62, 43, 0.92) 0%, rgba(43, 30, 21, 0.95) 100%) !important;
+  border: 1px solid rgba(20, 13, 7, 0.6) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-look='skeuomorphic'] .glass-panel::after,
+[data-look='skeuomorphic'] .intel-card::after {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: calc(var(--panel-radius, 16px) - 9px);
+  border: 1.5px dashed rgba(195, 138, 66, 0.4);
+  pointer-events: none;
+}
+
+/* QA fix: the "You" message-turn container (app/page.tsx, `.chat-turn-user`)
+   is the app's single most-repeated surface and the material story's stated
+   #1 rationale ("message bubbles / response cards read as journal entries" -
+   see spec §1) - yet it was left with only bg-[var(--surface)]/
+   border-[var(--border)], which already inherits on-brand leather/parchment
+   *colors* from the token block above but none of the actual leather
+   material identity (gradient, embossed shadow, stitched edge) - it read as
+   a flat recolor, not a depicted material, on the app's most-visible
+   surface. Give it the same embossed-panel + stitched-edge treatment as
+   .glass-panel/.intel-card in §3b above. Scoped to a dedicated
+   `.chat-turn-user` hook (added directly in the JSX) rather than
+   piggybacking on the shared `.glass-panel` class, so this doesn't also
+   change corner-radius/shadow for every other Look's user bubble - only
+   skeuomorphic is touched. */
+[data-look='skeuomorphic'] .chat-turn-user {
+  position: relative;
+  background: linear-gradient(160deg, rgba(84, 62, 43, 0.92) 0%, rgba(43, 30, 21, 0.95) 100%) !important;
+  border: 1px solid rgba(20, 13, 7, 0.6) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+[data-look='skeuomorphic'] .chat-turn-user::after {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border-radius: calc(var(--panel-radius, 16px) - 9px);
+  border: 1.5px dashed rgba(195, 138, 66, 0.4);
+  pointer-events: none;
+}
+
+/* §3c: Global surface/background texture. Body gradient + fine grain,
+   following the same pattern retrowave/evergreen use (body sets the base
+   gradient, body::before layers a decorative texture at reduced opacity —
+   the shared base rule for body::before lives earlier in this file and is
+   position: fixed; inset: 0; z-index: -1; pointer-events: none, so this
+   per-look override only needs to set background/opacity). The grain uses
+   an inline SVG feTurbulence filter encoded as a data: URI — zero binary
+   image assets, per the project constraint. */
+[data-look='skeuomorphic'] body {
+  background:
+    radial-gradient(ellipse 900px 500px at 20% -10%, rgba(255, 226, 178, 0.05), transparent 60%),
+    linear-gradient(165deg, #3e2b1e 0%, #2c1e15 55%, #241910 100%);
+  background-attachment: fixed;
+}
+
+[data-look='skeuomorphic'] body::before {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E"),
+    radial-gradient(circle at 80% 90%, rgba(0, 0, 0, 0.25), transparent 55%);
+  background-size: 140px 140px, cover;
+  mix-blend-mode: overlay;
+  opacity: 0.5;
 }

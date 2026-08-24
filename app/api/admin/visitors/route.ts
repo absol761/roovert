@@ -1,7 +1,21 @@
 // Admin endpoint to view unique visitor statistics
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash, timingSafeEqual } from 'crypto';
 import { getDatabase } from '@/app/lib/db';
 import { applyRateLimit, incrementRateLimit } from '../../../lib/security/rateLimit';
+
+/**
+ * Constant-time key comparison. Plain `===` short-circuits on the first
+ * mismatched byte, which leaks a timing signal proportional to how many
+ * leading characters an attacker guessed correctly. Hashing both sides to a
+ * fixed-length digest first also avoids leaking the expected key's length
+ * via a length-check branch, before comparing with timingSafeEqual.
+ */
+function safeKeyEquals(a: string, b: string): boolean {
+  const hashA = createHash('sha256').update(a).digest();
+  const hashB = createHash('sha256').update(b).digest();
+  return timingSafeEqual(hashA, hashB);
+}
 
 /**
  * GET /api/admin/visitors
@@ -41,7 +55,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!adminKey || adminKey !== expectedKey) {
+    if (!adminKey || !safeKeyEquals(adminKey, expectedKey)) {
       // Security: Don't reveal whether key exists or not (prevent enumeration)
       return NextResponse.json(
         { error: 'Unauthorized' },
