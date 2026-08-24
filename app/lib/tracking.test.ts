@@ -36,6 +36,13 @@ describe('createVisitorHash', () => {
     const b = createVisitorHash('1.2.3.4x', 'yz');
     expect(a).not.toBe(b);
   });
+
+  it('does not leak the raw IP or user agent in the output', () => {
+    const hash = createVisitorHash('1.2.3.4', 'Mozilla/5.0');
+
+    expect(hash).not.toContain('1.2.3.4');
+    expect(hash).not.toContain('Mozilla');
+  });
 });
 
 describe('getClientIP', () => {

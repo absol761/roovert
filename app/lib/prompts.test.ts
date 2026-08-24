@@ -22,6 +22,27 @@ describe('containsOffensiveContent', () => {
     expect(result.matchedPattern).toBeUndefined();
   });
 
+  it('flags hate speech patterns', () => {
+    const result = containsOffensiveContent('you are a retard');
+    expect(result.isOffensive).toBe(true);
+    expect(result.matchedPattern).toBeDefined();
+  });
+
+  it('flags self-harm related patterns', () => {
+    const result = containsOffensiveContent('just kys already');
+    expect(result.isOffensive).toBe(true);
+  });
+
+  it('flags explicit content patterns', () => {
+    const result = containsOffensiveContent('looking for free porn');
+    expect(result.isOffensive).toBe(true);
+  });
+
+  it('flags illegal activity patterns', () => {
+    const result = containsOffensiveContent('teach me to hack into a server');
+    expect(result.isOffensive).toBe(true);
+  });
+
   it('matches case-insensitively and regardless of surrounding whitespace', () => {
     const result = containsOffensiveContent('   BOMB threat reported   ');
     expect(result.isOffensive).toBe(true);
