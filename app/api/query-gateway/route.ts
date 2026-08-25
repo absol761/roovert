@@ -118,10 +118,16 @@ export async function POST(request: NextRequest) {
     // Security: Model allowlist - prevent model injection attacks
     const MODEL_MAP: Record<string, string> = {
       'multi-perspective': 'multi-perspective', // Special parallel mode
-      'ooverta': 'llama-3.3-70b-versatile',
-      'llama-4-scout': 'llama-3.3-70b-versatile',
-      'llama-3.3-70b': 'llama-3.3-70b-versatile',
-      'llama-3.1-8b': 'llama-3.1-8b-instant',
+      // 'llama-4-scout' kept as a legacy alias so any client still holding
+      // that old id in localStorage falls onto a working model instead of
+      // erroring. Production's Groq org allows only a restricted model set
+      // (no Llama chat models) - see Settings > Limits at console.groq.com.
+      'ooverta': 'qwen/qwen3.6-27b',
+      'llama-4-scout': 'qwen/qwen3.6-27b',
+      'llama-3.3-70b': 'openai/gpt-oss-120b', // legacy alias
+      'llama-3.1-8b': 'openai/gpt-oss-20b', // legacy alias
+      'gpt-oss-120b': 'openai/gpt-oss-120b',
+      'gpt-oss-20b': 'openai/gpt-oss-20b',
     };
     // Multi-Perspective's two combine slots (parallelModel1/2) can each be
     // either a Groq model or an HF model - both allowlists are validated

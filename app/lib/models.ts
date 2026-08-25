@@ -20,9 +20,11 @@ export interface Model {
 // Groq Models - Free tier available
 export const MODELS: Model[] = [
   { id: 'multi-perspective', name: 'Multi-Perspective', apiId: 'multi-perspective', category: 'Premium', description: 'Uses multiple AI models simultaneously for comprehensive answers.' },
-  { id: 'ooverta', name: 'Ooverta', apiId: 'llama-3.3-70b-versatile', category: 'Premium', description: 'Advanced reasoning and analysis.' },
-  { id: 'llama-3.3-70b', name: 'Llama 3.3 70B', apiId: 'llama-3.3-70b-versatile', category: 'Advanced', description: 'Powerful 70B parameter model for complex tasks.' },
-  { id: 'llama-3.1-8b', name: 'Llama 3.1 8B', apiId: 'llama-3.1-8b-instant', category: 'Standard', description: 'Extremely fast and lightweight.' },
+  // Production's Groq org only allows a restricted model set (no Llama
+  // chat models) - see app/api/query-gateway/route.ts's MODEL_MAP comment.
+  { id: 'ooverta', name: 'Ooverta', apiId: 'qwen/qwen3.6-27b', category: 'Premium', description: 'Advanced reasoning and analysis.' },
+  { id: 'gpt-oss-120b', name: 'GPT-OSS 120B', apiId: 'openai/gpt-oss-120b', category: 'Advanced', description: "OpenAI's open-weight flagship model, for complex tasks." },
+  { id: 'gpt-oss-20b', name: 'GPT-OSS 20B', apiId: 'openai/gpt-oss-20b', category: 'Standard', description: 'Extremely fast and lightweight.' },
 ];
 
 // OpenRouter Models - id/apiId must match the keys in
