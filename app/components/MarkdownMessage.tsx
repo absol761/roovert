@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Copy, Check, X } from 'lucide-react';
+import { useSmoothedText } from '../hooks/useSmoothedText';
 
 /**
  * Shared markdown renderer for chat message content - used for both the
@@ -12,8 +13,19 @@ import { Copy, Check, X } from 'lucide-react';
  * (app/share/[id]/page.tsx) so the two don't drift out of sync on
  * formatting, syntax highlighting, or the copy-to-clipboard code block
  * behavior.
+ *
+ * `isStreaming` (default false, so the read-only share page is unaffected)
+ * gates two things at once: the reveal rate is smoothed via
+ * useSmoothedText instead of jumping straight to the full `content` on
+ * every chunk, and while streaming the smoothed text is rendered as plain
+ * text rather than through ReactMarkdown - an in-progress chunk can easily
+ * contain a dangling `**`, an unclosed code fence, or a truncated table
+ * row, and react-markdown has no notion of "partial" markdown to recover
+ * from that gracefully. Once streaming ends the final content renders
+ * through the normal markdown path exactly as before.
  */
-export function MarkdownMessage({ content }: { content: string }) {
+export function MarkdownMessage({ content, isStreaming = false }: { content: string; isStreaming?: boolean }) {
+  const displayedContent = useSmoothedText(content, isStreaming);
   const [copiedBlockIndex, setCopiedBlockIndex] = useState<number | null>(null);
   // Brief self-resetting "Copy failed" state for the same button, shown when
   // the Clipboard API throws (insecure context, permission denied, unsupported
@@ -92,6 +104,10 @@ export function MarkdownMessage({ content }: { content: string }) {
       );
     },
   };
+
+  if (isStreaming) {
+    return <span className="whitespace-pre-wrap">{displayedContent}</span>;
+  }
 
   return (
     <ReactMarkdown

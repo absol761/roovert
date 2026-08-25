@@ -17,14 +17,19 @@ export interface Model {
   description: string;
 }
 
-// Groq Models - Free tier available
+// Groq Models - Free tier available. Ordered with confirmed-working models
+// first (gpt-oss-120b/20b/ooverta all resolve to models actually allowed on
+// production's restricted Groq org - see MODEL_MAP in
+// app/api/query-gateway/route.ts) - multi-perspective is unverified since it
+// depends on the same two Groq legs plus HF/OpenRouter combine slots, so
+// it's listed last rather than first.
 export const MODELS: Model[] = [
-  { id: 'multi-perspective', name: 'Multi-Perspective', apiId: 'multi-perspective', category: 'Premium', description: 'Uses multiple AI models simultaneously for comprehensive answers.' },
+  { id: 'gpt-oss-120b', name: 'GPT-OSS 120B', apiId: 'openai/gpt-oss-120b', category: 'Advanced', description: "OpenAI's open-weight flagship model, for complex tasks." },
   // Production's Groq org only allows a restricted model set (no Llama
   // chat models) - see app/api/query-gateway/route.ts's MODEL_MAP comment.
   { id: 'ooverta', name: 'Ooverta', apiId: 'qwen/qwen3.6-27b', category: 'Premium', description: 'Advanced reasoning and analysis.' },
-  { id: 'gpt-oss-120b', name: 'GPT-OSS 120B', apiId: 'openai/gpt-oss-120b', category: 'Advanced', description: "OpenAI's open-weight flagship model, for complex tasks." },
   { id: 'gpt-oss-20b', name: 'GPT-OSS 20B', apiId: 'openai/gpt-oss-20b', category: 'Standard', description: 'Extremely fast and lightweight.' },
+  { id: 'multi-perspective', name: 'Multi-Perspective', apiId: 'multi-perspective', category: 'Premium', description: 'Uses multiple AI models simultaneously for comprehensive answers.' },
 ];
 
 // OpenRouter Models - id/apiId must match the keys in

@@ -285,12 +285,13 @@ export default function Page() {
   // vars set - see useAvailableProviderModels' doc comment.
   const providerModels = useAvailableProviderModels();
 
-  // Get available models (combine HUGGINGFACE_MODELS, MODELS,
+  // Get available models (combine MODELS, HUGGINGFACE_MODELS,
   // OPENROUTER_MODELS, and the dynamic provider registry's models,
   // filtering each static provider's models out if that provider's rate
-  // limit is currently exhausted). Hugging Face models are listed first so
-  // they're the most visible entries in every model list that renders off
-  // this array (composer dropdown, "Browse AI Models", command palette);
+  // limit is currently exhausted). MODELS (Groq) is listed first since
+  // those are the models confirmed working on production's restricted
+  // Groq account - HF and OpenRouter currently fail (depleted Inference
+  // Providers credits / invalid key respectively), so they sort after;
   // the dynamic provider models are appended last since they're additive
   // extras a deployer opts into, not part of the app's curated defaults.
   // Memoized (rather than a fresh array literal every render, like the rest
@@ -300,8 +301,8 @@ export default function Page() {
   // dependency array would reference a new array identity on every render
   // and never settle.
   const availableModels = useMemo(() => [
-    ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
     ...MODELS,
+    ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
     ...(hideOpenRouterModels ? [] : OPENROUTER_MODELS),
     ...providerModels,
   ], [hideHuggingFaceModels, hideOpenRouterModels, providerModels]);
@@ -329,6 +330,20 @@ export default function Page() {
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
   const [look, setLook] = useState('midnight');
   const [layout, setLayout] = useState('standard');
+  // Centralized sidebar push-offset, computed in JS rather than left as a
+  // CSS override, because `[data-layout='wide'] main { padding-left: 4rem }`
+  // (an attribute-selector rule) used to silently beat the Tailwind
+  // md:pl-* utility class below it in specificity, permanently pinning
+  // main's padding-left to 4rem in wide layout regardless of the rail's
+  // actual expanded/collapsed width - the rail (200px expanded) then
+  // visibly overlapped content that only ever got 64px of clearance. This
+  // helper folds wide layout's extra breathing room into the same offset
+  // instead of letting two separate mechanisms fight over one property -
+  // every consumer (main, the composer bar, and the mission/next/footer
+  // sections) should call this instead of hand-writing its own pl-* class.
+  const sidebarOffsetClass = layout === 'wide'
+    ? (isSidebarExpanded ? 'md:pl-[276px]' : 'md:pl-[160px]')
+    : (isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24');
   const [fontSize, setFontSize] = useState('normal');
   const [dataSaver, setDataSaver] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -1811,7 +1826,7 @@ export default function Page() {
       {/* Interactive Particle Background for Deep Space Look */}
 
       {/* Main Content Area */}
-      <main id="main-content" className={`theme-shell relative z-10 flex-1 flex flex-col px-6 pt-20 pb-20 overflow-y-auto overflow-x-hidden transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24'}`}>
+      <main id="main-content" className={`theme-shell relative z-10 flex-1 flex flex-col px-6 pt-20 pb-20 overflow-y-auto overflow-x-hidden transition-[padding-left] duration-300 ${sidebarOffsetClass}`}>
 
         {/* Global Feed - Expandable Section */}
         <AnimatePresence>
@@ -2507,7 +2522,7 @@ while (true) {
                                         )}
                                         {content && (
                                           <div className="text-[var(--foreground)] text-base font-light markdown-content">
-                                            <MarkdownMessage content={content} />
+                                            <MarkdownMessage content={content} isStreaming={!isDone} />
                                           </div>
                                         )}
                                       </div>
@@ -2555,7 +2570,7 @@ while (true) {
                                     </div>
                                   ) : response ? (
                                     <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
-                                      <MarkdownMessage content={response} />
+                                      <MarkdownMessage content={response} isStreaming={isProcessing} />
                                       {isProcessing && (
                                         <div className="flex items-center gap-3 mt-3">
                                           <span
@@ -2602,7 +2617,7 @@ while (true) {
       {/* Input Deck - Fixed at bottom for chat mode */}
       {isChatMode && (
         <div
-          className={`fixed bottom-0 left-0 right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] transition-[padding-left] duration-300 ${isMobile ? 'p-3' : 'p-4'} ${!isMobile && isSidebarExpanded ? 'md:pl-[200px]' : ''}`}
+          className={`fixed bottom-0 left-0 right-0 z-40 bg-[var(--background)]/95 backdrop-blur-xl border-t border-[var(--border)] transition-[padding-left] duration-300 ${isMobile ? 'p-3' : 'p-4'} ${!isMobile ? sidebarOffsetClass : ''}`}
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), var(--space-3, 0.75rem))' }}
         >
           <div className={`max-w-7xl mx-auto ${isMobile ? 'px-2' : ''}`}>
@@ -2928,7 +2943,7 @@ while (true) {
       {/* Expanded Sections (Only on Landing) */}
       {!isChatMode && (
         <>
-          <section id="mission" className={`relative z-10 py-32 border-t border-[var(--border)] transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24'}`}>
+          <section id="mission" className={`relative z-10 py-32 border-t border-[var(--border)] transition-[padding-left] duration-300 ${sidebarOffsetClass}`}>
             <div className="max-w-4xl mx-auto px-6 text-center">
               <h2 className="serif-display text-4xl mb-8 text-[var(--foreground)]">Our Mission</h2>
               <p className="text-xl text-[var(--muted)] leading-relaxed">
@@ -2940,7 +2955,7 @@ while (true) {
           </section>
 
           {/* Built With Itself Section */}
-          <section className={`relative z-10 py-32 border-t border-[var(--border)] transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24'}`}>
+          <section className={`relative z-10 py-32 border-t border-[var(--border)] transition-[padding-left] duration-300 ${sidebarOffsetClass}`}>
             <div className="max-w-5xl mx-auto px-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -2974,7 +2989,7 @@ while (true) {
             </div>
           </section>
 
-          <footer className={`relative z-10 border-t border-[var(--border)] py-8 text-center text-[var(--foreground)]/40 text-sm transition-[padding-left] duration-300 ${isSidebarExpanded ? 'md:pl-[212px]' : 'md:pl-24'}`}>
+          <footer className={`relative z-10 border-t border-[var(--border)] py-8 text-center text-[var(--foreground)]/40 text-sm transition-[padding-left] duration-300 ${sidebarOffsetClass}`}>
             <p>© 2026 Roovert. Rigorously Pursuing Truth.</p>
           </footer>
         </>

@@ -623,8 +623,16 @@ button.glass-panel:hover,
   gap: 4rem;
 }
 
+/* padding-left is intentionally NOT set here - it used to be, but as a
+   plain attribute-selector rule it silently beat the Tailwind md:pl-*
+   utility class page.tsx applies for the sidebar's push offset (same
+   specificity as a class selector, but this rule wins on source order),
+   permanently pinning main's padding-left to 4rem regardless of the
+   sidebar's actual width and causing a visible overlap once the sidebar
+   expanded past that. The extra breathing room wide layout wants on the
+   left is now folded into page.tsx's sidebarOffsetClass instead - see its
+   comment - so the two mechanisms don't fight over the same property. */
 [data-layout='wide'] main {
-  padding-left: 4rem;
   padding-right: 4rem;
 }
 
