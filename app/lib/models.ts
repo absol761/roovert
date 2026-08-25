@@ -20,7 +20,7 @@ export interface Model {
 // Groq Models - Free tier available
 export const MODELS: Model[] = [
   { id: 'multi-perspective', name: 'Multi-Perspective', apiId: 'multi-perspective', category: 'Premium', description: 'Uses multiple AI models simultaneously for comprehensive answers.' },
-  { id: 'ooverta', name: 'Ooverta', apiId: 'meta-llama/llama-4-scout-17b-16e-instruct', category: 'Premium', description: 'Llama 4 Scout - advanced reasoning and analysis.' },
+  { id: 'ooverta', name: 'Ooverta', apiId: 'llama-3.3-70b-versatile', category: 'Premium', description: 'Advanced reasoning and analysis.' },
   { id: 'llama-3.3-70b', name: 'Llama 3.3 70B', apiId: 'llama-3.3-70b-versatile', category: 'Advanced', description: 'Powerful 70B parameter model for complex tasks.' },
   { id: 'llama-3.1-8b', name: 'Llama 3.1 8B', apiId: 'llama-3.1-8b-instant', category: 'Standard', description: 'Extremely fast and lightweight.' },
 ];
