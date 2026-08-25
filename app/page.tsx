@@ -306,14 +306,14 @@ export default function Page() {
     ...providerModels,
   ], [hideHuggingFaceModels, hideOpenRouterModels, providerModels]);
 
-  // Default selection is Llama 3.3 70B, not Multi-Perspective. Multi-
+  // Default selection is GPT-OSS 120B, not Multi-Perspective. Multi-
   // Perspective and every Hugging Face/OpenRouter model currently fail on
   // load (HF: depleted Inference Providers credits; OpenRouter: invalid
-  // API key; Ooverta/Llama 4 Scout: erroring on Groq's side) - Llama 3.3
-  // 70B and 3.1 8B are the only models confirmed working, so a fresh
+  // API key) - GPT-OSS 120B and 20B are the only models confirmed working
+  // (production's Groq org has no Llama chat model access), so a fresh
   // visitor should land on one of those instead of a broken default.
   const [selectedModelId, setSelectedModelId] = useState(
-    availableModels.find(m => m.id === 'llama-3.3-70b')?.id || availableModels[0]?.id || MODELS[0].id
+    availableModels.find(m => m.id === 'gpt-oss-120b')?.id || availableModels[0]?.id || MODELS[0].id
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   // Lifted out of SidebarRail so the main content area and composer bar can
@@ -403,8 +403,8 @@ export default function Page() {
   // Ooverta (Llama 4 Scout) currently errors on Groq's side, so it's a bad
   // default combine leg alongside Llama 3.3 70B - default to the other
   // confirmed-working Groq model instead.
-  const [parallelModel1, setParallelModel1] = useState('llama-3.1-8b');
-  const [parallelModel2, setParallelModel2] = useState('llama-3.3-70b');
+  const [parallelModel1, setParallelModel1] = useState('gpt-oss-20b');
+  const [parallelModel2, setParallelModel2] = useState('gpt-oss-120b');
   // Live per-model text for an in-flight Multi-Perspective request, keyed by
   // model id (e.g. parallelModel1's value). Null when not in a
   // multi-perspective request.
@@ -1218,7 +1218,7 @@ export default function Page() {
       // Automatically enable parallel mode if Multi-Perspective is selected
       const isMultiPerspective = selectedModel.id === 'multi-perspective';
       const actualRunParallel = isMultiPerspective || runParallel;
-      const activeParallelModel1 = parallelModel1 || 'llama-3.3-70b';
+      const activeParallelModel1 = parallelModel1 || 'gpt-oss-120b';
       const activeParallelModel2 = parallelModel2 || 'ooverta';
 
       if (actualRunParallel) {
