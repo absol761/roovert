@@ -118,8 +118,8 @@ export async function POST(request: NextRequest) {
     // Security: Model allowlist - prevent model injection attacks
     const MODEL_MAP: Record<string, string> = {
       'multi-perspective': 'multi-perspective', // Special parallel mode
-      'ooverta': 'meta-llama/llama-4-scout-17b-16e-instruct',
-      'llama-4-scout': 'meta-llama/llama-4-scout-17b-16e-instruct',
+      'ooverta': 'llama-3.3-70b-versatile',
+      'llama-4-scout': 'llama-3.3-70b-versatile',
       'llama-3.3-70b': 'llama-3.3-70b-versatile',
       'llama-3.1-8b': 'llama-3.1-8b-instant',
     };
