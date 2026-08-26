@@ -48,13 +48,16 @@ export function useSmoothedText(target: string, isStreaming: boolean): string {
 
   // Read via a ref inside the rAF loop rather than as an effect dependency,
   // so a new chunk arriving mid-stream doesn't cancel and restart the loop
-  // (which would happen on every single chunk if `target` were a dep).
-  targetRef.current = target;
+  // (which would happen on every single chunk if `target` were a dep). Kept
+  // in sync via its own no-deps effect (runs after every render) rather
+  // than written directly in the render body, per react-hooks/refs.
+  useEffect(() => {
+    targetRef.current = target;
+  });
 
   useEffect(() => {
     if (!isStreaming) {
       displayedLenRef.current = target.length;
-      setDisplayed(target);
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
         rafIdRef.current = null;
@@ -64,8 +67,15 @@ export function useSmoothedText(target: string, isStreaming: boolean): string {
 
     // A new streaming turn is starting - reset the reveal position rather
     // than carrying over whatever was displayed for a previous message.
+    // Deliberately synchronous (not deferred to the first rAF tick below):
+    // this component instance is reused across turns (same MarkdownMessage
+    // in the "current response" panel / regenerate-in-place slot), so
+    // without an immediate reset here the previous message's full text
+    // would flash on screen for a frame or two before the first tick caught
+    // up to `target` (which the caller has already reset to '').
     displayedLenRef.current = 0;
     frameCountRef.current = 0;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see comment above; deferring this would visibly flash stale content.
     setDisplayed('');
 
     const tick = () => {
@@ -95,5 +105,8 @@ export function useSmoothedText(target: string, isStreaming: boolean): string {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omits `target`; see the ref comment above.
   }, [isStreaming]);
 
-  return displayed;
+  // While not streaming, `target` (already-complete text, e.g. history) is
+  // the source of truth directly rather than syncing it into `displayed`
+  // via setState in the effect above.
+  return isStreaming ? displayed : target;
 }
