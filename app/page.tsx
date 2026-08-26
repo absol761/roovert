@@ -681,6 +681,15 @@ export default function Page() {
     setMessageFeedback({});
     setExpandedReasoning({});
     setCopiedResponseIdx(null);
+    // Same fix as openGlobalFeed below: the real scroll position lives on
+    // window/document, not #main-content. Without this, clicking New Chat
+    // while scrolled down into "Browse AI Models"/"Built With Itself"/etc.
+    // resets state correctly but leaves the view scrolled past the landing
+    // hero, reading as if nothing happened until the user manually scrolls
+    // back up.
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
   };
 
   // Switches `history`/`isChatMode` to point at a different, already-known
