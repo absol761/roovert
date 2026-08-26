@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Keyboard, X } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { MODAL_TRANSITION } from '../../lib/motion';
 
 interface ShortcutsHelpModalProps {
   isOpen: boolean;
@@ -31,7 +32,14 @@ export function ShortcutsHelpModal({ isOpen, onClose }: ShortcutsHelpModalProps)
 
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 text-[var(--foreground)]">
-      <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={MODAL_TRANSITION}
+        className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md"
+        onClick={onClose}
+      />
       <motion.div
         ref={containerRef}
         role="dialog"
@@ -41,7 +49,7 @@ export function ShortcutsHelpModal({ isOpen, onClose }: ShortcutsHelpModalProps)
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+        transition={MODAL_TRANSITION}
         className="relative w-full max-w-md bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >

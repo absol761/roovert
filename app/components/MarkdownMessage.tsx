@@ -15,14 +15,12 @@ import { useSmoothedText } from '../hooks/useSmoothedText';
  * behavior.
  *
  * `isStreaming` (default false, so the read-only share page is unaffected)
- * gates two things at once: the reveal rate is smoothed via
- * useSmoothedText instead of jumping straight to the full `content` on
- * every chunk, and while streaming the smoothed text is rendered as plain
- * text rather than through ReactMarkdown - an in-progress chunk can easily
- * contain a dangling `**`, an unclosed code fence, or a truncated table
- * row, and react-markdown has no notion of "partial" markdown to recover
- * from that gracefully. Once streaming ends the final content renders
- * through the normal markdown path exactly as before.
+ * smooths the reveal rate via useSmoothedText instead of jumping straight
+ * to the full `content` on every chunk. The smoothed text renders through
+ * the same ReactMarkdown path whether streaming or not - remark tolerates
+ * partial markdown (a dangling `**`, an unclosed fence) well enough that
+ * incremental rendering reads as live progress rather than a jarring pop
+ * to fully-styled markdown once the stream ends.
  */
 export function MarkdownMessage({ content, isStreaming = false }: { content: string; isStreaming?: boolean }) {
   const displayedContent = useSmoothedText(content, isStreaming);
@@ -64,14 +62,16 @@ export function MarkdownMessage({ content, isStreaming = false }: { content: str
       const isInline = !className;
 
       return !isInline ? (
-        <div className="relative my-4">
+        <div className="group relative my-4">
           <div className="flex items-center justify-between p-2 bg-[var(--surface-strong)] border-b border-[var(--border)] rounded-t-lg">
             <span className="text-xs text-[var(--muted)] font-mono">
               {match ? match[1] : 'code'}
             </span>
+            {/* Hover-reveal only on desktop (md+) - see the equivalent
+                comment on the message action row in app/page.tsx. */}
             <button
               onClick={() => copyCodeBlock(code, blockIndex)}
-              className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+              className="flex items-center gap-1.5 px-2 py-1 text-xs border border-[var(--border)] rounded hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-all duration-150 text-[var(--muted)] hover:text-[var(--foreground)] md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:focus:opacity-100"
             >
               {isCopyFailed ? (
                 <>
@@ -105,10 +105,12 @@ export function MarkdownMessage({ content, isStreaming = false }: { content: str
     },
   };
 
-  if (isStreaming) {
-    return <span className="whitespace-pre-wrap">{displayedContent}</span>;
-  }
-
+  // Rendered through ReactMarkdown even mid-stream (fed the smoothed,
+  // partial text) rather than as plain text until the stream ends - remark
+  // tolerates unclosed/partial markdown gracefully (a dangling `**` or an
+  // open code fence just degrades to a plain-ish paragraph), so this avoids
+  // the jarring "unstyled text -> fully styled markdown" pop the old
+  // plain-text branch produced the instant streaming finished.
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
@@ -118,7 +120,7 @@ export function MarkdownMessage({ content, isStreaming = false }: { content: str
       unwrapDisallowed={true}
       components={markdownComponents}
     >
-      {content}
+      {displayedContent}
     </ReactMarkdown>
   );
 }

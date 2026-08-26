@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 
 // A single icon-only rail action - shared shape for every button below so
 // the "expanded" (label-visible) and "collapsed" (icon-only + tooltip)
@@ -113,6 +114,7 @@ export function SidebarRail({
   micLevel,
   micBurst,
 }: SidebarRailProps) {
+  const prefersReducedMotion = useReducedMotion();
   const topActions: RailAction[] = [
     {
       key: 'history',
@@ -153,7 +155,7 @@ export function SidebarRail({
     <motion.aside
       initial={false}
       animate={{ width: expanded ? 200 : 64 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      transition={prefersReducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 }}
       className="hidden md:flex fixed left-0 top-0 bottom-0 z-50 flex-col items-stretch gap-1 border-r border-[var(--border)] bg-[var(--background)]/95 backdrop-blur-xl py-3 px-2"
       style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
       aria-label="Primary navigation"
@@ -273,6 +275,7 @@ function VisualizerRailButton({
   micLevel: number;
   micBurst: number;
 }) {
+  const prefersReducedMotion = useReducedMotion();
   const title =
     micStatus === 'denied'
       ? 'Microphone blocked — allow it in your browser’s site settings, then click to retry'
@@ -308,7 +311,12 @@ function VisualizerRailButton({
       </span>
 
       <span className="relative flex items-center justify-center w-[18px] h-[18px] shrink-0">
-        {enabled && micStatus === 'active' && (
+        {/* Continuous mic-reactive rings are purely decorative and never
+            settle, so they're skipped entirely under reduced motion rather
+            than just shortened - the spinner just below stays exempt since
+            it signals real ongoing work, which reduced-motion conventions
+            still allow. */}
+        {enabled && micStatus === 'active' && !prefersReducedMotion && (
           <>
             <motion.span
               aria-hidden="true"

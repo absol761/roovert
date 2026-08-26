@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { History, X, Pencil, Trash2, Check, MessageSquarePlus } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { MODAL_TRANSITION } from '../../lib/motion';
 
 // Structural subset of the full conversation record page.tsx keeps in
 // memory - the modal only ever needs to list/rename/delete, never touch
@@ -87,7 +88,14 @@ export function ConversationHistoryModal({
 
   return (
     <div className="fixed inset-0 z-[110] flex text-[var(--foreground)]">
-      <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={MODAL_TRANSITION}
+        className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md"
+        onClick={onClose}
+      />
       <motion.div
         ref={containerRef}
         role="dialog"
@@ -97,7 +105,7 @@ export function ConversationHistoryModal({
         initial={{ x: '-100%', opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: '-100%', opacity: 0 }}
-        transition={{ duration: 0.25, ease: 'easeOut' }}
+        transition={MODAL_TRANSITION}
         className="relative w-full max-w-sm h-full bg-[var(--hud-bg)] border-r border-[var(--border)] shadow-[var(--shadow-lg)] flex flex-col"
         onClick={(e) => e.stopPropagation()}
         style={{ paddingTop: 'env(safe-area-inset-top)' }}

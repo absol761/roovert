@@ -3,9 +3,10 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
+import { Send, Sparkles, Zap, User, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
 import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
+import { RoovertMark } from './components/RoovertMark';
 import { useMicLevel } from './hooks/useMicLevel';
 import { useSpeechToText } from './hooks/useSpeechToText';
 import { useVisualizerSettings } from './hooks/useVisualizerSettings';
@@ -186,7 +187,7 @@ function ReasoningSection({
         <ChevronDown className={`w-3.5 h-3.5 transition-transform flex-shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
         <span>{isStreaming ? 'Thinking…' : 'Thoughts'}</span>
         {isStreaming && (
-          <span aria-hidden="true" className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse ml-1" />
+          <span aria-hidden="true" className="thinking-dot inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)] ml-1" />
         )}
       </button>
       {isOpen && (
@@ -201,6 +202,12 @@ function ReasoningSection({
 export default function Page() {
   const { isMobile } = useMobile();
   const [query, setQuery] = useState('');
+  // The just-submitted user message, shown as an instant chat bubble the
+  // moment Send is pressed - rather than waiting for the full round trip to
+  // complete before the query even appears. Cleared once the real entry
+  // lands in `history` (or left in place through an error/abort so the
+  // sent message doesn't visually vanish).
+  const [pendingUserMessage, setPendingUserMessage] = useState<{ query: string; image?: string } | null>(null);
   // Dictation into the composer via the browser's native Web Speech API -
   // a separate concern from the ambient useMicLevel() visualizer stream
   // above; see useSpeechToText.ts for why they don't share one mic session.
@@ -211,6 +218,13 @@ export default function Page() {
   const dictationFinalRef = useRef('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
+  // Which history entry (by index) is currently being regenerated, and its
+  // in-flight streamed text - kept separate from `response`/`isProcessing`
+  // (which stay reserved for the main compose-box flow) so a regenerate
+  // streams into that specific message in place instead of a disconnected
+  // panel at the bottom of the thread.
+  const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
+  const [regeneratingText, setRegeneratingText] = useState('');
   // Extended-thinking text streamed live for reasoning-capable models
   // (DeepSeek R1, Kimi K3) before the real answer starts arriving. Cleared
   // once the turn is added to history (where it's persisted per-entry
@@ -446,6 +460,11 @@ export default function Page() {
   // back down on every chunk - only an explicit send re-pins to the bottom.
   const isPinnedToBottomRef = useRef(true);
   const NEAR_BOTTOM_THRESHOLD_PX = 120;
+  // Coalesces bursts of scrollToBottom() calls (one per streamed chunk, which
+  // can arrive many times a second) into a single pending scroll instead of
+  // queuing a new overlapping smooth-scroll animation per chunk - the stacked
+  // timers previously fought each other and produced visible stutter.
+  const pendingScrollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleHistoryScroll = () => {
     const el = historyScrollRef.current;
@@ -459,7 +478,11 @@ export default function Page() {
   // sending a new message).
   const scrollToBottom = (force = false) => {
     if (!force && !isPinnedToBottomRef.current) return;
-    setTimeout(() => {
+    if (pendingScrollRef.current !== null) {
+      clearTimeout(pendingScrollRef.current);
+    }
+    pendingScrollRef.current = setTimeout(() => {
+      pendingScrollRef.current = null;
       responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
   };
@@ -951,6 +974,7 @@ export default function Page() {
       abortController.abort();
       setAbortController(null);
       setIsProcessing(false);
+      setRegeneratingIdx(null);
     }
   };
 
@@ -1134,7 +1158,7 @@ export default function Page() {
     e.preventDefault();
 
     const trimmedQuery = query.trim();
-    if (!trimmedQuery || isProcessing) {
+    if (!trimmedQuery || isProcessing || regeneratingIdx !== null) {
       return;
     }
 
@@ -1146,6 +1170,11 @@ export default function Page() {
     setPerspectiveResponses(null);
     setPerspectiveDoneModels(new Set());
     setStatusNote(null);
+    // Echo the message and clear the composer immediately, before the fetch
+    // even starts, so sending feels instant instead of freezing the typed
+    // text in a disabled textarea until the whole response arrives.
+    setPendingUserMessage({ query: trimmedQuery, image: selectedImage || undefined });
+    setQuery('');
     // Sending always re-pins the view to the bottom, even if the user had
     // scrolled up to reread earlier messages.
     isPinnedToBottomRef.current = true;
@@ -1180,7 +1209,7 @@ export default function Page() {
           ...prev,
           { query: trimmedQuery, response: '', model: 'hf-image-gen', generatedImage: data.image },
         ]);
-        setQuery('');
+        setPendingUserMessage(null);
         setIsProcessing(false);
         setAbortController(null);
         scrollToBottom(true);
@@ -1400,7 +1429,7 @@ export default function Page() {
                 ]);
                 setPerspectiveResponses(null);
                 setPerspectiveDoneModels(new Set());
-                setQuery('');
+                setPendingUserMessage(null);
                 setSelectedImage(null);
                 if (fileInputRef.current) {
                   fileInputRef.current.value = '';
@@ -1415,10 +1444,9 @@ export default function Page() {
               fullReasoning += data.reasoning;
               setReasoning(fullReasoning);
 
-              // Auto-scroll to bottom
-              setTimeout(() => {
-                responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }, 100);
+              // Auto-scroll to bottom (coalesced via scrollToBottom - see its
+              // comment for why this isn't its own independent setTimeout)
+              scrollToBottom();
             }
             if (data.content) {
               fullResponse += data.content;
@@ -1443,7 +1471,7 @@ export default function Page() {
               ]);
               setResponse(null); // Clear current response after adding to history
               setReasoning(null);
-              setQuery('');
+              setPendingUserMessage(null);
               setSelectedImage(null); // Clear image after sending
               if (fileInputRef.current) {
                 fileInputRef.current.value = '';
@@ -2220,7 +2248,7 @@ while (true) {
                               >
                                 <div className="flex items-start gap-4 max-w-[70ch]">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
-                                    <Zap className="w-5 h-5 text-[var(--accent)]" />
+                                    <User className="w-5 h-5 text-[var(--accent)]" />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="label text-[var(--accent)] mb-2">
@@ -2236,7 +2264,7 @@ while (true) {
                                         />
                                       </div>
                                     )}
-                                    <div className="text-[var(--foreground)] text-lg leading-relaxed font-light">
+                                    <div className="text-[var(--foreground)] text-base leading-relaxed">
                                       {entry.query}
                                     </div>
                                   </div>
@@ -2250,11 +2278,11 @@ while (true) {
                               <motion.div
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="px-6 py-2"
+                                className="group px-6 pt-5 pb-2"
                               >
                                 <div className="flex items-start gap-4">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
-                                    <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+                                    <RoovertMark className="w-5 h-5 text-[var(--accent)]" />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2 mb-2">
@@ -2270,7 +2298,11 @@ while (true) {
                                           wrapping - same overflow-x-auto fallback as
                                           the composer toolbar (see globals.css
                                           .scrollbar-thin-x). */}
-                                      <div className="flex items-center gap-2 shrink-0 overflow-x-auto scrollbar-thin-x max-w-full">
+                                      {/* Hover-reveal only on desktop (md+) - hover has
+                                          no equivalent on touch, so hiding these behind
+                                          opacity-0 unconditionally would make them
+                                          effectively unreachable on mobile. */}
+                                      <div className="flex items-center gap-2 shrink-0 overflow-x-auto scrollbar-thin-x max-w-full md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity duration-150">
                                         {!entry.generatedImage && (
                                           <button
                                             onClick={() => copyResponseToClipboard(originalIdx, entry.response)}
@@ -2315,10 +2347,14 @@ while (true) {
                                           <Edit2 className="w-4 h-4" />
                                         </button>
                                         <button
+                                          disabled={regeneratingIdx !== null}
                                           onClick={async () => {
-                                            // Regenerate with same query
-                                            setIsProcessing(true);
-                                            setResponse('');
+                                            // Regenerate with same query - streams into
+                                            // this entry in place (see regeneratingIdx/
+                                            // regeneratingText above) rather than the
+                                            // shared bottom "Current Response" panel.
+                                            setRegeneratingIdx(originalIdx);
+                                            setRegeneratingText('');
                                             const controller = new AbortController();
                                             setAbortController(controller);
 
@@ -2366,17 +2402,16 @@ while (true) {
                                                     const data = JSON.parse(line.slice(6));
                                                     if (data.content) {
                                                       fullResponse += data.content;
-                                                      setResponse(fullResponse);
+                                                      setRegeneratingText(fullResponse);
                                                     }
                                                     if (data.done) {
-                                                      setIsProcessing(false);
                                                       setAbortController(null);
                                                       setHistory(prev => {
                                                         const newHistory = [...prev];
                                                         newHistory[originalIdx] = { ...newHistory[originalIdx], response: fullResponse };
                                                         return newHistory;
                                                       });
-                                                      setResponse(null);
+                                                      setRegeneratingIdx(null);
                                                       return;
                                                     }
                                                   } catch { }
@@ -2385,15 +2420,15 @@ while (true) {
                                             } catch (caughtError) {
                                               const error = caughtError instanceof Error ? caughtError : new Error(String(caughtError));
                                               console.error('Regenerate error:', error);
-                                              setIsProcessing(false);
                                               setAbortController(null);
+                                              setRegeneratingIdx(null);
                                             }
                                           }}
-                                          className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                          className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-50 disabled:pointer-events-none"
                                           title="Regenerate Response"
                                           aria-label="Regenerate Response"
                                         >
-                                          <RefreshCw className="w-4 h-4" />
+                                          <RefreshCw className={`w-4 h-4 ${regeneratingIdx === originalIdx ? 'animate-spin' : ''}`} />
                                         </button>
                                         <button
                                           onClick={() => handleMessageFeedback(originalIdx, 'up', entry.model)}
@@ -2452,14 +2487,31 @@ while (true) {
                                             <div className="label text-[var(--accent)] mb-2">
                                               {availableModels.find(m => m.id === p.model)?.name || p.model}
                                             </div>
-                                            <div className="text-[var(--foreground)] text-base font-light markdown-content">
+                                            <div className="text-[var(--foreground)] text-base markdown-content">
                                               <MarkdownMessage content={p.content} />
                                             </div>
                                           </div>
                                         ))}
                                       </div>
+                                    ) : originalIdx === regeneratingIdx ? (
+                                      <div className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content">
+                                        <MarkdownMessage content={regeneratingText} isStreaming={true} />
+                                        <div className="flex items-center gap-3 mt-3">
+                                          <span
+                                            aria-hidden="true"
+                                            className="inline-block w-2 h-4 bg-[var(--accent)] rounded-sm animate-pulse"
+                                          />
+                                          <button
+                                            onClick={handleStop}
+                                            className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                          >
+                                            <Square className="w-3 h-3" />
+                                            Stop
+                                          </button>
+                                        </div>
+                                      </div>
                                     ) : (
-                                      <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
+                                      <div className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content">
                                         <MarkdownMessage content={entry.response} />
                                       </div>
                                     )}
@@ -2471,6 +2523,46 @@ while (true) {
                         })}
                     </div>
 
+                    {/* Optimistic echo of the message just sent - appears
+                        instantly on submit, well before any response text
+                        arrives. Mirrors the history user-bubble markup above
+                        but reads from pendingUserMessage instead of an
+                        `entry`, since it isn't in `history` yet. */}
+                    <AnimatePresence>
+                      {pendingUserMessage && (
+                        <motion.div
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0 }}
+                          className="chat-turn-user bg-[var(--surface)] border border-[var(--border)] rounded-2xl px-6 py-5 mb-6"
+                        >
+                          <div className="flex items-start gap-4 max-w-[70ch]">
+                            <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
+                              <User className="w-5 h-5 text-[var(--accent)]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="label text-[var(--accent)] mb-2">
+                                You
+                              </div>
+                              {pendingUserMessage.image && (
+                                <div className="mb-3 rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)]">
+                                  {/* eslint-disable-next-line @next/next/no-img-element -- client-side base64 data URL, not a next/image-optimizable asset */}
+                                  <img
+                                    src={pendingUserMessage.image}
+                                    alt="User uploaded"
+                                    className="max-w-full max-h-[300px] object-contain"
+                                  />
+                                </div>
+                              )}
+                              <div className="text-[var(--foreground)] text-base leading-relaxed">
+                                {pendingUserMessage.query}
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                     {/* Current Response (if processing or showing latest) */}
                     <AnimatePresence mode="popLayout">
                       {(response || isProcessing || perspectiveResponses || statusNote) && (
@@ -2478,18 +2570,27 @@ while (true) {
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.9 }}
-                          className="px-6 py-2 mb-6"
+                          className="px-6 pt-5 pb-2 mb-6"
                         >
                           <div className="flex items-start gap-4">
                             <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
-                              <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+                              <RoovertMark className="w-5 h-5 text-[var(--accent)]" />
                             </div>
                             <div className="space-y-3 flex-1 min-w-0">
-                              <div className="label text-[var(--accent)]">
-                                {perspectiveResponses
-                                  ? 'Comparing Perspectives…'
-                                  : isProcessing ? 'Processing…' : `Response from ${selectedModel.name}`}
-                              </div>
+                              <AnimatePresence mode="wait">
+                                <motion.div
+                                  key={perspectiveResponses ? 'comparing' : isProcessing ? 'processing' : 'done'}
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="label text-[var(--accent)]"
+                                >
+                                  {perspectiveResponses
+                                    ? 'Comparing Perspectives…'
+                                    : isProcessing ? 'Processing…' : `Response from ${selectedModel.name}`}
+                                </motion.div>
+                              </AnimatePresence>
                               {!isProcessing && statusNote && (
                                 <div className="label">
                                   {statusNote}
@@ -2521,7 +2622,7 @@ while (true) {
                                           </div>
                                         )}
                                         {content && (
-                                          <div className="text-[var(--foreground)] text-base font-light markdown-content">
+                                          <div className="text-[var(--foreground)] text-base markdown-content">
                                             <MarkdownMessage content={content} isStreaming={!isDone} />
                                           </div>
                                         )}
@@ -2553,41 +2654,57 @@ while (true) {
                                       how token-by-token streaming actually
                                       reads as live progress instead of a
                                       frozen UI. */}
-                                  {isProcessing && !response ? (
-                                    <div className="flex items-center gap-3">
-                                      {/* The reasoning box's own pulsing dot
-                                          already signals activity while
-                                          extended thinking is streaming, so
-                                          the thinking indicator is redundant. */}
-                                      {!reasoning && thinkingIndicator}
-                                      <button
-                                        onClick={handleStop}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                  <AnimatePresence mode="wait">
+                                    {isProcessing && !response ? (
+                                      <motion.div
+                                        key="thinking"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.15 }}
+                                        className="flex items-center gap-3"
                                       >
-                                        <Square className="w-3 h-3" />
-                                        Stop
-                                      </button>
-                                    </div>
-                                  ) : response ? (
-                                    <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
-                                      <MarkdownMessage content={response} isStreaming={isProcessing} />
-                                      {isProcessing && (
-                                        <div className="flex items-center gap-3 mt-3">
-                                          <span
-                                            aria-hidden="true"
-                                            className="inline-block w-2 h-4 bg-[var(--accent)] rounded-sm animate-pulse"
-                                          />
-                                          <button
-                                            onClick={handleStop}
-                                            className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                                          >
-                                            <Square className="w-3 h-3" />
-                                            Stop
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : null}
+                                        {/* The reasoning box's own pulsing dot
+                                            already signals activity while
+                                            extended thinking is streaming, so
+                                            the thinking indicator is redundant. */}
+                                        {!reasoning && thinkingIndicator}
+                                        <button
+                                          onClick={handleStop}
+                                          className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                        >
+                                          <Square className="w-3 h-3" />
+                                          Stop
+                                        </button>
+                                      </motion.div>
+                                    ) : response ? (
+                                      <motion.div
+                                        key="response"
+                                        initial={{ opacity: 0, y: 4 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content"
+                                      >
+                                        <MarkdownMessage content={response} isStreaming={isProcessing} />
+                                        {isProcessing && (
+                                          <div className="flex items-center gap-3 mt-3">
+                                            <span
+                                              aria-hidden="true"
+                                              className="inline-block w-2 h-4 bg-[var(--accent)] rounded-sm animate-pulse"
+                                            />
+                                            <button
+                                              onClick={handleStop}
+                                              className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                            >
+                                              <Square className="w-3 h-3" />
+                                              Stop
+                                            </button>
+                                          </div>
+                                        )}
+                                      </motion.div>
+                                    ) : null}
+                                  </AnimatePresence>
                                 </div>
                               )}
                             </div>
@@ -2922,7 +3039,7 @@ while (true) {
 
                     <Button
                       type="submit"
-                      disabled={!query.trim() || isProcessing}
+                      disabled={!query.trim() || isProcessing || regeneratingIdx !== null}
                       size="icon"
                       className="w-10 h-10 rounded-2xl shadow-[0_4px_20px_-4px_var(--accent-glow)]"
                     >

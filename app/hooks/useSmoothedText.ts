@@ -15,6 +15,12 @@ const CATCH_UP_DIVISOR = 12;
 // don't stall out at a fractional, always-rounds-to-zero reveal rate.
 const MIN_CHARS_PER_FRAME = 1;
 
+// Upper bound on characters revealed in a single frame, so an unusually
+// large chunk (e.g. a provider sending a whole paragraph or code block at
+// once) still types on at a visually steady pace instead of jumping in one
+// big, jarring block - catch-up simply takes a bit longer instead.
+const MAX_CHARS_PER_FRAME = 40;
+
 // Only commit a React state update every Nth animation frame - the reveal
 // itself still advances every frame (smooth to the eye), but re-rendering
 // (and, for markdown content, re-parsing) 60 times/sec is unnecessary cost
@@ -66,7 +72,10 @@ export function useSmoothedText(target: string, isStreaming: boolean): string {
       const full = targetRef.current;
       const remaining = full.length - displayedLenRef.current;
       if (remaining > 0) {
-        const charsThisFrame = Math.max(MIN_CHARS_PER_FRAME, Math.ceil(remaining / CATCH_UP_DIVISOR));
+        const charsThisFrame = Math.min(
+          MAX_CHARS_PER_FRAME,
+          Math.max(MIN_CHARS_PER_FRAME, Math.ceil(remaining / CATCH_UP_DIVISOR))
+        );
         displayedLenRef.current = Math.min(full.length, displayedLenRef.current + charsThisFrame);
         frameCountRef.current += 1;
         if (frameCountRef.current % RENDER_EVERY_N_FRAMES === 0 || displayedLenRef.current === full.length) {
