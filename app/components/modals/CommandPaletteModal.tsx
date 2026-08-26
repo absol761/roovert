@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { MODAL_TRANSITION } from '../../lib/motion';
 
 export interface CommandAction {
   id: string;
@@ -96,7 +97,14 @@ export function CommandPaletteModal({ isOpen, onClose, actions }: CommandPalette
 
   return (
     <div className="fixed inset-0 z-[130] flex items-start justify-center p-4 pt-[12vh] text-[var(--foreground)]">
-      <div className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={MODAL_TRANSITION}
+        className="absolute inset-0 bg-[var(--background)]/80 backdrop-blur-md"
+        onClick={onClose}
+      />
       <motion.div
         ref={containerRef}
         role="dialog"
@@ -106,7 +114,7 @@ export function CommandPaletteModal({ isOpen, onClose, actions }: CommandPalette
         initial={{ opacity: 0, scale: 0.97, y: -8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: -8 }}
-        transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+        transition={MODAL_TRANSITION}
         className="relative w-full max-w-lg bg-[var(--hud-bg)] border border-[var(--border)] rounded-2xl shadow-[var(--shadow-lg)] overflow-hidden flex flex-col max-h-[70vh]"
         onClick={(e) => e.stopPropagation()}
       >
