@@ -439,6 +439,13 @@ body::before {
   color: color-mix(in srgb, var(--foreground), transparent 35%);
 }
 
+/* Ops Snapshot specifically reads a touch large next to Active
+   Intelligence above it - a modest, scoped size reduction (not touching
+   the shared .intel-card used elsewhere) via a modifier class. */
+.intel-card--compact {
+  padding: var(--space-5);
+}
+
 .chat-stack {
   display: flex;
   flex-direction: column;
