@@ -201,6 +201,12 @@ function ReasoningSection({
 export default function Page() {
   const { isMobile } = useMobile();
   const [query, setQuery] = useState('');
+  // The just-submitted user message, shown as an instant chat bubble the
+  // moment Send is pressed - rather than waiting for the full round trip to
+  // complete before the query even appears. Cleared once the real entry
+  // lands in `history` (or left in place through an error/abort so the
+  // sent message doesn't visually vanish).
+  const [pendingUserMessage, setPendingUserMessage] = useState<{ query: string; image?: string } | null>(null);
   // Dictation into the composer via the browser's native Web Speech API -
   // a separate concern from the ambient useMicLevel() visualizer stream
   // above; see useSpeechToText.ts for why they don't share one mic session.
@@ -446,6 +452,11 @@ export default function Page() {
   // back down on every chunk - only an explicit send re-pins to the bottom.
   const isPinnedToBottomRef = useRef(true);
   const NEAR_BOTTOM_THRESHOLD_PX = 120;
+  // Coalesces bursts of scrollToBottom() calls (one per streamed chunk, which
+  // can arrive many times a second) into a single pending scroll instead of
+  // queuing a new overlapping smooth-scroll animation per chunk - the stacked
+  // timers previously fought each other and produced visible stutter.
+  const pendingScrollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleHistoryScroll = () => {
     const el = historyScrollRef.current;
@@ -459,7 +470,11 @@ export default function Page() {
   // sending a new message).
   const scrollToBottom = (force = false) => {
     if (!force && !isPinnedToBottomRef.current) return;
-    setTimeout(() => {
+    if (pendingScrollRef.current !== null) {
+      clearTimeout(pendingScrollRef.current);
+    }
+    pendingScrollRef.current = setTimeout(() => {
+      pendingScrollRef.current = null;
       responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
   };
@@ -1146,6 +1161,11 @@ export default function Page() {
     setPerspectiveResponses(null);
     setPerspectiveDoneModels(new Set());
     setStatusNote(null);
+    // Echo the message and clear the composer immediately, before the fetch
+    // even starts, so sending feels instant instead of freezing the typed
+    // text in a disabled textarea until the whole response arrives.
+    setPendingUserMessage({ query: trimmedQuery, image: selectedImage || undefined });
+    setQuery('');
     // Sending always re-pins the view to the bottom, even if the user had
     // scrolled up to reread earlier messages.
     isPinnedToBottomRef.current = true;
@@ -1180,7 +1200,7 @@ export default function Page() {
           ...prev,
           { query: trimmedQuery, response: '', model: 'hf-image-gen', generatedImage: data.image },
         ]);
-        setQuery('');
+        setPendingUserMessage(null);
         setIsProcessing(false);
         setAbortController(null);
         scrollToBottom(true);
@@ -1400,7 +1420,7 @@ export default function Page() {
                 ]);
                 setPerspectiveResponses(null);
                 setPerspectiveDoneModels(new Set());
-                setQuery('');
+                setPendingUserMessage(null);
                 setSelectedImage(null);
                 if (fileInputRef.current) {
                   fileInputRef.current.value = '';
@@ -1415,10 +1435,9 @@ export default function Page() {
               fullReasoning += data.reasoning;
               setReasoning(fullReasoning);
 
-              // Auto-scroll to bottom
-              setTimeout(() => {
-                responseEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-              }, 100);
+              // Auto-scroll to bottom (coalesced via scrollToBottom - see its
+              // comment for why this isn't its own independent setTimeout)
+              scrollToBottom();
             }
             if (data.content) {
               fullResponse += data.content;
@@ -1443,7 +1462,7 @@ export default function Page() {
               ]);
               setResponse(null); // Clear current response after adding to history
               setReasoning(null);
-              setQuery('');
+              setPendingUserMessage(null);
               setSelectedImage(null); // Clear image after sending
               if (fileInputRef.current) {
                 fileInputRef.current.value = '';
@@ -2236,7 +2255,7 @@ while (true) {
                                         />
                                       </div>
                                     )}
-                                    <div className="text-[var(--foreground)] text-lg leading-relaxed font-light">
+                                    <div className="text-[var(--foreground)] text-base leading-relaxed">
                                       {entry.query}
                                     </div>
                                   </div>
@@ -2250,7 +2269,7 @@ while (true) {
                               <motion.div
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="px-6 py-2"
+                                className="px-6 pt-5 pb-2"
                               >
                                 <div className="flex items-start gap-4">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
@@ -2452,14 +2471,14 @@ while (true) {
                                             <div className="label text-[var(--accent)] mb-2">
                                               {availableModels.find(m => m.id === p.model)?.name || p.model}
                                             </div>
-                                            <div className="text-[var(--foreground)] text-base font-light markdown-content">
+                                            <div className="text-[var(--foreground)] text-base markdown-content">
                                               <MarkdownMessage content={p.content} />
                                             </div>
                                           </div>
                                         ))}
                                       </div>
                                     ) : (
-                                      <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
+                                      <div className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content">
                                         <MarkdownMessage content={entry.response} />
                                       </div>
                                     )}
@@ -2471,6 +2490,46 @@ while (true) {
                         })}
                     </div>
 
+                    {/* Optimistic echo of the message just sent - appears
+                        instantly on submit, well before any response text
+                        arrives. Mirrors the history user-bubble markup above
+                        but reads from pendingUserMessage instead of an
+                        `entry`, since it isn't in `history` yet. */}
+                    <AnimatePresence>
+                      {pendingUserMessage && (
+                        <motion.div
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0 }}
+                          className="chat-turn-user bg-[var(--surface)] border border-[var(--border)] rounded-2xl px-6 py-5 mb-6"
+                        >
+                          <div className="flex items-start gap-4 max-w-[70ch]">
+                            <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
+                              <Zap className="w-5 h-5 text-[var(--accent)]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="label text-[var(--accent)] mb-2">
+                                You
+                              </div>
+                              {pendingUserMessage.image && (
+                                <div className="mb-3 rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--surface-strong)]">
+                                  {/* eslint-disable-next-line @next/next/no-img-element -- client-side base64 data URL, not a next/image-optimizable asset */}
+                                  <img
+                                    src={pendingUserMessage.image}
+                                    alt="User uploaded"
+                                    className="max-w-full max-h-[300px] object-contain"
+                                  />
+                                </div>
+                              )}
+                              <div className="text-[var(--foreground)] text-base leading-relaxed">
+                                {pendingUserMessage.query}
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                     {/* Current Response (if processing or showing latest) */}
                     <AnimatePresence mode="popLayout">
                       {(response || isProcessing || perspectiveResponses || statusNote) && (
@@ -2478,7 +2537,7 @@ while (true) {
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.9 }}
-                          className="px-6 py-2 mb-6"
+                          className="px-6 pt-5 pb-2 mb-6"
                         >
                           <div className="flex items-start gap-4">
                             <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
@@ -2521,7 +2580,7 @@ while (true) {
                                           </div>
                                         )}
                                         {content && (
-                                          <div className="text-[var(--foreground)] text-base font-light markdown-content">
+                                          <div className="text-[var(--foreground)] text-base markdown-content">
                                             <MarkdownMessage content={content} isStreaming={!isDone} />
                                           </div>
                                         )}
@@ -2569,7 +2628,7 @@ while (true) {
                                       </button>
                                     </div>
                                   ) : response ? (
-                                    <div className="max-w-[70ch] text-[var(--foreground)] text-lg font-light markdown-content">
+                                    <div className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content">
                                       <MarkdownMessage content={response} isStreaming={isProcessing} />
                                       {isProcessing && (
                                         <div className="flex items-center gap-3 mt-3">
