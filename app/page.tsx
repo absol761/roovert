@@ -186,7 +186,7 @@ function ReasoningSection({
         <ChevronDown className={`w-3.5 h-3.5 transition-transform flex-shrink-0 ${isOpen ? '' : '-rotate-90'}`} />
         <span>{isStreaming ? 'Thinking…' : 'Thoughts'}</span>
         {isStreaming && (
-          <span aria-hidden="true" className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse ml-1" />
+          <span aria-hidden="true" className="thinking-dot inline-block w-1.5 h-1.5 rounded-full bg-[var(--accent)] ml-1" />
         )}
       </button>
       {isOpen && (
@@ -217,6 +217,13 @@ export default function Page() {
   const dictationFinalRef = useRef('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
+  // Which history entry (by index) is currently being regenerated, and its
+  // in-flight streamed text - kept separate from `response`/`isProcessing`
+  // (which stay reserved for the main compose-box flow) so a regenerate
+  // streams into that specific message in place instead of a disconnected
+  // panel at the bottom of the thread.
+  const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
+  const [regeneratingText, setRegeneratingText] = useState('');
   // Extended-thinking text streamed live for reasoning-capable models
   // (DeepSeek R1, Kimi K3) before the real answer starts arriving. Cleared
   // once the turn is added to history (where it's persisted per-entry
@@ -966,6 +973,7 @@ export default function Page() {
       abortController.abort();
       setAbortController(null);
       setIsProcessing(false);
+      setRegeneratingIdx(null);
     }
   };
 
@@ -1149,7 +1157,7 @@ export default function Page() {
     e.preventDefault();
 
     const trimmedQuery = query.trim();
-    if (!trimmedQuery || isProcessing) {
+    if (!trimmedQuery || isProcessing || regeneratingIdx !== null) {
       return;
     }
 
@@ -2269,7 +2277,7 @@ while (true) {
                               <motion.div
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="px-6 pt-5 pb-2"
+                                className="group px-6 pt-5 pb-2"
                               >
                                 <div className="flex items-start gap-4">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
@@ -2289,7 +2297,11 @@ while (true) {
                                           wrapping - same overflow-x-auto fallback as
                                           the composer toolbar (see globals.css
                                           .scrollbar-thin-x). */}
-                                      <div className="flex items-center gap-2 shrink-0 overflow-x-auto scrollbar-thin-x max-w-full">
+                                      {/* Hover-reveal only on desktop (md+) - hover has
+                                          no equivalent on touch, so hiding these behind
+                                          opacity-0 unconditionally would make them
+                                          effectively unreachable on mobile. */}
+                                      <div className="flex items-center gap-2 shrink-0 overflow-x-auto scrollbar-thin-x max-w-full md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity duration-150">
                                         {!entry.generatedImage && (
                                           <button
                                             onClick={() => copyResponseToClipboard(originalIdx, entry.response)}
@@ -2334,10 +2346,14 @@ while (true) {
                                           <Edit2 className="w-4 h-4" />
                                         </button>
                                         <button
+                                          disabled={regeneratingIdx !== null}
                                           onClick={async () => {
-                                            // Regenerate with same query
-                                            setIsProcessing(true);
-                                            setResponse('');
+                                            // Regenerate with same query - streams into
+                                            // this entry in place (see regeneratingIdx/
+                                            // regeneratingText above) rather than the
+                                            // shared bottom "Current Response" panel.
+                                            setRegeneratingIdx(originalIdx);
+                                            setRegeneratingText('');
                                             const controller = new AbortController();
                                             setAbortController(controller);
 
@@ -2385,17 +2401,16 @@ while (true) {
                                                     const data = JSON.parse(line.slice(6));
                                                     if (data.content) {
                                                       fullResponse += data.content;
-                                                      setResponse(fullResponse);
+                                                      setRegeneratingText(fullResponse);
                                                     }
                                                     if (data.done) {
-                                                      setIsProcessing(false);
                                                       setAbortController(null);
                                                       setHistory(prev => {
                                                         const newHistory = [...prev];
                                                         newHistory[originalIdx] = { ...newHistory[originalIdx], response: fullResponse };
                                                         return newHistory;
                                                       });
-                                                      setResponse(null);
+                                                      setRegeneratingIdx(null);
                                                       return;
                                                     }
                                                   } catch { }
@@ -2404,15 +2419,15 @@ while (true) {
                                             } catch (caughtError) {
                                               const error = caughtError instanceof Error ? caughtError : new Error(String(caughtError));
                                               console.error('Regenerate error:', error);
-                                              setIsProcessing(false);
                                               setAbortController(null);
+                                              setRegeneratingIdx(null);
                                             }
                                           }}
-                                          className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                          className="p-1.5 rounded-lg hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-50 disabled:pointer-events-none"
                                           title="Regenerate Response"
                                           aria-label="Regenerate Response"
                                         >
-                                          <RefreshCw className="w-4 h-4" />
+                                          <RefreshCw className={`w-4 h-4 ${regeneratingIdx === originalIdx ? 'animate-spin' : ''}`} />
                                         </button>
                                         <button
                                           onClick={() => handleMessageFeedback(originalIdx, 'up', entry.model)}
@@ -2476,6 +2491,23 @@ while (true) {
                                             </div>
                                           </div>
                                         ))}
+                                      </div>
+                                    ) : originalIdx === regeneratingIdx ? (
+                                      <div className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content">
+                                        <MarkdownMessage content={regeneratingText} isStreaming={true} />
+                                        <div className="flex items-center gap-3 mt-3">
+                                          <span
+                                            aria-hidden="true"
+                                            className="inline-block w-2 h-4 bg-[var(--accent)] rounded-sm animate-pulse"
+                                          />
+                                          <button
+                                            onClick={handleStop}
+                                            className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                          >
+                                            <Square className="w-3 h-3" />
+                                            Stop
+                                          </button>
+                                        </div>
                                       </div>
                                     ) : (
                                       <div className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content">
@@ -2544,11 +2576,20 @@ while (true) {
                               <Sparkles className="w-5 h-5 text-[var(--accent)]" />
                             </div>
                             <div className="space-y-3 flex-1 min-w-0">
-                              <div className="label text-[var(--accent)]">
-                                {perspectiveResponses
-                                  ? 'Comparing Perspectives…'
-                                  : isProcessing ? 'Processing…' : `Response from ${selectedModel.name}`}
-                              </div>
+                              <AnimatePresence mode="wait">
+                                <motion.div
+                                  key={perspectiveResponses ? 'comparing' : isProcessing ? 'processing' : 'done'}
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="label text-[var(--accent)]"
+                                >
+                                  {perspectiveResponses
+                                    ? 'Comparing Perspectives…'
+                                    : isProcessing ? 'Processing…' : `Response from ${selectedModel.name}`}
+                                </motion.div>
+                              </AnimatePresence>
                               {!isProcessing && statusNote && (
                                 <div className="label">
                                   {statusNote}
@@ -2612,41 +2653,57 @@ while (true) {
                                       how token-by-token streaming actually
                                       reads as live progress instead of a
                                       frozen UI. */}
-                                  {isProcessing && !response ? (
-                                    <div className="flex items-center gap-3">
-                                      {/* The reasoning box's own pulsing dot
-                                          already signals activity while
-                                          extended thinking is streaming, so
-                                          the thinking indicator is redundant. */}
-                                      {!reasoning && thinkingIndicator}
-                                      <button
-                                        onClick={handleStop}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                  <AnimatePresence mode="wait">
+                                    {isProcessing && !response ? (
+                                      <motion.div
+                                        key="thinking"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.15 }}
+                                        className="flex items-center gap-3"
                                       >
-                                        <Square className="w-3 h-3" />
-                                        Stop
-                                      </button>
-                                    </div>
-                                  ) : response ? (
-                                    <div className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content">
-                                      <MarkdownMessage content={response} isStreaming={isProcessing} />
-                                      {isProcessing && (
-                                        <div className="flex items-center gap-3 mt-3">
-                                          <span
-                                            aria-hidden="true"
-                                            className="inline-block w-2 h-4 bg-[var(--accent)] rounded-sm animate-pulse"
-                                          />
-                                          <button
-                                            onClick={handleStop}
-                                            className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                                          >
-                                            <Square className="w-3 h-3" />
-                                            Stop
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : null}
+                                        {/* The reasoning box's own pulsing dot
+                                            already signals activity while
+                                            extended thinking is streaming, so
+                                            the thinking indicator is redundant. */}
+                                        {!reasoning && thinkingIndicator}
+                                        <button
+                                          onClick={handleStop}
+                                          className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                        >
+                                          <Square className="w-3 h-3" />
+                                          Stop
+                                        </button>
+                                      </motion.div>
+                                    ) : response ? (
+                                      <motion.div
+                                        key="response"
+                                        initial={{ opacity: 0, y: 4 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content"
+                                      >
+                                        <MarkdownMessage content={response} isStreaming={isProcessing} />
+                                        {isProcessing && (
+                                          <div className="flex items-center gap-3 mt-3">
+                                            <span
+                                              aria-hidden="true"
+                                              className="inline-block w-2 h-4 bg-[var(--accent)] rounded-sm animate-pulse"
+                                            />
+                                            <button
+                                              onClick={handleStop}
+                                              className="flex items-center gap-2 px-3 py-1.5 text-xs border border-[var(--border)] rounded-lg hover:bg-[var(--surface)] hover:border-[var(--accent)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
+                                            >
+                                              <Square className="w-3 h-3" />
+                                              Stop
+                                            </button>
+                                          </div>
+                                        )}
+                                      </motion.div>
+                                    ) : null}
+                                  </AnimatePresence>
                                 </div>
                               )}
                             </div>
@@ -2981,7 +3038,7 @@ while (true) {
 
                     <Button
                       type="submit"
-                      disabled={!query.trim() || isProcessing}
+                      disabled={!query.trim() || isProcessing || regeneratingIdx !== null}
                       size="icon"
                       className="w-10 h-10 rounded-2xl shadow-[0_4px_20px_-4px_var(--accent-glow)]"
                     >
