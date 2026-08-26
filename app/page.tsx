@@ -681,6 +681,15 @@ export default function Page() {
     setMessageFeedback({});
     setExpandedReasoning({});
     setCopiedResponseIdx(null);
+    // Same fix as openGlobalFeed below: the real scroll position lives on
+    // window/document, not #main-content. Without this, clicking New Chat
+    // while scrolled down into "Browse AI Models"/"Built With Itself"/etc.
+    // resets state correctly but leaves the view scrolled past the landing
+    // hero, reading as if nothing happened until the user manually scrolls
+    // back up.
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
   };
 
   // Switches `history`/`isChatMode` to point at a different, already-known
@@ -2158,7 +2167,7 @@ while (true) {
                     )}
 
                     {!closedWidgets.has('ops-snapshot') && (
-                      <div className="intel-card relative">
+                      <div className="intel-card intel-card--compact relative">
                         <button
                           onClick={() => toggleWidget('ops-snapshot')}
                           className="absolute top-3 right-3 p-1 rounded-full hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -2167,11 +2176,11 @@ while (true) {
                           <X className="w-4 h-4" />
                         </button>
                         <span className="label">Ops Snapshot</span>
-                        <div className="mt-4 space-y-4">
+                        <div className="mt-3 space-y-3">
                           {SIGNALS.map(signal => (
                             <div key={signal.title}>
                               <p className="label">{signal.title}</p>
-                              <p className="text-base mt-1 text-[var(--foreground)]/80">{signal.detail}</p>
+                              <p className="text-sm mt-1 text-[var(--foreground)]/80">{signal.detail}</p>
                             </div>
                           ))}
                         </div>
