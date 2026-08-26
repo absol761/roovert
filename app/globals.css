@@ -1639,201 +1639,192 @@ textarea:focus {
 }
 
 /* ============================================================
-   SKEUOMORPHIC LOOK ("Leatherbound") — see
+   SKEUOMORPHIC LOOK ("Liquid Glass") — see
    docs/design/SKEUOMORPHIC_LOOK_SPEC.md for the full spec.
    ============================================================ */
 
-/* Skeuomorphic — stitched saddle-leather journal with brass hardware. A literal,
-   representational material (not neumorphism/"soft UI" — see docs/design/
-   SKEUOMORPHIC_LOOK_SPEC.md §1 for the distinction). Warm cognac/espresso leather,
-   cream parchment ink, aged-brass accent, directional single-source top-left light
-   implying real embossed/debossed depth. */
 [data-look='skeuomorphic'] {
-  --background: #34241a;
-  --foreground: #f1e4c9;
-  --accent: #c38a42;
-  --accent-glow: rgba(195, 138, 66, 0.32);
-  --panel-bg: rgba(74, 54, 38, 0.82);
-  --border: rgba(196, 154, 91, 0.32);
-  --panel-radius: 16px;
-  --surface: rgba(241, 228, 201, 0.06);
-  --surface-strong: rgba(241, 228, 201, 0.14);
-  --chip-bg: rgba(41, 29, 20, 0.82);
-  /* 0.65, not the spec's originally-proposed 0.6: real-rendered contrast of
-     --muted text on --panel-bg measured at exactly 4.52:1 (WCAG AA floor is
-     4.5:1) - technically passing but with a margin thin enough that normal
-     subpixel/antialiasing variance could tip it under the floor for some
-     users. The spec explicitly pre-approved this exact alpha bump for this
-     exact scenario (see docs/design/SKEUOMORPHIC_LOOK_SPEC.md §4); it lifts
-     the same pairing to ~5.0:1. */
-  --muted: rgba(241, 228, 201, 0.65);
-  --muted-strong: rgba(241, 228, 201, 0.85);
-  --hud-bg: rgba(41, 29, 20, 0.95);
+  --background: #0a0d13;
+  --foreground: #eef2f7;
+  --accent: #5ac8fa;
+  --accent-glow: rgba(90, 200, 250, 0.35);
+  --panel-bg: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.16);
+  --panel-radius: 20px;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-strong: rgba(255, 255, 255, 0.10);
+  --chip-bg: rgba(255, 255, 255, 0.09);
+  /* Foreground (#eef2f7) at 0.7 alpha over the near-black --background
+     (#0a0d13) computes well above 4.5:1 (WCAG AA) - the background here is
+     much darker than a mid-tone material would be, so there's real headroom
+     for a comfortably legible secondary-text alpha. See spec §2. */
+  --muted: rgba(238, 242, 247, 0.70);
+  --muted-strong: rgba(238, 242, 247, 0.88);
+  --hud-bg: rgba(10, 13, 19, 0.90);
 
-  /* Elevation ladder — warm, dark, brown-cast shadows (never pure black) plus a
-     thin inset top highlight standing in for a raking top-left light catching the
-     leather grain. This is what actually reads as "embossed" instead of "flat with
-     a color swap" — do not drop the inset layer. */
-  --shadow-sm: 0 1px 2px rgba(18, 11, 5, 0.55);
+  /* Elevation ladder - a soft diffuse drop shadow (glass is light, it
+     doesn't sit heavy) plus an inset top highlight standing in for a
+     specular catch along the pane's upper edge. The highlight is what
+     actually reads as "a sheet of glass" instead of "a translucent div" -
+     do not drop it. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-md:
-    0 10px 24px -10px rgba(18, 11, 5, 0.55),
-    0 3px 8px -2px rgba(18, 11, 5, 0.4),
-    inset 0 1px 0 rgba(255, 235, 200, 0.08);
+    0 10px 30px -10px rgba(0, 0, 0, 0.45),
+    0 3px 10px -3px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
   --shadow-lg:
-    0 26px 50px -18px rgba(12, 7, 3, 0.65),
-    0 8px 16px -6px rgba(12, 7, 3, 0.45),
-    inset 0 1px 0 rgba(255, 235, 200, 0.1);
+    0 30px 60px -20px rgba(0, 0, 0, 0.55),
+    0 10px 20px -6px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.26);
   --shadow-glow:
     0 0 0 1px var(--border),
-    0 8px 20px -8px var(--accent-glow),
-    inset 0 1px 0 rgba(255, 235, 200, 0.12);
+    0 8px 24px -8px var(--accent-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 
-  /* Radius ladder — a bound book has a small, firm corner radius, not a soft
-     "glassy app" curve. Deliberately tighter than the app-wide defaults
-     (--radius: 14px / --radius-card: 20px / --radius-cta: 32px). */
-  --radius: 10px;
-  --radius-tight: 4px;
-  --radius-card: 16px;
-  --radius-cta: 22px;
+  /* Radius ladder - glass panes read as soft, continuously-curved sheets,
+     not hard-cornered cards, so this leans rounder than the app-wide
+     defaults. */
+  --radius: 16px;
+  --radius-tight: 10px;
+  --radius-card: 22px;
+  --radius-cta: 28px;
   --radius-pill: 9999px;
 }
 
-/* Primary button — raised brass rivet, rest -> hover -> active. Targets
-   components/ui/button.tsx's `default` variant, which renders as
-   [data-slot="button"][data-variant="default"] and already carries a Tailwind
-   active:not-aria-[haspopup]:translate-y-px utility for a 1px press. This
-   override adds the material (gradient + bevel + engraved-highlight text) on
-   top of that existing press mechanic; its :active rule increases the press
-   depth to 2px and swaps the shadow to a debossed (inset-only) treatment so
-   it visually sinks, which the current translate-only utility doesn't do on
-   its own. See spec §3a. */
+/* Primary button - a translucent glass capsule with a fresnel rim and a
+   specular sweep that passes through on hover (like light moving across a
+   curved pane). Targets components/ui/button.tsx's `default` variant. See
+   spec §3. */
 [data-look='skeuomorphic'] [data-slot='button'][data-variant='default'] {
-  background: linear-gradient(180deg, #d9a35e 0%, #c38a42 45%, #a8722f 100%);
-  color: #2b1e15; /* dark ink on brass — see §4 for the contrast math */
-  border: 1px solid rgba(75, 48, 20, 0.5);
-  text-shadow: 0 1px 0 rgba(255, 240, 210, 0.35);
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 100%),
+    rgba(90, 200, 250, 0.14);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  color: var(--foreground);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   box-shadow:
-    inset 0 1px 0 rgba(255, 244, 214, 0.5),
-    inset 0 -2px 3px rgba(75, 48, 20, 0.4),
-    0 3px 0 rgba(93, 61, 26, 0.9),
-    0 6px 10px -2px rgba(18, 11, 5, 0.55);
-  transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, filter 0.15s ease-out;
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -8px 12px -8px rgba(0, 0, 0, 0.25),
+    0 6px 16px -4px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, filter 0.2s ease-out;
+}
+
+[data-look='skeuomorphic'] [data-slot='button'][data-variant='default']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.35) 45%, transparent 60%);
+  transform: translateX(-120%);
+  transition: transform 0.6s ease-out;
+  pointer-events: none;
 }
 
 [data-look='skeuomorphic'] [data-slot='button'][data-variant='default']:hover {
-  filter: brightness(1.06);
+  filter: brightness(1.08);
   transform: translateY(-1px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 244, 214, 0.55),
-    inset 0 -2px 3px rgba(75, 48, 20, 0.4),
-    0 4px 0 rgba(93, 61, 26, 0.9),
-    0 8px 14px -3px rgba(18, 11, 5, 0.6);
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -8px 12px -8px rgba(0, 0, 0, 0.25),
+    0 10px 22px -5px rgba(0, 0, 0, 0.45);
+}
+
+[data-look='skeuomorphic'] [data-slot='button'][data-variant='default']:hover::before {
+  transform: translateX(120%);
 }
 
 [data-look='skeuomorphic'] [data-slot='button'][data-variant='default']:active:not([aria-haspopup]) {
-  transform: translateY(2px);
+  transform: translateY(1px) scale(0.98);
   filter: brightness(0.96);
   box-shadow:
-    inset 0 2px 4px rgba(18, 11, 5, 0.6),
-    0 1px 2px rgba(18, 11, 5, 0.4);
+    inset 0 2px 6px rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* Composer bar — inset "groove." Targets .composer-bar (the actual visual
-   container in app/page.tsx; the <textarea> inside it is already border-none
-   bg-transparent, so the groove treatment belongs on the bar, not the
-   textarea). This is debossed — inset shadow only, no outer raised shadow —
-   the opposite of the button above: the composer should read as a
-   carved/tooled channel you write into, not a raised object. See spec §3a. */
+/* Composer bar - a glass slab you type into. Debossed just enough (inset
+   shadow) to read as a channel carved into the pane, with a bright top
+   edge and a fresnel rim; focus intensifies the rim into a glow rather
+   than swapping to a hard border color. See spec §3. */
 [data-look='skeuomorphic'] .composer-bar {
-  background: linear-gradient(180deg, rgba(36, 25, 17, 0.92), rgba(48, 34, 23, 0.88)) !important;
-  border: 1px solid rgba(20, 13, 7, 0.65) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.04) 100%) !important;
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
   box-shadow:
-    inset 0 2px 5px rgba(10, 6, 3, 0.65),
-    inset 0 -1px 0 rgba(255, 235, 200, 0.05),
-    0 1px 0 rgba(255, 235, 200, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 2px 8px rgba(0, 0, 0, 0.25),
+    0 12px 30px -12px rgba(0, 0, 0, 0.5);
 }
 
 [data-look='skeuomorphic'] .composer-bar:focus-within {
-  border-color: var(--accent) !important;
+  border-color: rgba(90, 200, 250, 0.55) !important;
   box-shadow:
-    inset 0 2px 5px rgba(10, 6, 3, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 2px 8px rgba(0, 0, 0, 0.25),
     0 0 0 3px var(--accent-glow);
 }
 
-/* §3b: Embossed panel with stitched edge. Targets .glass-panel and
-   .intel-card — the shared card/panel classes used for response cards, the
-   model-picker panel, and modal-adjacent surfaces throughout app/page.tsx.
-   Adds a dashed inset border (::after) to depict brass-thread top-stitching.
-   .glass-panel already defines its own ::before for a glass-refraction
-   highlight — this rule deliberately uses ::after instead so the two don't
-   collide; the existing ::before is left in place. */
+/* Message/response cards and the "You" turn - the near-opaque variant
+   described in spec §1: legible first (this is where the app spends most
+   of its screen time), glass-styled at the edges second. Full low-opacity
+   translucency is reserved for chrome (sidebar/composer/buttons) - see the
+   spec's honest discussion of why forcing true glass under paragraph text
+   doesn't work. */
 [data-look='skeuomorphic'] .glass-panel,
-[data-look='skeuomorphic'] .intel-card {
-  background: linear-gradient(160deg, rgba(84, 62, 43, 0.92) 0%, rgba(43, 30, 21, 0.95) 100%) !important;
-  border: 1px solid rgba(20, 13, 7, 0.6) !important;
+[data-look='skeuomorphic'] .intel-card,
+[data-look='skeuomorphic'] .chat-turn-user {
+  position: relative;
+  background:
+    linear-gradient(165deg, rgba(24, 30, 42, 0.90) 0%, rgba(14, 18, 26, 0.92) 100%) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
   box-shadow: var(--shadow-md) !important;
 }
 
 [data-look='skeuomorphic'] .glass-panel::after,
-[data-look='skeuomorphic'] .intel-card::after {
-  content: '';
-  position: absolute;
-  inset: 9px;
-  border-radius: calc(var(--panel-radius, 16px) - 9px);
-  border: 1.5px dashed rgba(195, 138, 66, 0.4);
-  pointer-events: none;
-}
-
-/* QA fix: the "You" message-turn container (app/page.tsx, `.chat-turn-user`)
-   is the app's single most-repeated surface and the material story's stated
-   #1 rationale ("message bubbles / response cards read as journal entries" -
-   see spec §1) - yet it was left with only bg-[var(--surface)]/
-   border-[var(--border)], which already inherits on-brand leather/parchment
-   *colors* from the token block above but none of the actual leather
-   material identity (gradient, embossed shadow, stitched edge) - it read as
-   a flat recolor, not a depicted material, on the app's most-visible
-   surface. Give it the same embossed-panel + stitched-edge treatment as
-   .glass-panel/.intel-card in §3b above. Scoped to a dedicated
-   `.chat-turn-user` hook (added directly in the JSX) rather than
-   piggybacking on the shared `.glass-panel` class, so this doesn't also
-   change corner-radius/shadow for every other Look's user bubble - only
-   skeuomorphic is touched. */
-[data-look='skeuomorphic'] .chat-turn-user {
-  position: relative;
-  background: linear-gradient(160deg, rgba(84, 62, 43, 0.92) 0%, rgba(43, 30, 21, 0.95) 100%) !important;
-  border: 1px solid rgba(20, 13, 7, 0.6) !important;
-  box-shadow: var(--shadow-md) !important;
-}
-
+[data-look='skeuomorphic'] .intel-card::after,
 [data-look='skeuomorphic'] .chat-turn-user::after {
   content: '';
   position: absolute;
-  inset: 9px;
-  border-radius: calc(var(--panel-radius, 16px) - 9px);
-  border: 1.5px dashed rgba(195, 138, 66, 0.4);
+  inset: 0;
+  border-radius: inherit;
+  /* Fresnel rim - a bright hairline tracing the pane's edge, brighter at
+     the top where the (implied) light source is. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   pointer-events: none;
 }
 
-/* §3c: Global surface/background texture. Body gradient + fine grain,
-   following the same pattern retrowave/evergreen use (body sets the base
-   gradient, body::before layers a decorative texture at reduced opacity —
-   the shared base rule for body::before lives earlier in this file and is
-   position: fixed; inset: 0; z-index: -1; pointer-events: none, so this
-   per-look override only needs to set background/opacity). The grain uses
-   an inline SVG feTurbulence filter encoded as a data: URI — zero binary
-   image assets, per the project constraint. */
+/* Sidebar rail - the strongest, most literal use of the material: fixed in
+   place with the message list scrolling behind it, so the backdrop blur
+   has continuous live content to distort, which is the single best
+   showcase glass has in this app. See spec §3. */
+[data-look='skeuomorphic'] aside {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.08),
+    8px 0 30px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Global surface/background - a deep, cool near-black canvas with two
+   soft, low-opacity radial color blooms for the glass panes to have
+   something worth refracting. No grain texture (unlike the leather look
+   this replaced) - glass is smooth, not grained. */
 [data-look='skeuomorphic'] body {
   background:
-    radial-gradient(ellipse 900px 500px at 20% -10%, rgba(255, 226, 178, 0.05), transparent 60%),
-    linear-gradient(165deg, #3e2b1e 0%, #2c1e15 55%, #241910 100%);
+    radial-gradient(ellipse 1000px 600px at 15% -10%, rgba(90, 200, 250, 0.10), transparent 55%),
+    radial-gradient(ellipse 800px 500px at 90% 100%, rgba(150, 120, 255, 0.08), transparent 55%),
+    linear-gradient(165deg, #0d1119 0%, #0a0d13 60%, #070910 100%);
   background-attachment: fixed;
 }
 
 [data-look='skeuomorphic'] body::before {
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E"),
-    radial-gradient(circle at 80% 90%, rgba(0, 0, 0, 0.25), transparent 55%);
-  background-size: 140px 140px, cover;
-  mix-blend-mode: overlay;
-  opacity: 0.5;
+  background: none;
 }
