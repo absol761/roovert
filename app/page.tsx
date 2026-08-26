@@ -3,9 +3,10 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
+import { Send, Sparkles, Zap, User, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
 import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
+import { RoovertMark } from './components/RoovertMark';
 import { useMicLevel } from './hooks/useMicLevel';
 import { useSpeechToText } from './hooks/useSpeechToText';
 import { useVisualizerSettings } from './hooks/useVisualizerSettings';
@@ -2247,7 +2248,7 @@ while (true) {
                               >
                                 <div className="flex items-start gap-4 max-w-[70ch]">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
-                                    <Zap className="w-5 h-5 text-[var(--accent)]" />
+                                    <User className="w-5 h-5 text-[var(--accent)]" />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="label text-[var(--accent)] mb-2">
@@ -2281,7 +2282,7 @@ while (true) {
                               >
                                 <div className="flex items-start gap-4">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
-                                    <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+                                    <RoovertMark className="w-5 h-5 text-[var(--accent)]" />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between gap-2 mb-2">
@@ -2537,7 +2538,7 @@ while (true) {
                         >
                           <div className="flex items-start gap-4 max-w-[70ch]">
                             <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
-                              <Zap className="w-5 h-5 text-[var(--accent)]" />
+                              <User className="w-5 h-5 text-[var(--accent)]" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="label text-[var(--accent)] mb-2">
@@ -2573,7 +2574,7 @@ while (true) {
                         >
                           <div className="flex items-start gap-4">
                             <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
-                              <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+                              <RoovertMark className="w-5 h-5 text-[var(--accent)]" />
                             </div>
                             <div className="space-y-3 flex-1 min-w-0">
                               <AnimatePresence mode="wait">
