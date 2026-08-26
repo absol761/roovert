@@ -2253,7 +2253,7 @@ while (true) {
                               <motion.div
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="chat-turn-user bg-[var(--surface)] border border-[var(--border)] rounded-2xl px-6 py-5"
+                                className={`chat-turn-user bg-[var(--surface)] border border-[var(--border)] rounded-2xl py-5 ${isMobile ? 'px-4' : 'px-6'}`}
                               >
                                 <div className="flex items-start gap-4 max-w-[70ch]">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
@@ -2287,7 +2287,7 @@ while (true) {
                               <motion.div
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="group px-6 pt-5 pb-2"
+                                className={`group pt-5 pb-2 ${isMobile ? 'px-4' : 'px-6'}`}
                               >
                                 <div className="flex items-start gap-4">
                                   <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
@@ -2543,7 +2543,7 @@ while (true) {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0 }}
-                          className="chat-turn-user bg-[var(--surface)] border border-[var(--border)] rounded-2xl px-6 py-5 mb-6"
+                          className={`chat-turn-user bg-[var(--surface)] border border-[var(--border)] rounded-2xl py-5 mb-6 ${isMobile ? 'px-4' : 'px-6'}`}
                         >
                           <div className="flex items-start gap-4 max-w-[70ch]">
                             <div className="p-2 rounded-lg bg-[var(--accent)]/20 flex-shrink-0">
@@ -2579,7 +2579,7 @@ while (true) {
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.9 }}
-                          className="px-6 pt-5 pb-2 mb-6"
+                          className={`pt-5 pb-2 mb-6 ${isMobile ? 'px-4' : 'px-6'}`}
                         >
                           <div className="flex items-start gap-4">
                             <div className="p-2 rounded-lg bg-[var(--accent)]/10 flex-shrink-0">
@@ -2861,7 +2861,7 @@ while (true) {
                       size="icon"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isImageUploadDisabled || isImageGenMode}
-                      className="rounded-full text-[var(--muted)] hover:text-[var(--foreground)]"
+                      className={`rounded-full text-[var(--muted)] hover:text-[var(--foreground)] ${isMobile ? 'size-11' : ''}`}
                       title={isImageGenMode ? 'Switch off image generation to attach an image' : isImageUploadDisabled ? `Image upload disabled: ${imageUploadDisabledReason}` : 'Attach image'}
                     >
                       <Paperclip className="w-4 h-4" />
@@ -2879,7 +2879,7 @@ while (true) {
                         size="icon"
                         onClick={() => setIsImageGenMode(prev => !prev)}
                         disabled={!!selectedImage}
-                        className={`rounded-full ${isImageGenMode
+                        className={`rounded-full ${isMobile ? 'size-11' : ''} ${isImageGenMode
                           ? 'text-[var(--accent)] bg-[var(--accent)]/10 hover:text-[var(--accent)]'
                           : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                           }`}
@@ -2898,7 +2898,7 @@ while (true) {
                         variant="ghost"
                         size="icon"
                         onClick={toggleFullscreen}
-                        className="rounded-full text-[var(--muted)] hover:text-[var(--foreground)]"
+                        className={`rounded-full text-[var(--muted)] hover:text-[var(--foreground)] ${isMobile ? 'size-11' : ''}`}
                         title={isFullscreen ? "Exit Fullscreen (ESC)" : "Enter Fullscreen"}
                       >
                         {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
@@ -2912,7 +2912,7 @@ while (true) {
                       variant="ghost"
                       size="icon"
                       onClick={() => setIsHistoryOpen(true)}
-                      className="rounded-full text-[var(--muted)] hover:text-[var(--foreground)]"
+                      className={`rounded-full text-[var(--muted)] hover:text-[var(--foreground)] ${isMobile ? 'size-11' : ''}`}
                       title="Chat History"
                     >
                       <History className="w-4 h-4" />
@@ -2926,7 +2926,7 @@ while (true) {
                       variant="ghost"
                       size="icon"
                       onClick={startNewChat}
-                      className="rounded-full text-[var(--muted)] hover:text-[var(--foreground)]"
+                      className={`rounded-full text-[var(--muted)] hover:text-[var(--foreground)] ${isMobile ? 'size-11' : ''}`}
                       title="New Chat"
                     >
                       <MessageSquarePlus className="w-4 h-4" />
@@ -3028,7 +3028,7 @@ while (true) {
                             }
                           );
                         }}
-                        className={`relative rounded-full ${isDictating
+                        className={`relative rounded-full ${isMobile ? 'size-11' : ''} ${isDictating
                           ? 'text-[var(--accent)] bg-[var(--accent)]/10 hover:text-[var(--accent)]'
                           : 'text-[var(--muted)] hover:text-[var(--foreground)]'
                           }`}
@@ -3050,7 +3050,7 @@ while (true) {
                       type="submit"
                       disabled={!query.trim() || isProcessing || regeneratingIdx !== null}
                       size="icon"
-                      className="w-10 h-10 rounded-2xl shadow-[0_4px_20px_-4px_var(--accent-glow)]"
+                      className={`rounded-2xl shadow-[0_4px_20px_-4px_var(--accent-glow)] ${isMobile ? 'w-11 h-11' : 'w-10 h-10'}`}
                     >
                       {isProcessing ? (
                         <Zap className="w-4 h-4 animate-spin" />

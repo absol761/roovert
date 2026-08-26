@@ -115,7 +115,7 @@ export function ConversationHistoryModal({
             <History className="w-5 h-5 text-[var(--accent)]" />
             Chat History
           </h2>
-          <button onClick={onClose} aria-label="Close" className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
+          <button onClick={onClose} aria-label="Close" className="min-w-11 min-h-11 flex items-center justify-center hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)]">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -178,7 +178,11 @@ export function ConversationHistoryModal({
                   )}
 
                   {!isEditing && (
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
+                      {/* Always visible below md: hover has no touch
+                          equivalent, so these were unreachable on mobile -
+                          rename/delete a conversation was effectively
+                          broken there. */}
                       <button
                         onClick={() => startEditing(conversation)}
                         aria-label="Rename conversation"

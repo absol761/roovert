@@ -58,7 +58,7 @@ export function MobileNav({
             type="button"
             variant="ghost"
             size="icon"
-            className="bg-[var(--background)]/80 backdrop-blur-xl border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] rounded-full"
+            className="size-11 bg-[var(--background)]/80 backdrop-blur-xl border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] rounded-full"
             aria-label="Open menu"
           >
             <Menu className="w-[18px] h-[18px]" />
@@ -70,28 +70,28 @@ export function MobileNav({
           </SheetHeader>
 
           <div className="flex flex-col gap-1 px-4 pb-4 flex-1 overflow-y-auto">
-            <Button onClick={runAndClose(onNewChat)} className="justify-start gap-3 rounded-full mb-2">
+            <Button onClick={runAndClose(onNewChat)} className="h-11 justify-start gap-3 rounded-full mb-2">
               <Plus className="w-4 h-4" />
               New chat
             </Button>
 
-            <Button variant="ghost" onClick={runAndClose(onOpenHistory)} className="justify-start gap-3 text-[var(--muted)]">
+            <Button variant="ghost" onClick={runAndClose(onOpenHistory)} className="h-11 justify-start gap-3 text-[var(--muted)]">
               <MessageSquare className="w-4 h-4" />
               Conversation history
             </Button>
-            <Button variant="ghost" onClick={runAndClose(onOpenGlobalFeed)} className="justify-start gap-3 text-[var(--muted)]">
+            <Button variant="ghost" onClick={runAndClose(onOpenGlobalFeed)} className="h-11 justify-start gap-3 text-[var(--muted)]">
               <Globe className="w-4 h-4" />
               Global feed
             </Button>
             {!isChatMode && (
-              <Button variant="ghost" asChild className="justify-start gap-3 text-[var(--muted)]">
+              <Button variant="ghost" asChild className="h-11 justify-start gap-3 text-[var(--muted)]">
                 <Link href="/careers" onClick={() => setOpen(false)}>
                   <Briefcase className="w-4 h-4" />
                   Careers
                 </Link>
               </Button>
             )}
-            <Button variant="ghost" onClick={runAndClose(onOpenLooks)} className="justify-start gap-3 text-[var(--muted)]">
+            <Button variant="ghost" onClick={runAndClose(onOpenLooks)} className="h-11 justify-start gap-3 text-[var(--muted)]">
               <Paintbrush className="w-4 h-4" />
               Looks & theme
             </Button>
@@ -100,7 +100,7 @@ export function MobileNav({
                 variant="ghost"
                 onClick={runAndClose(onToggleVisualizer)}
                 aria-pressed={visualizerEnabled}
-                className={`justify-start gap-3 ${visualizerEnabled ? 'text-[var(--accent)]' : 'text-[var(--muted)]'}`}
+                className={`h-11 justify-start gap-3 ${visualizerEnabled ? 'text-[var(--accent)]' : 'text-[var(--muted)]'}`}
               >
                 <Waves className="w-4 h-4" />
                 Visualizer
@@ -109,7 +109,7 @@ export function MobileNav({
 
             <Separator className="my-2" />
 
-            <Button variant="ghost" onClick={runAndClose(onOpenSettings)} className="justify-start gap-3 text-[var(--muted)]">
+            <Button variant="ghost" onClick={runAndClose(onOpenSettings)} className="h-11 justify-start gap-3 text-[var(--muted)]">
               <Settings className="w-4 h-4" />
               Settings
             </Button>

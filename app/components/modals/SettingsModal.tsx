@@ -173,7 +173,7 @@ export function SettingsModal({
             >
               Reset Defaults
             </button>
-            <button onClick={onClose} aria-label="Close" className="p-2 hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)] shrink-0">
+            <button onClick={onClose} aria-label="Close" className="min-w-11 min-h-11 flex items-center justify-center hover:bg-[var(--surface)] rounded-full transition-colors text-[var(--muted)] shrink-0">
               <X className="w-5 h-5" />
             </button>
           </div>
