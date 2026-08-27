@@ -140,6 +140,12 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
   }, [isModelMenuOpen]);
 
   const handleDragStart = (e: React.PointerEvent) => {
+    // Without this, a fast drag can start a native browser text-selection
+    // drag underneath the pointer (shows up as a blue highlight sweeping
+    // across the page) instead of just moving the window - pointer capture
+    // redirects move/up events but doesn't suppress the browser's own
+    // default text-selection gesture on its own.
+    e.preventDefault();
     onFocus(id);
     dragState.current = { startX: e.clientX, startY: e.clientY, originX: position.x, originY: position.y, lastX: e.clientX, lastY: e.clientY };
     setIsDragging(true);
@@ -160,11 +166,12 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
     const dy = e.clientY - dragState.current.startY;
     const nextX = dragState.current.originX + dx;
     const nextY = dragState.current.originY + dy;
-    // Clamp so the window's header (the only drag handle) can't be dragged
-    // fully off-screen, which would strand it with no way to grab it again.
-    const maxX = window.innerWidth - 120;
-    const maxY = window.innerHeight - 60;
-    setPosition({ x: Math.min(Math.max(nextX, -200), maxX), y: Math.min(Math.max(nextY, 0), maxY) });
+    // Fully clamped to the viewport - the window can never be dragged even
+    // partially past an edge, unlike the earlier version which allowed it
+    // to hang off-screen by up to 200px.
+    const maxX = Math.max(window.innerWidth - size.width, 0);
+    const maxY = Math.max(window.innerHeight - size.height, 0);
+    setPosition({ x: Math.min(Math.max(nextX, 0), maxX), y: Math.min(Math.max(nextY, 0), maxY) });
     setSnapPreview(quadrantNearPointer(e.clientX, e.clientY));
   };
 
@@ -183,6 +190,7 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
   };
 
   const handleResizeStart = (e: React.PointerEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     onFocus(id);
     resizeState.current = { startX: e.clientX, startY: e.clientY, originW: size.width, originH: size.height };
@@ -314,7 +322,7 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
         onPointerDown={() => onFocus(id)}
       >
         <div
-          className={`flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border)] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`select-none flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border)] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           onPointerDown={handleDragStart}
           onPointerMove={handleDragMove}
           onPointerUp={handleDragEnd}
@@ -411,7 +419,7 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
           onPointerDown={handleResizeStart}
           onPointerMove={handleResizeMove}
           onPointerUp={handleResizeEnd}
-          className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize touch-none"
+          className="select-none absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize touch-none"
           style={{ touchAction: 'none' }}
           aria-hidden="true"
         >
