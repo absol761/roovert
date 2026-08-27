@@ -13,6 +13,7 @@ import {
   Loader2,
   MicOff,
   Settings,
+  AppWindow,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -82,6 +83,10 @@ export interface SidebarRailProps {
   onOpenCommandPalette: () => void;
   onOpenLooks: () => void;
   onOpenSettings: () => void;
+  // Opens a new FloatingChatWindow (see app/components/windows/
+  // FloatingChatWindow.tsx) - a draggable, independent chat surface that
+  // replaces the old workaround of opening a second literal browser tab.
+  onOpenNewWindow: () => void;
   // Visualizer toggle - gated behind Settings ("showVisualizerButton"),
   // mirrors the exact behavior/animated mic-reactive rings the old nav
   // button had, just relocated into the rail.
@@ -107,6 +112,7 @@ export function SidebarRail({
   onOpenCommandPalette,
   onOpenLooks,
   onOpenSettings,
+  onOpenNewWindow,
   showVisualizerButton,
   visualizerEnabled,
   onToggleVisualizer,
@@ -148,6 +154,12 @@ export function SidebarRail({
       label: 'Looks & theme',
       icon: <Paintbrush className="w-[18px] h-[18px]" />,
       onClick: onOpenLooks,
+    },
+    {
+      key: 'new-window',
+      label: 'New window',
+      icon: <AppWindow className="w-[18px] h-[18px]" />,
+      onClick: onOpenNewWindow,
     },
   ];
 

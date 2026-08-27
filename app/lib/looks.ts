@@ -5,7 +5,6 @@ export const LOOKS = [
   { id: 'accessible', name: 'High Contrast', description: 'Accessible design with WCAG compliance', category: 'modern' },
   { id: 'gemini', name: 'Google Gemini', description: 'Inspired by Gemini colors with smooth animations', category: 'modern' },
   { id: 'midnight', name: 'Ember', description: 'Warm charcoal with a muted terracotta accent', category: 'dark' },
-  { id: 'retrowave', name: 'Retrowave', description: 'Synthwave 80s aesthetic', category: 'themed' },
   { id: 'evergreen', name: 'Evergreen', description: 'Deep forest jewel-tone with an antique-gold accent', category: 'dark' },
   { id: 'aurora', name: 'Aurora', description: 'Iridescent violet-teal-rose glow drifting over a calm near-black canvas', category: 'dark' },
   { id: 'skeuomorphic', name: 'Liquid Glass', description: 'Refractive frosted glass with specular light, a fresnel rim, and real depth', category: 'themed' },

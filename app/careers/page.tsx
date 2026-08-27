@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { ArrowLeft, ArrowUpRight, Users, Zap, Code, Brain, Globe, Heart, Mail, Sparkles } from 'lucide-react';
+import { RoovertMark } from '../components/RoovertMark';
 
 // lucide-react dropped brand/logo icons (incl. Github) - inline the mark instead
 function GithubIcon({ className }: { className?: string }) {
@@ -79,9 +80,10 @@ export default function CareersPage() {
           <div className="flex items-center justify-between">
             <Link
               href="/"
-              className="text-2xl font-bold bg-gradient-to-r from-[var(--foreground)] to-[var(--accent)] bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
-              ROOVERT
+              <RoovertMark className="w-6 h-6 text-[var(--accent)]" />
+              <span className="serif-display text-xl text-[var(--foreground)]">Roovert</span>
             </Link>
             <Link
               href="/"

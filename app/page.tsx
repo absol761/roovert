@@ -25,6 +25,7 @@ import { NeuralNoise } from './components/NeuralNoise';
 import { SidebarRail } from './components/layout/SidebarRail';
 import { MobileNav } from './components/layout/MobileNav';
 import { TopStrip } from './components/layout/TopStrip';
+import { FloatingChatWindow } from './components/windows/FloatingChatWindow';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -336,6 +337,18 @@ export default function Page() {
   // the rail is fixed-position, so it doesn't push sibling content on its
   // own and previously overlapped it once expanded.
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  // Floating chat windows - independent, draggable second/third/... chat
+  // surfaces (FloatingChatWindow) that let a user keep an extra conversation
+  // going without leaving this tab, replacing the old workaround of opening
+  // a second literal Roovert browser tab. zIndexCounter tracks the highest
+  // zIndex handed out so far (not just windows.length) so it keeps
+  // incrementing correctly even after windows are closed and reopened.
+  // Starts at 1000, well above every other fixed-position layer in this
+  // app (main content z-10, TopStrip z-30, SidebarRail z-50) - a window
+  // that opened first still needs to always win over the app's own chrome,
+  // not just over other windows.
+  const [floatingWindows, setFloatingWindows] = useState<{ id: string; x: number; y: number; zIndex: number }[]>([]);
+  const [nextWindowZIndex, setNextWindowZIndex] = useState(1000);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
   const [isGlobalFeedOpen, setIsGlobalFeedOpen] = useState(false);
   // Cmd/Ctrl+K quick-actions palette and its "?" shortcuts-help overlay -
@@ -374,7 +387,6 @@ export default function Page() {
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isMoreModelsOpen, setIsMoreModelsOpen] = useState(false);
   const { isFullscreen, isFullscreenSupported, toggleFullscreen } = useFullscreen();
-  const [closedWidgets, setClosedWidgets] = useState<Set<string>>(new Set());
   const {
     visualizerEnabled, setVisualizerEnabled,
     showVisualizerButton, setShowVisualizerButton,
@@ -692,6 +704,35 @@ export default function Page() {
     });
   };
 
+  // Opens one more FloatingChatWindow, staggering its initial position
+  // (classic "cascade" window placement) so it doesn't land exactly on top
+  // of whichever window opened before it. Cascades by +32px per existing
+  // window and wraps back to the base offset every 6 windows so a long
+  // session of opening/closing windows doesn't eventually cascade one off
+  // the edge of the screen.
+  const openNewWindow = () => {
+    const id = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `window-${Date.now()}-${Math.random()}`;
+    const cascadeStep = floatingWindows.length % 6;
+    setFloatingWindows(prev => [
+      ...prev,
+      { id, x: 120 + cascadeStep * 32, y: 100 + cascadeStep * 32, zIndex: nextWindowZIndex },
+    ]);
+    setNextWindowZIndex(z => z + 1);
+  };
+
+  const closeWindow = (id: string) => {
+    setFloatingWindows(prev => prev.filter(w => w.id !== id));
+  };
+
+  // Brings a window to the front on click/drag-start. Reads from the same
+  // ever-incrementing nextWindowZIndex counter used to open windows, rather
+  // than deriving a max from the current array, so focusing a window can
+  // never collide with the zIndex a brand-new window is about to get.
+  const focusWindow = (id: string) => {
+    setFloatingWindows(prev => prev.map(w => (w.id === id ? { ...w, zIndex: nextWindowZIndex } : w)));
+    setNextWindowZIndex(z => z + 1);
+  };
+
   // Switches `history`/`isChatMode` to point at a different, already-known
   // conversation. The one being left is already fully persisted (every
   // history/isChatMode change flows through the persist effect above), so
@@ -756,18 +797,6 @@ export default function Page() {
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const toggleWidget = (widgetId: string) => {
-    setClosedWidgets(prev => {
-      const next = new Set(prev);
-      if (next.has(widgetId)) {
-        next.delete(widgetId);
-      } else {
-        next.add(widgetId);
-      }
-      return next;
-    });
-  };
 
   // Apply Look & Layout
   useEffect(() => {
@@ -1740,6 +1769,7 @@ export default function Page() {
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           onOpenLooks={() => setIsLooksOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenNewWindow={openNewWindow}
           showVisualizerButton={showVisualizerButton}
           visualizerEnabled={visualizerEnabled}
           onToggleVisualizer={toggleVisualizerFromNav}
@@ -1758,7 +1788,15 @@ export default function Page() {
           visualizerEnabled={visualizerEnabled}
           onToggleVisualizer={toggleVisualizerFromNav}
         />
-        <TopStrip isChatMode={isChatMode} focusMode={focusMode} isMobile={isMobile} />
+        <TopStrip
+          isChatMode={isChatMode}
+          focusMode={focusMode}
+          isMobile={isMobile}
+          modelName={selectedModel.name}
+          modelDescription={selectedModel.description}
+          signals={SIGNALS}
+          onEndSession={startNewChat}
+        />
       </div>
 
       {/* Settings Modal */}
@@ -2142,55 +2180,10 @@ while (true) {
               data-chat-area="true"
             >
               <div className={`interface-grid h-full ${isMobile ? 'grid-cols-1' : ''}`}>
-                {/* Intel Panel (Left) - Hidden in Fullscreen and Mobile */}
-                {!isFullscreen && !isMobile && (
-                  <section className={`intel-panel hidden lg:grid content-start gap-4 transition-all duration-300 ${closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot') ? 'intel-panel-collapsed' : ''}`}>
-                    {!closedWidgets.has('active-intel') && (
-                      <div className="intel-card relative">
-                        <button
-                          onClick={() => toggleWidget('active-intel')}
-                          className="absolute top-3 right-3 p-1 rounded-full hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                          title="Close widget"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                        <span className="label">Active Intelligence</span>
-                        <h3 className="font-light">{selectedModel.name}</h3>
-                        <p>{selectedModel.description}</p>
-                        <button
-                          onClick={startNewChat}
-                          className="mt-6 text-xs text-[var(--accent)] hover:underline flex items-center gap-1"
-                        >
-                          <X className="w-3 h-3" /> End Session
-                        </button>
-                      </div>
-                    )}
-
-                    {!closedWidgets.has('ops-snapshot') && (
-                      <div className="intel-card intel-card--compact relative">
-                        <button
-                          onClick={() => toggleWidget('ops-snapshot')}
-                          className="absolute top-3 right-3 p-1 rounded-full hover:bg-[var(--surface-strong)] transition-colors text-[var(--muted)] hover:text-[var(--foreground)]"
-                          title="Close widget"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                        <span className="label">Ops Snapshot</span>
-                        <div className="mt-3 space-y-3">
-                          {SIGNALS.map(signal => (
-                            <div key={signal.title}>
-                              <p className="label">{signal.title}</p>
-                              <p className="text-sm mt-1 text-[var(--foreground)]/80">{signal.detail}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </section>
-                )}
-
-                {/* Main Chat Stack (Right/Center) */}
-                <section className={`chat-stack min-w-0 flex flex-col h-full justify-between transition-all duration-500 ${isFullscreen || (closedWidgets.has('active-intel') && closedWidgets.has('ops-snapshot')) || isMobile ? 'col-span-full' : ''} ${isMobile ? 'px-0' : ''}`}>
+                {/* Main Chat Stack - Active Intelligence + Ops Snapshot now
+                    live in the top-bar IntelBar (see TopStrip), so this
+                    column is always full-width and the chat stays centered. */}
+                <section className={`chat-stack min-w-0 flex flex-col h-full justify-between transition-all duration-500 col-span-full ${isMobile ? 'px-0' : ''}`}>
                   {/* Search Bar */}
                   {showSearch && (
                     <div className="mb-4 glass-panel bg-[var(--panel-bg)] backdrop-blur-xl border border-[var(--border)] rounded-xl p-3">
@@ -3120,6 +3113,22 @@ while (true) {
           </footer>
         </>
       )}
+
+      {/* Floating chat windows - rendered as plain siblings here since each
+          one is `position: fixed` internally and manages its own drag state,
+          so nesting inside any particular layout container would add
+          nothing but stacking-context risk. */}
+      {floatingWindows.map(w => (
+        <FloatingChatWindow
+          key={w.id}
+          id={w.id}
+          initialX={w.x}
+          initialY={w.y}
+          zIndex={w.zIndex}
+          onClose={closeWindow}
+          onFocus={focusWindow}
+        />
+      ))}
     </div>
   );
 }

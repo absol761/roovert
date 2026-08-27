@@ -304,8 +304,22 @@ export async function POST(request: NextRequest) {
                     onError: ({ error }) => { streamError = error; },
                   });
 
-                  for await (const chunk of result.textStream) {
-                    enqueue({ model: selectedModel, content: chunk, done: false });
+                  // Reasoning-capable Groq models (e.g. Qwen3 family, mapped
+                  // as 'ooverta') inline chain-of-thought in textStream as
+                  // literal <think> tags same as the HF DeepSeek-R1 shape -
+                  // strip it here too, or it leaks into the visible answer.
+                  let thinkState: ThinkState = { insideThink: false, pending: '' };
+                  for await (const rawChunk of result.textStream) {
+                    const { chunks, state } = extractThinkChunks(rawChunk, thinkState);
+                    thinkState = state;
+                    for (const chunk of chunks) {
+                      if (chunk.type === 'content') {
+                        enqueue({ model: selectedModel, content: chunk.text, done: false });
+                      }
+                      // Multi-Perspective shows final answers side by side,
+                      // not per-model chain-of-thought - reasoning is dropped
+                      // here, matching streamHuggingFaceLeg's behavior above.
+                    }
                   }
 
                   if (streamError) throw streamError;
@@ -352,27 +366,46 @@ export async function POST(request: NextRequest) {
           const encoder = new TextEncoder();
           let fullResponse = '';
           let tokenCount = 0;
+          // Reasoning-capable Groq models (e.g. Qwen3 family, mapped as
+          // 'ooverta') inline chain-of-thought in textStream as literal
+          // <think> tags, same shape as HF's DeepSeek-R1 - split it out via
+          // extractThinkChunks (same helper app/api/huggingface/route.ts
+          // uses) and send it on the `reasoning` SSE field instead of
+          // letting it leak into the visible `content` field.
+          let thinkState: ThinkState = { insideThink: false, pending: '' };
 
           try {
-            for await (const chunk of result.textStream) {
-              // Approximate token count (rough estimate: ~4 chars per token)
-              tokenCount += Math.ceil(chunk.length / 4);
+            for await (const rawChunk of result.textStream) {
+              const { chunks, state } = extractThinkChunks(rawChunk, thinkState);
+              thinkState = state;
 
-              // Stop if we exceed maxTokens
-              if (tokenCount > maxTokens) {
-                // Send final chunk and stop
+              for (const chunk of chunks) {
+                if (chunk.type === 'reasoning') {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ reasoning: chunk.text, done: false })}\n\n`)
+                  );
+                  continue;
+                }
+
+                // Approximate token count (rough estimate: ~4 chars per token)
+                tokenCount += Math.ceil(chunk.text.length / 4);
+
+                // Stop if we exceed maxTokens
+                if (tokenCount > maxTokens) {
+                  // Send final chunk and stop
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`)
+                  );
+                  controller.close();
+                  return;
+                }
+
+                fullResponse += chunk.text;
+                // Stream chunks normally, but we'll check at the end
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ content: '', done: true })}\n\n`)
+                  encoder.encode(`data: ${JSON.stringify({ content: chunk.text, done: false })}\n\n`)
                 );
-                controller.close();
-                return;
               }
-
-              fullResponse += chunk;
-              // Stream chunks normally, but we'll check at the end
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ content: chunk, done: false })}\n\n`)
-              );
             }
 
             // Final content moderation check
