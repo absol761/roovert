@@ -19,7 +19,7 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#1c1917",
     icons: [
       {
-        src: "/icon.svg",
+        src: "/roovert-icon.svg",
         sizes: "any",
         type: "image/svg+xml",
       },
