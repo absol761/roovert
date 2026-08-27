@@ -911,52 +911,6 @@ textarea:focus {
   animation-delay: 1s;
 }
 
-/* Retrowave Look */
-[data-look='retrowave'] {
-  --background: #0a0e27;
-  --foreground: #f4ecff;
-  --accent: #14e6ff;
-  --accent-glow: rgba(20, 230, 255, 0.4);
-  --panel-bg: rgba(16, 14, 46, 0.85);
-  --border: rgba(255, 71, 214, 0.35);
-  --panel-radius: 16px;
-  --surface: rgba(255, 71, 214, 0.08);
-  --surface-strong: rgba(20, 230, 255, 0.14);
-  --chip-bg: rgba(14, 12, 42, 0.9);
-  --muted: rgba(244, 236, 255, 0.58);
-  --muted-strong: rgba(244, 236, 255, 0.82);
-  --hud-bg: rgba(14, 12, 42, 0.95);
-}
-
-[data-look='retrowave'] body {
-  background:
-    linear-gradient(135deg, #0a0e27 0%, #1e1a45 50%, #0a0e27 100%),
-    radial-gradient(circle at 20% 50%, rgba(255, 71, 214, 0.16), transparent 50%),
-    radial-gradient(circle at 80% 50%, rgba(20, 230, 255, 0.16), transparent 50%);
-  background-attachment: fixed;
-}
-
-[data-look='retrowave'] body::before {
-  background:
-    repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(255, 71, 214, 0.04) 20px, rgba(255, 71, 214, 0.04) 22px),
-    repeating-linear-gradient(-45deg, transparent, transparent 20px, rgba(20, 230, 255, 0.04) 20px, rgba(20, 230, 255, 0.04) 22px);
-  opacity: 0.4;
-}
-
-[data-look='retrowave'] .glass-panel,
-[data-look='retrowave'] .intel-card {
-  border: 1.5px solid var(--border) !important;
-  box-shadow:
-    0 0 20px rgba(255, 71, 214, 0.22),
-    0 0 40px rgba(20, 230, 255, 0.16) !important;
-  background: linear-gradient(135deg, rgba(16, 14, 46, 0.92), rgba(30, 26, 69, 0.85)) !important;
-}
-
-[data-look='retrowave'] nav {
-  border-bottom: 1.5px solid var(--border);
-  box-shadow: 0 0 30px rgba(255, 71, 214, 0.28);
-}
-
 /* Evergreen - deep forest jewel-tone with an antique-gold accent. A quiet,
    still theme (no animation, no hue-shift) - the "field guide/editorial"
    feel comes from the warm parchment foreground against a dark bottle-
@@ -1026,51 +980,6 @@ textarea:focus {
   transform: translateZ(0);
   /* GPU acceleration */
   backface-visibility: hidden;
-}
-
-/* Retrowave - Sunset Strip */
-[data-look-preview='retrowave']:hover .look-preview-animation {
-  background:
-    linear-gradient(180deg, rgba(255, 0, 255, 0.4) 0%, rgba(0, 255, 255, 0.4) 100%);
-  animation: retrowave-pulse 2.5s ease-in-out infinite;
-  transform: translateZ(0);
-  box-shadow: 0 0 30px rgba(255, 0, 255, 0.4), 0 0 30px rgba(0, 255, 255, 0.4);
-}
-
-@keyframes retrowave-pulse {
-
-  0%,
-  100% {
-    opacity: 0.6;
-    box-shadow: 0 0 20px rgba(255, 0, 255, 0.3), 0 0 20px rgba(0, 255, 255, 0.3);
-  }
-
-  50% {
-    opacity: 0.9;
-    box-shadow: 0 0 40px rgba(255, 0, 255, 0.6), 0 0 40px rgba(0, 255, 255, 0.6);
-  }
-}
-
-[data-look-preview='retrowave']:hover .look-preview-animation::before {
-  content: '🌆';
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 20px;
-  animation: retrowave-glow 2s ease-in-out infinite;
-}
-
-@keyframes retrowave-glow {
-
-  0%,
-  100% {
-    filter: brightness(1);
-  }
-
-  50% {
-    filter: brightness(1.5);
-  }
 }
 
 /* ============================================

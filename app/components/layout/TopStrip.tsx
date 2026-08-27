@@ -3,11 +3,16 @@
 import Link from 'next/link';
 import { NavClock } from '../nav/NavClock';
 import { LiveStats } from '../nav/LiveStats';
+import { IntelBar, type IntelBarSignal } from '../nav/IntelBar';
 
 export interface TopStripProps {
   isChatMode: boolean;
   focusMode: boolean;
   isMobile: boolean;
+  modelName?: string;
+  modelDescription?: string;
+  signals?: IntelBarSignal[];
+  onEndSession?: () => void;
 }
 
 // What's left over once the icon rail (SidebarRail) took every clickable
@@ -15,7 +20,7 @@ export interface TopStripProps {
 // the Mission/Careers text links, none of which read naturally as a single
 // icon. Kept as a slim, low-chrome strip in the top-right corner rather
 // than forcing them into the rail.
-export function TopStrip({ isChatMode, focusMode, isMobile }: TopStripProps) {
+export function TopStrip({ isChatMode, focusMode, isMobile, modelName, modelDescription, signals, onEndSession }: TopStripProps) {
   return (
     <div
       className="fixed top-0 right-0 z-30 flex items-center gap-3 px-4 py-3 transition-opacity duration-[var(--duration-base)]"
@@ -34,6 +39,14 @@ export function TopStrip({ isChatMode, focusMode, isMobile }: TopStripProps) {
           </Link>
           {!focusMode && <LiveStats />}
         </div>
+      )}
+      {isChatMode && !isMobile && modelName && onEndSession && (
+        <IntelBar
+          modelName={modelName}
+          modelDescription={modelDescription ?? ''}
+          signals={signals ?? []}
+          onEndSession={onEndSession}
+        />
       )}
       {!isMobile && <NavClock />}
     </div>
