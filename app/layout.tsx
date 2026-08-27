@@ -51,11 +51,16 @@ export const metadata: Metadata = {
 // and nav sit flush with an iPhone's notch/home-indicator instead of
 // leaving dead letterboxed bars. themeColor matches the app's default
 // (Ember) background so Safari's chrome doesn't flash white on load.
+// colorScheme tells the browser this page is dark so native UI it renders
+// adjacent to the page (form control chrome, scrollbars, and reportedly
+// Safari's per-tab favicon "chip" backdrop) doesn't default to assuming
+// light mode just because we never said otherwise.
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
   themeColor: "#1c1917",
+  colorScheme: "dark",
 };
 
 export default async function RootLayout({
