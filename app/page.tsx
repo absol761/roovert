@@ -343,8 +343,12 @@ export default function Page() {
   // a second literal Roovert browser tab. zIndexCounter tracks the highest
   // zIndex handed out so far (not just windows.length) so it keeps
   // incrementing correctly even after windows are closed and reopened.
+  // Starts at 1000, well above every other fixed-position layer in this
+  // app (main content z-10, TopStrip z-30, SidebarRail z-50) - a window
+  // that opened first still needs to always win over the app's own chrome,
+  // not just over other windows.
   const [floatingWindows, setFloatingWindows] = useState<{ id: string; x: number; y: number; zIndex: number }[]>([]);
-  const [nextWindowZIndex, setNextWindowZIndex] = useState(1);
+  const [nextWindowZIndex, setNextWindowZIndex] = useState(1000);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
   const [isGlobalFeedOpen, setIsGlobalFeedOpen] = useState(false);
   // Cmd/Ctrl+K quick-actions palette and its "?" shortcuts-help overlay -

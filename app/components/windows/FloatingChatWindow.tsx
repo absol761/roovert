@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, GripHorizontal, Send, Loader2 } from 'lucide-react';
 import { RoovertMark } from '../RoovertMark';
 import { MODELS } from '../../lib/models';
@@ -36,16 +37,54 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
   const [query, setQuery] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  // Tracks the in-flight stream request so it can be aborted if this window
+  // is closed mid-stream - otherwise the fetch/reader loop keeps running
+  // after unmount, wastefully consuming the response body and calling
+  // setState on a component that's already gone.
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Portal target only exists client-side post-mount - `document` is
+  // undefined during SSR, and mounting straight to document.body without
+  // this gate would also mismatch hydration.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
   }, [messages]);
 
+  // Escape closes this specific window, but only when keyboard focus is
+  // actually inside it - with multiple windows open, a global "Escape
+  // closes whichever one" listener would close the wrong one whenever more
+  // than one is mounted.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (containerRef.current?.contains(document.activeElement)) {
+        onClose(id);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [id, onClose]);
+
   const handleDragStart = (e: React.PointerEvent) => {
     onFocus(id);
     dragState.current = { startX: e.clientX, startY: e.clientY, originX: position.x, originY: position.y };
     setIsDragging(true);
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    try {
+      (e.target as Element).setPointerCapture(e.pointerId);
+    } catch {
+      // Some targets (e.g. mid text-selection) can reject pointer capture;
+      // dragging still works via document-level move/up bubbling on the
+      // header, so this is safe to swallow rather than let it abort drag-start.
+    }
   };
 
   const handleDragMove = (e: React.PointerEvent) => {
@@ -75,6 +114,9 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
     setQuery('');
     setIsStreaming(true);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     let fullResponse = '';
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
@@ -87,6 +129,7 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
           model: modelId,
           conversationHistory: messages.map(m => ({ role: m.role, content: m.content })),
         }),
+        signal: controller.signal,
       });
 
       if (!res.ok || !res.body) {
@@ -96,8 +139,9 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let streamDone = false;
 
-      while (true) {
+      while (!streamDone) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
@@ -119,25 +163,39 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
                 return next;
               });
             }
-            if (data.done) break;
+            if (data.done) {
+              streamDone = true;
+              break;
+            }
           } catch {
             continue;
           }
         }
       }
-    } catch {
+    } catch (err) {
+      // Deliberate abort (window closed mid-stream) - the component is
+      // unmounting/unmounted, so there's nothing to show the user.
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return;
+      }
       setMessages(prev => {
         const next = [...prev];
         next[next.length - 1] = { role: 'assistant', content: "I'm temporarily unable to process your request. Please try again." };
         return next;
       });
     } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
       setIsStreaming(false);
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div
+      ref={containerRef}
       className="fixed w-[380px] max-w-[92vw] rounded-2xl border border-[var(--border)] bg-[var(--hud-bg)] backdrop-blur-xl shadow-[var(--shadow-lg)] flex flex-col overflow-hidden"
       style={{ left: position.x, top: position.y, height: 480, zIndex, touchAction: 'none' }}
       onPointerDown={() => onFocus(id)}
@@ -154,8 +212,15 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
           <select
             value={modelId}
             onChange={(e) => setModelId(e.target.value)}
-            onPointerDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => {
+              // Stop the header's drag-start from firing (native <select>
+              // interaction takes priority here), but still raise this
+              // window to the front like any other pointerdown on it would.
+              e.stopPropagation();
+              onFocus(id);
+            }}
             className="bg-transparent text-xs text-[var(--foreground)] outline-none truncate"
+            aria-label="Model"
           >
             {MODELS.map(m => (
               <option key={m.id} value={m.id}>{m.name}</option>
@@ -195,6 +260,7 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
             }
           }}
           placeholder="Message this window..."
+          aria-label="Message this window"
           className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-full px-3 py-1.5 text-sm outline-none text-[var(--foreground)] placeholder:text-[var(--muted)]"
         />
         <button
@@ -206,6 +272,7 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
           {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
