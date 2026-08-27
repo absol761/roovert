@@ -33,6 +33,7 @@ const CORNER_SNAP_ZONE = 140;
 const SCREEN_MARGIN = 8;
 
 type Quadrant = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
 function quadrantNearPointer(clientX: number, clientY: number): Quadrant | null {
   const nearLeft = clientX < CORNER_SNAP_ZONE;
@@ -76,7 +77,7 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
   const [position, setPosition] = useState({ x: initialX, y: initialY });
   const [size, setSize] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT });
   const dragState = useRef<{ startX: number; startY: number; originX: number; originY: number; lastX: number; lastY: number } | null>(null);
-  const resizeState = useRef<{ startX: number; startY: number; originW: number; originH: number } | null>(null);
+  const resizeState = useRef<{ startX: number; startY: number; originW: number; originH: number; originX: number; originY: number; direction: ResizeDirection } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [snapPreview, setSnapPreview] = useState<Quadrant | null>(null);
 
@@ -189,11 +190,19 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
     }
   };
 
-  const handleResizeStart = (e: React.PointerEvent) => {
+  const handleResizeStart = (e: React.PointerEvent, direction: ResizeDirection) => {
     e.preventDefault();
     e.stopPropagation();
     onFocus(id);
-    resizeState.current = { startX: e.clientX, startY: e.clientY, originW: size.width, originH: size.height };
+    resizeState.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      originW: size.width,
+      originH: size.height,
+      originX: position.x,
+      originY: position.y,
+      direction,
+    };
     try {
       (e.target as Element).setPointerCapture(e.pointerId);
     } catch {
@@ -202,15 +211,37 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
   };
 
   const handleResizeMove = (e: React.PointerEvent) => {
-    if (!resizeState.current) return;
-    const dx = e.clientX - resizeState.current.startX;
-    const dy = e.clientY - resizeState.current.startY;
-    const maxWidth = window.innerWidth - position.x - SCREEN_MARGIN;
-    const maxHeight = window.innerHeight - position.y - SCREEN_MARGIN;
-    setSize({
-      width: Math.min(Math.max(resizeState.current.originW + dx, MIN_WIDTH), Math.max(maxWidth, MIN_WIDTH)),
-      height: Math.min(Math.max(resizeState.current.originH + dy, MIN_HEIGHT), Math.max(maxHeight, MIN_HEIGHT)),
-    });
+    const start = resizeState.current;
+    if (!start) return;
+    const dx = e.clientX - start.startX;
+    const dy = e.clientY - start.startY;
+    const { direction } = start;
+
+    const next = { x: position.x, y: position.y, width: size.width, height: size.height };
+
+    if (direction.includes('e')) {
+      const maxWidth = Math.max(window.innerWidth - start.originX - SCREEN_MARGIN, MIN_WIDTH);
+      next.width = Math.min(Math.max(start.originW + dx, MIN_WIDTH), maxWidth);
+    } else if (direction.includes('w')) {
+      // Growing/shrinking from the left edge moves x too - clamped so it
+      // can never push past the right edge of the window (min width) or
+      // past the left edge of the screen (x can't go negative).
+      const maxWidth = start.originX + start.originW;
+      next.width = Math.min(Math.max(start.originW - dx, MIN_WIDTH), maxWidth);
+      next.x = start.originX + (start.originW - next.width);
+    }
+
+    if (direction.includes('s')) {
+      const maxHeight = Math.max(window.innerHeight - start.originY - SCREEN_MARGIN, MIN_HEIGHT);
+      next.height = Math.min(Math.max(start.originH + dy, MIN_HEIGHT), maxHeight);
+    } else if (direction.includes('n')) {
+      const maxHeight = start.originY + start.originH;
+      next.height = Math.min(Math.max(start.originH - dy, MIN_HEIGHT), maxHeight);
+      next.y = start.originY + (start.originH - next.height);
+    }
+
+    setPosition({ x: next.x, y: next.y });
+    setSize({ width: next.width, height: next.height });
   };
 
   const handleResizeEnd = () => {
@@ -315,12 +346,20 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
           style={{ ...quadrantRect(snapPreview), zIndex: zIndex - 1 }}
         />
       )}
+      {/* Outer box is purely for positioning/hit-testing - it deliberately
+          has NO rounding/overflow-hidden of its own, so the resize handles
+          (siblings of the rounded panel below, not descendants of it) are
+          never clipped by the panel's rounded-corner mask. Putting them
+          inside the rounded+overflow-hidden panel instead silently ate
+          pointer events right at the corners, where the rounding clips the
+          literal (0,0) pixel away from hit-testing. */}
       <div
         ref={containerRef}
-        className="fixed rounded-2xl border border-[var(--border)] bg-[var(--hud-bg)] backdrop-blur-xl shadow-[var(--shadow-lg)] flex flex-col overflow-hidden"
+        className="fixed"
         style={{ left: position.x, top: position.y, width: size.width, height: size.height, maxWidth: '92vw', maxHeight: '90vh', zIndex, touchAction: 'none' }}
         onPointerDown={() => onFocus(id)}
       >
+      <div className="w-full h-full rounded-2xl border border-[var(--border)] bg-[var(--hud-bg)] backdrop-blur-xl shadow-[var(--shadow-lg)] flex flex-col overflow-hidden">
         <div
           className={`select-none flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border)] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           onPointerDown={handleDragStart}
@@ -412,19 +451,35 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
             {isStreaming ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </button>
         </div>
+      </div>
 
-        {/* Bottom-right resize handle - a small diagonal-lines affordance,
-            same visual language as a native OS window resize corner. */}
+        {/* Resize handles on every edge and corner, like a native OS window
+            (not just the bottom-right). Siblings of the rounded panel above
+            (not descendants of it) so its overflow-hidden rounded-corner
+            mask never clips their hit area - see the comment on the outer
+            box above. Thin invisible strips along each edge (cursor-only
+            affordance, the standard convention for resizable panels) plus a
+            visible diagonal-lines glyph in the bottom-right corner so at
+            least one resize handle is obvious at a glance instead of
+            requiring the user to discover it by hovering. */}
+        <div onPointerDown={(e) => handleResizeStart(e, 'n')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -top-1 left-2 right-2 h-2 cursor-ns-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 's')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -bottom-1 left-2 right-2 h-2 cursor-ns-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 'w')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -left-1 top-2 bottom-2 w-2 cursor-ew-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 'e')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -right-1 top-2 bottom-2 w-2 cursor-ew-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 'nw')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -top-1 -left-1 w-4 h-4 cursor-nwse-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 'ne')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -top-1 -right-1 w-4 h-4 cursor-nesw-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 'sw')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -bottom-1 -left-1 w-4 h-4 cursor-nesw-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
         <div
-          onPointerDown={handleResizeStart}
+          onPointerDown={(e) => handleResizeStart(e, 'se')}
           onPointerMove={handleResizeMove}
           onPointerUp={handleResizeEnd}
-          className="select-none absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize touch-none"
+          className="select-none absolute -bottom-1 -right-1 w-5 h-5 cursor-nwse-resize touch-none flex items-center justify-center group"
           style={{ touchAction: 'none' }}
           aria-hidden="true"
+          title="Drag to resize"
         >
-          <svg viewBox="0 0 16 16" className="w-full h-full text-[var(--muted)]">
-            <path d="M14 14L14 10M14 14L10 14M14 6L6 14" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+          <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 text-[var(--muted)] group-hover:text-[var(--accent)] transition-colors">
+            <path d="M14 14L14 8M14 14L8 14M14 5L5 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
         </div>
       </div>
