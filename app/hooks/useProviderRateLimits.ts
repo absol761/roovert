@@ -12,6 +12,8 @@ export function useProviderRateLimits() {
   const [hideImageGen, setHideImageGen] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     const checkRateLimit = async (endpoint: string, setHidden: (hidden: boolean) => void) => {
       try {
         const res = await fetch(endpoint);
@@ -19,7 +21,9 @@ export function useProviderRateLimits() {
           return; // Skip if not JSON response
         }
         const data = await res.json();
-        setHidden(data.shouldHide || false);
+        if (!cancelled) {
+          setHidden(data.shouldHide || false);
+        }
       } catch {
         // Silently handle errors - non-critical
       }
@@ -33,7 +37,10 @@ export function useProviderRateLimits() {
 
     checkAll();
     const interval = setInterval(checkAll, 60000); // Check every minute
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   return { hideOpenRouterModels, hideHuggingFaceModels, hideImageGen };
