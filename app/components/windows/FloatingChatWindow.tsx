@@ -48,21 +48,33 @@ function quadrantNearPointer(clientX: number, clientY: number): Quadrant | null 
   return null;
 }
 
-function quadrantRect(quadrant: Quadrant) {
-  const halfW = window.innerWidth / 2 - SCREEN_MARGIN * 1.5;
-  const halfH = window.innerHeight / 2 - SCREEN_MARGIN * 1.5;
-  const rightX = window.innerWidth / 2 + SCREEN_MARGIN / 2;
-  const bottomY = window.innerHeight / 2 + SCREEN_MARGIN / 2;
+export function quadrantRect(quadrant: Quadrant) {
+  const availableW = window.innerWidth - SCREEN_MARGIN * 2;
+  const availableH = window.innerHeight - SCREEN_MARGIN * 2;
+  // Half the available space, but never smaller than the window's own
+  // enforced minimum size. On a viewport narrower than ~664px or shorter
+  // than ~744px (e.g. two browsers split side by side on a laptop) a literal
+  // half would be smaller than MIN_WIDTH/MIN_HEIGHT, snapping the window to
+  // a size the drag-resize handles themselves would never allow it to
+  // shrink to - cramped enough to clip the header/input row. Also capped at
+  // the full available space so it can never claim more room than the
+  // viewport actually has.
+  const width = Math.min(Math.max(availableW / 2 - SCREEN_MARGIN / 2, MIN_WIDTH), availableW);
+  const height = Math.min(Math.max(availableH / 2 - SCREEN_MARGIN / 2, MIN_HEIGHT), availableH);
+  const leftX = SCREEN_MARGIN;
+  const rightX = window.innerWidth - SCREEN_MARGIN - width;
+  const topY = SCREEN_MARGIN;
+  const bottomY = window.innerHeight - SCREEN_MARGIN - height;
 
   switch (quadrant) {
     case 'top-left':
-      return { x: SCREEN_MARGIN, y: SCREEN_MARGIN, width: halfW, height: halfH };
+      return { x: leftX, y: topY, width, height };
     case 'top-right':
-      return { x: rightX, y: SCREEN_MARGIN, width: halfW, height: halfH };
+      return { x: rightX, y: topY, width, height };
     case 'bottom-left':
-      return { x: SCREEN_MARGIN, y: bottomY, width: halfW, height: halfH };
+      return { x: leftX, y: bottomY, width, height };
     case 'bottom-right':
-      return { x: rightX, y: bottomY, width: halfW, height: halfH };
+      return { x: rightX, y: bottomY, width, height };
   }
 }
 
