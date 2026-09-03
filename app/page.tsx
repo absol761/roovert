@@ -789,6 +789,16 @@ export default function Page() {
     }
     // Deleted the active conversation - fall back to the next most recent
     // one, or a fresh empty conversation if that was the last one.
+    //
+    // Abort any in-flight request first, same as switchConversation/
+    // startNewChat: the history panel (and its delete button) stays open
+    // and interactive during streaming, so without this an in-flight
+    // response's setHistory(prev => ...)/setResponse(...) calls would land
+    // on the fallback conversation's state we're about to switch into,
+    // corrupting it with a response that belongs to the deleted one.
+    abortController?.abort();
+    setAbortController(null);
+    setIsProcessing(false);
     const fallback = next[0];
     setResponse(null);
     setQuery('');
