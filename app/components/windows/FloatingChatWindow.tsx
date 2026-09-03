@@ -48,21 +48,33 @@ function quadrantNearPointer(clientX: number, clientY: number): Quadrant | null 
   return null;
 }
 
-function quadrantRect(quadrant: Quadrant) {
-  const halfW = window.innerWidth / 2 - SCREEN_MARGIN * 1.5;
-  const halfH = window.innerHeight / 2 - SCREEN_MARGIN * 1.5;
-  const rightX = window.innerWidth / 2 + SCREEN_MARGIN / 2;
-  const bottomY = window.innerHeight / 2 + SCREEN_MARGIN / 2;
+export function quadrantRect(quadrant: Quadrant) {
+  const availableW = window.innerWidth - SCREEN_MARGIN * 2;
+  const availableH = window.innerHeight - SCREEN_MARGIN * 2;
+  // Half the available space, but never smaller than the window's own
+  // enforced minimum size. On a viewport narrower than ~664px or shorter
+  // than ~744px (e.g. two browsers split side by side on a laptop) a literal
+  // half would be smaller than MIN_WIDTH/MIN_HEIGHT, snapping the window to
+  // a size the drag-resize handles themselves would never allow it to
+  // shrink to - cramped enough to clip the header/input row. Also capped at
+  // the full available space so it can never claim more room than the
+  // viewport actually has.
+  const width = Math.min(Math.max(availableW / 2 - SCREEN_MARGIN / 2, MIN_WIDTH), availableW);
+  const height = Math.min(Math.max(availableH / 2 - SCREEN_MARGIN / 2, MIN_HEIGHT), availableH);
+  const leftX = SCREEN_MARGIN;
+  const rightX = window.innerWidth - SCREEN_MARGIN - width;
+  const topY = SCREEN_MARGIN;
+  const bottomY = window.innerHeight - SCREEN_MARGIN - height;
 
   switch (quadrant) {
     case 'top-left':
-      return { x: SCREEN_MARGIN, y: SCREEN_MARGIN, width: halfW, height: halfH };
+      return { x: leftX, y: topY, width, height };
     case 'top-right':
-      return { x: rightX, y: SCREEN_MARGIN, width: halfW, height: halfH };
+      return { x: rightX, y: topY, width, height };
     case 'bottom-left':
-      return { x: SCREEN_MARGIN, y: bottomY, width: halfW, height: halfH };
+      return { x: leftX, y: bottomY, width, height };
     case 'bottom-right':
-      return { x: rightX, y: bottomY, width: halfW, height: halfH };
+      return { x: rightX, y: bottomY, width, height };
   }
 }
 
@@ -188,6 +200,21 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
       setPosition({ x: rect.x, y: rect.y });
       setSize({ width: rect.width, height: rect.height });
     }
+  };
+
+  // A cancelled pointer stream (e.g. a touch gesture the browser reinterprets
+  // as a page scroll, a stylus leaving hover range, or the OS interrupting
+  // the gesture) never fires pointerup. Without this, dragState/isDragging/
+  // snapPreview would be left dangling: the header would stay stuck showing
+  // the "grabbing" cursor and, if the pointer was near an edge when it
+  // happened, the corner-snap preview overlay would stay rendered
+  // indefinitely. Unlike a real release, a cancel is not a deliberate drop
+  // at that location, so this only resets state - it never triggers a
+  // corner-snap the way handleDragEnd does.
+  const handleDragCancel = () => {
+    dragState.current = null;
+    setIsDragging(false);
+    setSnapPreview(null);
   };
 
   const handleResizeStart = (e: React.PointerEvent, direction: ResizeDirection) => {
@@ -365,6 +392,7 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
           onPointerDown={handleDragStart}
           onPointerMove={handleDragMove}
           onPointerUp={handleDragEnd}
+          onPointerCancel={handleDragCancel}
         >
           <div className="relative flex items-center gap-2 min-w-0" ref={modelMenuRef}>
             <RoovertMark className="w-4 h-4 text-[var(--accent)] shrink-0" />
@@ -462,17 +490,18 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
             visible diagonal-lines glyph in the bottom-right corner so at
             least one resize handle is obvious at a glance instead of
             requiring the user to discover it by hovering. */}
-        <div onPointerDown={(e) => handleResizeStart(e, 'n')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -top-1 left-2 right-2 h-2 cursor-ns-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
-        <div onPointerDown={(e) => handleResizeStart(e, 's')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -bottom-1 left-2 right-2 h-2 cursor-ns-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
-        <div onPointerDown={(e) => handleResizeStart(e, 'w')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -left-1 top-2 bottom-2 w-2 cursor-ew-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
-        <div onPointerDown={(e) => handleResizeStart(e, 'e')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -right-1 top-2 bottom-2 w-2 cursor-ew-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
-        <div onPointerDown={(e) => handleResizeStart(e, 'nw')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -top-1 -left-1 w-4 h-4 cursor-nwse-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
-        <div onPointerDown={(e) => handleResizeStart(e, 'ne')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -top-1 -right-1 w-4 h-4 cursor-nesw-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
-        <div onPointerDown={(e) => handleResizeStart(e, 'sw')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} className="absolute -bottom-1 -left-1 w-4 h-4 cursor-nesw-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 'n')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} onPointerCancel={handleResizeEnd} className="absolute -top-1 left-2 right-2 h-2 cursor-ns-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 's')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} onPointerCancel={handleResizeEnd} className="absolute -bottom-1 left-2 right-2 h-2 cursor-ns-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 'w')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} onPointerCancel={handleResizeEnd} className="absolute -left-1 top-2 bottom-2 w-2 cursor-ew-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 'e')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} onPointerCancel={handleResizeEnd} className="absolute -right-1 top-2 bottom-2 w-2 cursor-ew-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 'nw')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} onPointerCancel={handleResizeEnd} className="absolute -top-1 -left-1 w-4 h-4 cursor-nwse-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 'ne')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} onPointerCancel={handleResizeEnd} className="absolute -top-1 -right-1 w-4 h-4 cursor-nesw-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
+        <div onPointerDown={(e) => handleResizeStart(e, 'sw')} onPointerMove={handleResizeMove} onPointerUp={handleResizeEnd} onPointerCancel={handleResizeEnd} className="absolute -bottom-1 -left-1 w-4 h-4 cursor-nesw-resize touch-none" style={{ touchAction: 'none' }} aria-hidden="true" />
         <div
           onPointerDown={(e) => handleResizeStart(e, 'se')}
           onPointerMove={handleResizeMove}
           onPointerUp={handleResizeEnd}
+          onPointerCancel={handleResizeEnd}
           className="select-none absolute -bottom-1 -right-1 w-5 h-5 cursor-nwse-resize touch-none flex items-center justify-center group"
           style={{ touchAction: 'none' }}
           aria-hidden="true"
