@@ -693,6 +693,13 @@ export default function Page() {
     setMessageFeedback({});
     setExpandedReasoning({});
     setCopiedResponseIdx(null);
+    // Aborting above only stops the in-flight regenerate fetch - it doesn't
+    // synchronously clear this, so without resetting it here a message index
+    // reused in the new (empty) conversation could briefly render stale
+    // regenerating text with a spinning icon before the abort's catch
+    // handler catches up. Same fix as switchConversation/deleteConversation.
+    setRegeneratingIdx(null);
+    setRegeneratingText('');
     // Same fix as openGlobalFeed below: the real scroll position lives on
     // window/document, not #main-content. Without this, clicking New Chat
     // while scrolled down into "Browse AI Models"/"Built With Itself"/etc.
@@ -757,6 +764,13 @@ export default function Page() {
     setMessageFeedback({});
     setExpandedReasoning({});
     setCopiedResponseIdx(null);
+    // Aborting above only stops the in-flight regenerate fetch - it doesn't
+    // synchronously clear this, so without resetting it here the new
+    // conversation's history can briefly render the old conversation's
+    // in-flight regenerate text (with a spinning icon) on whichever message
+    // happens to share the same index, until the abort's catch handler runs.
+    setRegeneratingIdx(null);
+    setRegeneratingText('');
   };
 
   const renameConversation = (id: string, rawTitle: string) => {
@@ -775,6 +789,16 @@ export default function Page() {
     }
     // Deleted the active conversation - fall back to the next most recent
     // one, or a fresh empty conversation if that was the last one.
+    //
+    // Abort any in-flight request first, same as switchConversation/
+    // startNewChat: the history panel (and its delete button) stays open
+    // and interactive during streaming, so without this an in-flight
+    // response's setHistory(prev => ...)/setResponse(...) calls would land
+    // on the fallback conversation's state we're about to switch into,
+    // corrupting it with a response that belongs to the deleted one.
+    abortController?.abort();
+    setAbortController(null);
+    setIsProcessing(false);
     const fallback = next[0];
     setResponse(null);
     setQuery('');
@@ -782,6 +806,11 @@ export default function Page() {
     setMessageFeedback({});
     setExpandedReasoning({});
     setCopiedResponseIdx(null);
+    // Same reasoning as switchConversation/startNewChat: this is per-message
+    // UI state tied to the conversation being left, not the one we're
+    // switching into.
+    setRegeneratingIdx(null);
+    setRegeneratingText('');
     if (fallback) {
       setActiveConversationId(fallback.id);
       setHistory(fallback.history);
