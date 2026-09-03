@@ -281,8 +281,23 @@ export async function POST(request: NextRequest) {
               // either/or, not a fallback guess.
               const hfModelId = HUGGINGFACE_MODEL_MAP[selectedModel];
               if (hfModelId) {
-                incrementRateLimit(request, 'huggingface').catch(() => {});
-                streamHuggingFaceLeg(selectedModel, hfModelId, hfMessages, enqueue, finishModel);
+                // Security: this leg calls the same costly external HF API
+                // as app/api/huggingface/route.ts, so it must be gated by
+                // the same stricter 'huggingface' bucket (30/hour) rather
+                // than relying solely on the shared 'ai-query' limit
+                // (10/min = 600/hour) - otherwise Multi-Perspective is a
+                // trivial way to blow through HF's intended quota. Must use
+                // applyRateLimit (atomically checks-and-consumes), not
+                // incrementRateLimit, which is a no-op - see rateLimit.ts.
+                (async () => {
+                  const hfRateLimitResponse = await applyRateLimit(request, 'huggingface');
+                  if (hfRateLimitResponse) {
+                    enqueue({ model: selectedModel, content: getUserFriendlyErrorMessage(), done: true });
+                    finishModel();
+                    return;
+                  }
+                  await streamHuggingFaceLeg(selectedModel, hfModelId, hfMessages, enqueue, finishModel);
+                })();
                 return;
               }
 

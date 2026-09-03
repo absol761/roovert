@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST } from './route';
+import { applyRateLimit } from '../../lib/security/rateLimit';
 
 // ---------------------------------------------------------------------------
 // Request-construction helpers. NextRequest is a thin wrapper around the
@@ -179,5 +180,63 @@ describe('POST /api/query-gateway', () => {
     }
     const blocked = await POST(makeRequest({}, ip));
     expect(blocked.status).toBe(429);
+  });
+
+  it('enforces the stricter huggingface bucket on a Multi-Perspective leg that resolves to an HF model, instead of only the shared ai-query limit', async () => {
+    // This leg calls the same costly external Hugging Face API as
+    // app/api/huggingface/route.ts, so it must be gated by that route's own
+    // 'huggingface' bucket (30/hour) - not just the much larger shared
+    // 'ai-query' bucket (10/min = 600/hour). Previously this leg only called
+    // the deprecated no-op incrementRateLimit('huggingface'), so the bucket
+    // was never actually checked or consumed here at all.
+    const ip = freshIp();
+    const exhaustingRequest = makeRequest({}, ip);
+    for (let i = 0; i < 30; i++) {
+      const result = await applyRateLimit(exhaustingRequest, 'huggingface');
+      expect(result).toBeNull();
+    }
+
+    const fetchMock = vi.fn(async (...args: [RequestInfo | URL, RequestInit?]) => {
+      const url = typeof args[0] === 'string' ? args[0] : args[0].toString();
+      if (url.includes('router.huggingface.co')) {
+        throw new Error(`Unexpected HF fetch to ${url} - the huggingface bucket was already exhausted`);
+      }
+      if (!url.includes('api.groq.com')) {
+        throw new Error(`Unexpected fetch to ${url}`);
+      }
+      return sseResponse(['ok']);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await POST(
+      makeRequest(
+        {
+          query: 'hi',
+          runParallel: true,
+          parallelModel1: 'hf-qwen-2.5-7b',
+          parallelModel2: 'llama-3.3-70b',
+        },
+        ip
+      )
+    );
+    expect(response.status).toBe(200);
+    const text = await response.text();
+
+    const chunks = text
+      .split('\n\n')
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('data: '))
+      .map((line) => JSON.parse(line.slice('data: '.length)) as { model?: string; content?: string; done?: boolean });
+
+    // The HF leg must have been short-circuited by the rate limit (never
+    // reaching streamHuggingFaceLeg / fetching router.huggingface.co), while
+    // the Groq leg still completes normally.
+    const hfChunks = chunks.filter((c) => c.model === 'hf-qwen-2.5-7b');
+    expect(hfChunks.length).toBeGreaterThan(0);
+    expect(hfChunks.some((c) => c.done === true)).toBe(true);
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes('huggingface'))).toBe(false);
+
+    const groqChunks = chunks.filter((c) => c.model === 'llama-3.3-70b');
+    expect(groqChunks.some((c) => c.content === 'ok')).toBe(true);
   });
 });
