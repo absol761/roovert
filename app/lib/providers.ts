@@ -241,9 +241,14 @@ function validateCustomModel(raw: unknown, providerId: string, index: number): P
  * array. `takenIds` is the set of provider ids already claimed (by a
  * built-in provider or an earlier custom entry) so collisions can be
  * rejected without silently letting a custom entry shadow/replace one of
- * the curated built-ins. Returns null (after logging why) for anything
- * invalid, so one bad entry never breaks the entries around it. */
-function validateCustomProvider(raw: unknown, index: number, takenIds: Set<string>): ProviderConfig | null {
+ * the curated built-ins. `takenFlatIds` is the set of *flattened* model ids
+ * (see flattenedModelId) already claimed - checked and updated as each
+ * model is validated so two different (provider, model) pairs can never
+ * produce the same flattened id (see the loop below for why that's
+ * possible even when `takenIds` alone finds no provider-id collision).
+ * Returns null (after logging why) for anything invalid, so one bad entry
+ * never breaks the entries around it. */
+function validateCustomProvider(raw: unknown, index: number, takenIds: Set<string>, takenFlatIds: Set<string>): ProviderConfig | null {
   if (!raw || typeof raw !== 'object') {
     console.error(`[providers] CUSTOM_PROVIDERS[${index}] is not an object - skipping it.`);
     return null;
@@ -290,9 +295,32 @@ function validateCustomProvider(raw: unknown, index: number, takenIds: Set<strin
     return null;
   }
 
-  const models = p.models
-    .map((m, i) => validateCustomModel(m, id, i))
-    .filter((m): m is ProviderRegistryModel => m !== null);
+  // Built as an explicit loop (not .map/.filter) rather than validating
+  // each model in isolation: flattenedModelId() joins provider id and
+  // model id with a plain "-", which is not an unambiguous separator when
+  // ids themselves may contain hyphens (both provider ids and model ids
+  // do in this very registry, e.g. built-in model id "llama-3.3-70b").
+  // provider.id="my", model.id="ollama-1" and provider.id="my-ollama",
+  // model.id="1" both flatten to "my-ollama-1" - without this check
+  // whichever one is registered second would silently steal the first
+  // one's flattened id in getAvailableProviderModels/
+  // findAvailableProviderModel, making the first one's model unreachable
+  // (or, worse, requests intended for it silently resolving to the
+  // second's provider/baseURL/key instead). The exact same collision can
+  // also happen between two models *within* one provider's own array if
+  // it lists a duplicate model id, which was equally unchecked before.
+  const models: ProviderRegistryModel[] = [];
+  p.models.forEach((m, i) => {
+    const validated = validateCustomModel(m, id, i);
+    if (!validated) return;
+    const flatId = flattenedModelId({ id }, validated);
+    if (takenFlatIds.has(flatId)) {
+      console.error(`[providers] CUSTOM_PROVIDERS[${index}] ("${id}") models[${i}] has flattened id "${flatId}", which collides with an already-registered model (another provider's, or an earlier model in this same provider's array) - skipping it.`);
+      return;
+    }
+    takenFlatIds.add(flatId);
+    models.push(validated);
+  });
 
   if (models.length === 0) {
     console.error(`[providers] CUSTOM_PROVIDERS[${index}] ("${id}") had no valid models after validation - skipping it.`);
@@ -333,10 +361,15 @@ export function parseCustomProviders(raw: string | undefined): ProviderConfig[] 
   }
 
   const takenIds = new Set(BUILTIN_PROVIDERS.map((p) => p.id));
+  // Seeded with every built-in provider's own flattened model ids so a
+  // CUSTOM_PROVIDERS entry can never silently shadow a built-in's model
+  // id even when the provider ids themselves don't collide - see the
+  // hyphen-ambiguity comment in validateCustomProvider.
+  const takenFlatIds = new Set(BUILTIN_PROVIDERS.flatMap((p) => p.models.map((m) => flattenedModelId(p, m))));
   const result: ProviderConfig[] = [];
 
   parsed.forEach((entry, index) => {
-    const config = validateCustomProvider(entry, index, takenIds);
+    const config = validateCustomProvider(entry, index, takenIds, takenFlatIds);
     if (!config) return; // already logged why
     takenIds.add(config.id);
     result.push(config);
@@ -377,7 +410,14 @@ export function getAvailableProviders(): ProviderConfig[] {
  * across different providers (built-in or custom) can never collide,
  * without requiring whoever writes a CUSTOM_PROVIDERS entry to
  * coordinate ids with anyone else. This is the id a client sends as
- * `model` in a request, and the id findAvailableProviderModel looks up. */
+ * `model` in a request, and the id findAvailableProviderModel looks up.
+ * Joining with a plain "-" is not by itself collision-proof (provider ids
+ * and model ids may both contain hyphens, so two different (provider,
+ * model) pairs can flatten to the same string - see the dedicated
+ * takenFlatIds check in validateCustomProvider, which is what actually
+ * makes the "globally unique" claim above hold for CUSTOM_PROVIDERS
+ * input). Built-in providers are hand-authored and separately verified
+ * unique by a providers.test.ts check. */
 export function flattenedModelId(provider: Pick<ProviderConfig, 'id'>, model: Pick<ProviderRegistryModel, 'id'>): string {
   return `${provider.id}-${model.id}`;
 }

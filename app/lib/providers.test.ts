@@ -352,6 +352,92 @@ describe('parseCustomProviders - adversarial CUSTOM_PROVIDERS payloads', () => {
     const result = parseCustomProviders(raw);
     expect(result).toHaveLength(0);
   });
+
+  it('drops a later custom provider\'s model whose flattened id collides with an earlier custom provider\'s, even though the provider ids themselves do not collide', () => {
+    // flattenedModelId() joins provider id + model id with a plain "-",
+    // which is ambiguous once ids themselves may contain hyphens:
+    // "my" + "ollama-1" and "my-ollama" + "1" both flatten to
+    // "my-ollama-1". Without a dedicated check, the second provider
+    // registered would silently steal the first's flattened id, making
+    // the first provider's model unreachable via findAvailableProviderModel
+    // (or worse, resolving requests intended for one provider/key/baseURL
+    // to the other's instead).
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const raw = JSON.stringify([
+      {
+        id: 'my',
+        name: 'My',
+        baseURL: 'http://localhost:9001/v1/chat/completions',
+        apiKeyEnvVar: 'MY_KEY',
+        models: [{ id: 'ollama-1', name: 'Ollama 1', apiId: 'ollama-1', category: 'c', description: 'd' }],
+      },
+      {
+        id: 'my-ollama',
+        name: 'My Ollama',
+        baseURL: 'http://localhost:9002/v1/chat/completions',
+        apiKeyEnvVar: 'MY_OLLAMA_KEY',
+        models: [{ id: '1', name: 'One', apiId: 'one', category: 'c', description: 'd' }],
+      },
+    ]);
+    const result = parseCustomProviders(raw);
+
+    // The first provider survives with its model intact. The second
+    // provider's `id` doesn't collide with the first's, but its only
+    // model's *flattened* id does, so that model is dropped - leaving the
+    // second provider with zero valid models, which drops the whole entry
+    // (same "no valid models after validation" rule as any other
+    // all-models-invalid custom provider).
+    expect(result.map((p) => p.id)).toEqual(['my']);
+    expect(result.find((p) => p.id === 'my')?.models.map((m) => m.id)).toEqual(['ollama-1']);
+
+    // The flattened id resolves unambiguously back to the first provider.
+    const flatIds = result.flatMap((p) => p.models.map((m) => flattenedModelId(p, m)));
+    expect(flatIds).toEqual(['my-ollama-1']);
+    expect(new Set(flatIds).size).toBe(flatIds.length);
+  });
+
+  it('drops a duplicate model id within the same custom provider\'s models array instead of registering two identical flattened ids', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const raw = JSON.stringify([
+      {
+        id: 'dupmodels',
+        name: 'Dup Models',
+        baseURL: 'http://localhost:9003/v1/chat/completions',
+        apiKeyEnvVar: 'DUPMODELS_KEY',
+        models: [
+          { id: 'm', name: 'First', apiId: 'first-api-id', category: 'c', description: 'd' },
+          { id: 'm', name: 'Second', apiId: 'second-api-id', category: 'c', description: 'd' },
+        ],
+      },
+    ]);
+    const result = parseCustomProviders(raw);
+    expect(result).toHaveLength(1);
+    // Only the first occurrence survives.
+    expect(result[0].models).toHaveLength(1);
+    expect(result[0].models[0].apiId).toBe('first-api-id');
+  });
+
+  it('drops a custom provider model whose flattened id collides with a built-in provider\'s model, even when the provider id itself is unique', () => {
+    // Cerebras ships a built-in model flattened as "cerebras-llama-3.3-70b".
+    // A custom provider "cerebras-llama" with model id "3.3-70b" would
+    // flatten to the exact same string if this weren't checked against the
+    // built-ins too.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const raw = JSON.stringify([
+      {
+        id: 'cerebras-llama',
+        name: 'Impersonating Cerebras Llama',
+        baseURL: 'http://localhost:9004/v1/chat/completions',
+        apiKeyEnvVar: 'IMPOSTER_KEY',
+        models: [{ id: '3.3-70b', name: 'Fake', apiId: 'fake', category: 'c', description: 'd' }],
+      },
+    ]);
+    const result = parseCustomProviders(raw);
+    // The provider id itself ("cerebras-llama") doesn't collide with any
+    // built-in id, so the entry survives, but its sole model does collide
+    // once flattened, so it's dropped, leaving no valid models.
+    expect(result).toHaveLength(0);
+  });
 });
 
 describe('registry stability under concurrent/racing calls', () => {
