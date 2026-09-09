@@ -14,18 +14,12 @@ import { useProviderRateLimits } from './hooks/useProviderRateLimits';
 import { useAvailableProviderModels } from './hooks/useAvailableProviderModels';
 import { useFullscreen } from './hooks/useFullscreen';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { LooksModal } from './components/modals/LooksModal';
-import { MoreModelsModal } from './components/modals/MoreModelsModal';
-import { SettingsModal } from './components/modals/SettingsModal';
-import { ConversationHistoryModal } from './components/modals/ConversationHistoryModal';
-import { CommandPaletteModal, type CommandAction } from './components/modals/CommandPaletteModal';
-import { ShortcutsHelpModal } from './components/modals/ShortcutsHelpModal';
+import type { CommandAction } from './components/modals/CommandPaletteModal';
 import { GlobalFeedExpanded } from './components/GlobalFeedExpanded';
 import { NeuralNoise } from './components/NeuralNoise';
 import { SidebarRail } from './components/layout/SidebarRail';
 import { MobileNav } from './components/layout/MobileNav';
 import { TopStrip } from './components/layout/TopStrip';
-import { FloatingChatWindow } from './components/windows/FloatingChatWindow';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -48,6 +42,27 @@ const R3FVisualizer = dynamic(() => import('./components/visualizer/R3FVisualize
 const VisualizerConfigPanel = dynamic(
   () => import('./components/visualizer/VisualizerConfigPanel').then(m => m.VisualizerConfigPanel),
   { ssr: false }
+);
+
+// The modals/windows below are all conditionally rendered (only ever mounted
+// once the user opens them), so - like the visualizer above - there's no
+// reason to ship their code in every visitor's initial bundle. Unlike the
+// visualizer none of them have a hard SSR requirement (no module-scope or
+// render-time browser-API access), so they're left SSR-enabled.
+const LooksModal = dynamic(() => import('./components/modals/LooksModal').then(m => m.LooksModal));
+const MoreModelsModal = dynamic(() => import('./components/modals/MoreModelsModal').then(m => m.MoreModelsModal));
+const SettingsModal = dynamic(() => import('./components/modals/SettingsModal').then(m => m.SettingsModal));
+const ConversationHistoryModal = dynamic(
+  () => import('./components/modals/ConversationHistoryModal').then(m => m.ConversationHistoryModal)
+);
+const CommandPaletteModal = dynamic(
+  () => import('./components/modals/CommandPaletteModal').then(m => m.CommandPaletteModal)
+);
+const ShortcutsHelpModal = dynamic(
+  () => import('./components/modals/ShortcutsHelpModal').then(m => m.ShortcutsHelpModal)
+);
+const FloatingChatWindow = dynamic(
+  () => import('./components/windows/FloatingChatWindow').then(m => m.FloatingChatWindow)
 );
 
 type ChatContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
