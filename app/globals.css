@@ -380,70 +380,10 @@ body::before {
   width: 100%;
 }
 
-.hero-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  align-items: center;
-}
-
-.command-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--layout-gap);
-}
-
-.command-deck {
-  width: 100%;
-}
-
 .interface-grid {
   display: grid;
   gap: var(--layout-gap);
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-}
-
-.widgets-stack {
-  display: flex;
-  gap: 1.5rem;
-  width: 100%;
-}
-
-.intel-panel {
-  display: grid;
-  gap: 1.25rem;
-}
-
-.intel-card {
-  padding: var(--space-6);
-  border-radius: var(--panel-radius, 24px);
-  border: 1px solid var(--border);
-  background: var(--panel-bg);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.18);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.intel-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-}
-
-.intel-card h3 {
-  font-size: 1.75rem;
-  margin-top: 0.25rem;
-  margin-bottom: 0.75rem;
-}
-
-.intel-card p {
-  color: color-mix(in srgb, var(--foreground), transparent 35%);
-}
-
-/* Ops Snapshot specifically reads a touch large next to Active
-   Intelligence above it - a modest, scoped size reduction (not touching
-   the shared .intel-card used elsewhere) via a modifier class. */
-.intel-card--compact {
-  padding: var(--space-5);
 }
 
 .chat-stack {
@@ -452,21 +392,19 @@ body::before {
   gap: 1.5rem;
 }
 
-.history-feed {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
 .glass-panel {
   border-radius: var(--panel-radius, 24px) !important;
   border-style: var(--panel-border-style, solid) !important;
   border-width: var(--panel-border-width, 1px) !important;
   position: relative;
   box-shadow: var(--shadow-md);
-  transition: box-shadow var(--duration-base) var(--ease-out),
-    transform var(--duration-base) var(--ease-out),
-    border-color var(--duration-base) var(--ease-out);
+  /* transition/will-change consolidated here from a later duplicate
+     `.glass-panel` rule ("Enhanced UX Micro-interactions" below) that
+     silently overrode this rule's transition by source order (identical
+     selector/specificity) - the value kept is the one that was actually
+     winning, so this merge changes nothing rendered. */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, border-color, background-color;
 }
 
 /* Subtle top-edge highlight for a real glass-refraction feel, without
@@ -490,20 +428,6 @@ button.glass-panel:hover,
   box-shadow: var(--shadow-glow);
 }
 
-@media (min-width: 1024px) {
-  .command-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 3fr) minmax(240px, 1.2fr);
-    align-items: start;
-  }
-
-  .widgets-stack {
-    flex-direction: column;
-    position: sticky;
-    top: 160px;
-  }
-}
-
 /* Layout Overrides - Structural Changes */
 [data-layout='compact'] {
   --layout-gap: 1rem;
@@ -519,22 +443,12 @@ button.glass-panel:hover,
   gap: 1rem;
 }
 
-[data-layout='compact'] .intel-panel {
-  display: none;
-  /* Hide sidebar in compact */
-}
-
 [data-layout='compact'] .chat-stack {
   width: 100%;
 }
 
 [data-layout='compact'] nav {
   padding: 0.75rem 1.5rem;
-}
-
-[data-layout='compact'] .hero-stack {
-  gap: 0.75rem;
-  padding: 2rem 0;
 }
 
 [data-layout='compact'] main {
@@ -581,38 +495,9 @@ button.glass-panel:hover,
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* Auto-adjust layout when widgets are closed. Deliberately a distinct
-   class from Tailwind's own `hidden` utility (which this panel also
-   carries, for its normal `hidden lg:grid` responsive show/hide) -
-   reusing `hidden` here previously caused this rule to match (and, being
-   !important, always win) at every viewport width, permanently hiding
-   the panel regardless of widget state. */
-.intel-panel.intel-panel-collapsed {
-  display: none !important;
-}
-
-.intel-panel:empty {
-  display: none !important;
-}
-
-/* When intel panel is hidden, chat takes full width */
-.interface-grid:has(.intel-panel.intel-panel-collapsed),
-.interface-grid:has(.intel-panel:empty) {
-  grid-template-columns: 1fr !important;
-}
-
-/* When only one widget remains, adjust spacing */
-.intel-panel:has(.intel-card:only-child) {
-  gap: 0;
-}
-
 @media (max-width: 1024px) {
   [data-layout='standard'] .interface-grid {
     grid-template-columns: 1fr;
-  }
-
-  [data-layout='standard'] .intel-panel {
-    display: none;
   }
 }
 
@@ -641,10 +526,6 @@ button.glass-panel:hover,
    comment - so the two mechanisms don't fight over the same property. */
 [data-layout='wide'] main {
   padding-right: 4rem;
-}
-
-[data-layout='wide'] .intel-panel {
-  display: grid;
 }
 
 [data-layout='wide'] .chat-stack {
@@ -691,17 +572,24 @@ body {
 
 /* Enhanced Button Interactions - specific properties only (not `all`) so
    the browser can composite these on the GPU instead of re-checking every
-   animatable CSS property on every hover/press across the whole page. */
+   animatable CSS property on every hover/press across the whole page.
+   transition/position/overflow consolidated in from a later duplicate
+   "button" rule ("Smooth button interactions" below) that silently
+   overrode this rule's transition by source order (identical
+   selector/specificity, later wins) - the transition value kept is the one
+   that was actually winning, so this merge changes nothing rendered. */
 button {
-  transition: transform var(--duration-fast) var(--ease-out),
-    background-color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
-    opacity var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  position: relative;
+  overflow: hidden;
 }
 
 button:active {
@@ -761,15 +649,6 @@ textarea:focus {
 
 .thinking-dot {
   animation: thinking-dot 1.4s ease-in-out infinite;
-}
-
-/* Improved Transitions */
-.transition-smooth {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.transition-fast {
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Better Mobile Touch Targets */
@@ -849,68 +728,6 @@ textarea:focus {
   overscroll-behavior: contain;
 }
 
-@keyframes kinetic-pulse {
-
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.8;
-    transform: scale(1.02);
-  }
-}
-
-@keyframes stream-flow {
-  0% {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-
-  10% {
-    opacity: 1;
-  }
-
-  90% {
-    opacity: 1;
-  }
-
-  100% {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-}
-
-@keyframes glow-pulse {
-
-  0%,
-  100% {
-    box-shadow: 0 0 20px var(--accent-glow);
-  }
-
-  50% {
-    box-shadow: 0 0 40px var(--accent-glow), 0 0 60px var(--accent-glow);
-  }
-}
-
-@keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-20px);
-  }
-}
-
-.delay-1000 {
-  animation-delay: 1s;
-}
-
 /* Evergreen - deep forest jewel-tone with an antique-gold accent. A quiet,
    still theme (no animation, no hue-shift) - the "field guide/editorial"
    feel comes from the warm parchment foreground against a dark bottle-
@@ -942,21 +759,12 @@ textarea:focus {
   opacity: 0.7;
 }
 
-[data-look='evergreen'] .glass-panel,
-[data-look='evergreen'] .intel-card {
+[data-look='evergreen'] .glass-panel {
   border: 1px solid var(--border) !important;
   background: linear-gradient(160deg, rgba(31, 56, 44, 0.75), rgba(15, 30, 23, 0.9)) !important;
   box-shadow:
     0 18px 36px -14px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(243, 236, 216, 0.05) !important;
-}
-
-/* Editorial masthead motif: a short goldleaf rule under card headings,
-   evoking a field-guide/almanac heading treatment rather than a UI badge. */
-[data-look='evergreen'] .intel-card h3 {
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--accent);
-  width: fit-content;
 }
 
 /* ============================================
@@ -1013,8 +821,7 @@ textarea:focus {
   opacity: 0.6;
 }
 
-[data-look='neominimal'] .glass-panel,
-[data-look='neominimal'] .intel-card {
+[data-look='neominimal'] .glass-panel {
   border: 1px solid var(--border) !important;
   box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.05),
@@ -1051,8 +858,7 @@ textarea:focus {
   opacity: 0.8;
 }
 
-[data-look='depth'] .glass-panel,
-[data-look='depth'] .intel-card {
+[data-look='depth'] .glass-panel {
   border: 1px solid var(--border) !important;
   box-shadow:
     0 24px 32px -8px rgba(28, 26, 46, 0.14),
@@ -1090,8 +896,7 @@ textarea:focus {
   display: none;
 }
 
-[data-look='accessible'] .glass-panel,
-[data-look='accessible'] .intel-card {
+[data-look='accessible'] .glass-panel {
   border: 3px solid var(--border) !important;
   box-shadow: none !important;
   background: #ffffff !important;
@@ -1233,12 +1038,6 @@ textarea:focus {
   color: #79c0ff;
 }
 
-/* Enhanced UX Micro-interactions */
-.glass-panel {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform, border-color, background-color;
-}
-
 .glass-panel:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
@@ -1276,22 +1075,6 @@ textarea:focus {
   filter: drop-shadow(0 0 8px var(--accent));
 }
 
-/* Smooth button interactions */
-button {
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-button:active {
-  transform: scale(0.98);
-}
-
 /* Subtle hover effects for interactive elements */
 a,
 button,
@@ -1306,22 +1089,9 @@ button:hover,
 }
 
 /* Improved glassmorphism with better backdrop blur */
-.glass-panel,
-.intel-card {
+.glass-panel {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-}
-
-/* Smooth scroll behavior */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Better input focus states */
-input:focus,
-textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 0, 128, 128), 0.1);
 }
 
 /* Subtle scale on interactive cards */
@@ -1408,8 +1178,7 @@ textarea:focus {
   }
 }
 
-[data-look='gemini'] .glass-panel,
-[data-look='gemini'] .intel-card {
+[data-look='gemini'] .glass-panel {
   border: 1px solid var(--border) !important;
   box-shadow:
     0 8px 32px rgba(173, 137, 235, 0.2),
@@ -1507,26 +1276,13 @@ textarea:focus {
   opacity: 0.5;
 }
 
-[data-look='aurora'] .glass-panel,
-[data-look='aurora'] .intel-card {
+[data-look='aurora'] .glass-panel {
   border: 1px solid var(--border) !important;
   box-shadow:
     0 20px 40px -16px rgba(76, 58, 227, 0.28),
     0 0 32px rgba(45, 212, 191, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
   background: linear-gradient(160deg, rgba(20, 18, 36, 0.9), rgba(13, 20, 24, 0.82)) !important;
-}
-
-@keyframes ocean-wave-texture {
-
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-10px);
-  }
 }
 
 /* No `.dark { ... }` override block here: roovert doesn't use next-themes'
@@ -1684,7 +1440,6 @@ textarea:focus {
    spec's honest discussion of why forcing true glass under paragraph text
    doesn't work. */
 [data-look='skeuomorphic'] .glass-panel,
-[data-look='skeuomorphic'] .intel-card,
 [data-look='skeuomorphic'] .chat-turn-user {
   position: relative;
   background:
@@ -1696,7 +1451,6 @@ textarea:focus {
 }
 
 [data-look='skeuomorphic'] .glass-panel::after,
-[data-look='skeuomorphic'] .intel-card::after,
 [data-look='skeuomorphic'] .chat-turn-user::after {
   content: '';
   position: absolute;
