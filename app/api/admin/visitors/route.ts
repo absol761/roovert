@@ -67,52 +67,50 @@ export async function GET(request: NextRequest) {
     await incrementRateLimit(request, 'general');
     
     const db = getDatabase();
-    
-    // Get total unique visitors
-    const totalResult = db.prepare('SELECT COUNT(*) as count FROM unique_visitors').get() as { count: number };
-    
-    // Get visitors from last 24 hours
+
     const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
-    const recentResult = db
-      .prepare('SELECT COUNT(*) as count FROM unique_visitors WHERE last_seen > ?')
-      .get(twentyFourHoursAgo) as { count: number };
-    
-    // Get visitors from last 7 days
     const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-    const weeklyResult = db
-      .prepare('SELECT COUNT(*) as count FROM unique_visitors WHERE last_seen > ?')
-      .get(sevenDaysAgo) as { count: number };
-    
-    // Get visitors from last 30 days
     const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-    const monthlyResult = db
-      .prepare('SELECT COUNT(*) as count FROM unique_visitors WHERE last_seen > ?')
-      .get(thirtyDaysAgo) as { count: number };
-    
-    // Get oldest and newest visitor timestamps
-    const oldestVisitor = db
-      .prepare('SELECT first_seen FROM unique_visitors ORDER BY first_seen ASC LIMIT 1')
-      .get() as { first_seen: number } | undefined;
-    
-    const newestVisitor = db
-      .prepare('SELECT first_seen FROM unique_visitors ORDER BY first_seen DESC LIMIT 1')
-      .get() as { first_seen: number } | undefined;
-    
-    // Get total visit count (sum of all visit_count)
-    const totalVisitsResult = db
-      .prepare('SELECT SUM(visit_count) as total FROM unique_visitors')
-      .get() as { total: number | null };
-    
+
+    // Single pass over unique_visitors: conditional aggregates replace what
+    // used to be 7 separate full/index scans of the same table (COUNT(*),
+    // three windowed COUNTs, MIN/MAX of first_seen, SUM of visit_count).
+    // Note on SQLite semantics: COUNT(*) is 0 on an empty table, but
+    // SUM(...)/MIN()/MAX() all return NULL on zero rows (not 0/undefined),
+    // so those are coalesced below exactly as the original per-query
+    // undefined/null checks did.
+    const stats = db
+      .prepare(
+        `SELECT
+           COUNT(*) as total,
+           SUM(CASE WHEN last_seen > ? THEN 1 ELSE 0 END) as last24h,
+           SUM(CASE WHEN last_seen > ? THEN 1 ELSE 0 END) as last7d,
+           SUM(CASE WHEN last_seen > ? THEN 1 ELSE 0 END) as last30d,
+           MIN(first_seen) as oldest,
+           MAX(first_seen) as newest,
+           SUM(visit_count) as totalVisits
+         FROM unique_visitors`
+      )
+      .get(twentyFourHoursAgo, sevenDaysAgo, thirtyDaysAgo) as {
+      total: number;
+      last24h: number | null;
+      last7d: number | null;
+      last30d: number | null;
+      oldest: number | null;
+      newest: number | null;
+      totalVisits: number | null;
+    };
+
     return NextResponse.json({
       success: true,
       stats: {
-        totalUniqueVisitors: totalResult.count,
-        last24Hours: recentResult.count,
-        last7Days: weeklyResult.count,
-        last30Days: monthlyResult.count,
-        totalVisits: totalVisitsResult.total || 0,
-        oldestVisitorDate: oldestVisitor ? new Date(oldestVisitor.first_seen).toISOString() : null,
-        newestVisitorDate: newestVisitor ? new Date(newestVisitor.first_seen).toISOString() : null,
+        totalUniqueVisitors: stats.total,
+        last24Hours: stats.last24h || 0,
+        last7Days: stats.last7d || 0,
+        last30Days: stats.last30d || 0,
+        totalVisits: stats.totalVisits || 0,
+        oldestVisitorDate: stats.oldest ? new Date(stats.oldest).toISOString() : null,
+        newestVisitorDate: stats.newest ? new Date(stats.newest).toISOString() : null,
       },
       timestamp: new Date().toISOString(),
     });
