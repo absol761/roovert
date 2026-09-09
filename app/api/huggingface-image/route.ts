@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { containsOffensiveContent } from '../../lib/prompts';
 import { applyRateLimit, incrementRateLimit, getRateLimitStatus } from '../../lib/security/rateLimit';
+import { passthroughRateLimit } from '../../lib/security/rateLimitHelpers';
 import { validateString, validateBodySize, createValidationErrorResponse, MAX_LENGTHS } from '../../lib/security/validation';
 
 // Route segment config - image generation runs ~10-20s of real diffusion
@@ -148,15 +149,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const rateLimitResponse = await applyRateLimit(request, 'stats');
   if (rateLimitResponse) {
-    try {
-      const errorData = await rateLimitResponse.json();
-      return NextResponse.json(errorData, {
-        status: 429,
-        headers: Object.fromEntries(rateLimitResponse.headers.entries())
-      });
-    } catch {
-      return rateLimitResponse;
-    }
+    return passthroughRateLimit(rateLimitResponse);
   }
 
   const status = await getRateLimitStatus(request, 'huggingface-image');

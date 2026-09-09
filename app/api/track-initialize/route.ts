@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 import { getDatabase } from '@/app/lib/db';
 import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
+import { passthroughRateLimit } from '../../lib/security/rateLimitHelpers';
 import { getRedis } from '@/app/lib/redis';
 
 // Cooldown period in seconds (5 minutes)
@@ -35,15 +36,7 @@ export async function POST(request: NextRequest) {
     // and visit/route.ts - this route was previously missing this check).
     const rateLimitResponse = await applyRateLimit(request, 'tracking');
     if (rateLimitResponse) {
-      try {
-        const errorData = await rateLimitResponse.json();
-        return NextResponse.json(errorData, {
-          status: 429,
-          headers: Object.fromEntries(rateLimitResponse.headers.entries())
-        });
-      } catch {
-        return rateLimitResponse;
-      }
+      return passthroughRateLimit(rateLimitResponse);
     }
 
     const now = Date.now();
@@ -156,15 +149,7 @@ export async function GET(request: NextRequest) {
     // Security: Rate limiting for stats endpoints
     const rateLimitResponse = await applyRateLimit(request, 'stats');
     if (rateLimitResponse) {
-      try {
-        const errorData = await rateLimitResponse.json();
-        return NextResponse.json(errorData, {
-          status: 429,
-          headers: Object.fromEntries(rateLimitResponse.headers.entries())
-        });
-      } catch {
-        return rateLimitResponse;
-      }
+      return passthroughRateLimit(rateLimitResponse);
     }
 
     const userCount = await getInitializeCount();

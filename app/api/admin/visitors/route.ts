@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHash, timingSafeEqual } from 'crypto';
 import { getDatabase } from '@/app/lib/db';
 import { applyRateLimit, incrementRateLimit } from '../../../lib/security/rateLimit';
+import { passthroughRateLimit } from '../../../lib/security/rateLimitHelpers';
 
 /**
  * Constant-time key comparison. Plain `===` short-circuits on the first
@@ -32,15 +33,7 @@ export async function GET(request: NextRequest) {
       windowMs: 60 * 1000,
     });
     if (rateLimitResponse) {
-      try {
-        const errorData = await rateLimitResponse.json();
-        return NextResponse.json(errorData, { 
-          status: 429, 
-          headers: Object.fromEntries(rateLimitResponse.headers.entries()) 
-        });
-      } catch {
-        return rateLimitResponse;
-      }
+      return passthroughRateLimit(rateLimitResponse);
     }
 
     // Security: Authentication check - API key must be in environment variable (never hardcoded)

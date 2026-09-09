@@ -32,6 +32,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSystemPrompt, filterResponse, containsOffensiveContent } from '../../lib/prompts';
 import { applyRateLimit, incrementRateLimit, getRateLimitStatus } from '../../lib/security/rateLimit';
+import { passthroughRateLimit } from '../../lib/security/rateLimitHelpers';
 import { validateAIQueryRequest, validateBodySize, createValidationErrorResponse, historyContentToText, MAX_LENGTHS } from '../../lib/security/validation';
 import { getAvailableProviderModels, findAvailableProviderModel } from '../../lib/providers';
 
@@ -342,15 +343,7 @@ export async function GET(request: NextRequest) {
   // Security: Apply rate limiting to status check endpoint
   const rateLimitResponse = await applyRateLimit(request, 'stats');
   if (rateLimitResponse) {
-    try {
-      const errorData = await rateLimitResponse.json();
-      return NextResponse.json(errorData, {
-        status: 429,
-        headers: Object.fromEntries(rateLimitResponse.headers.entries()),
-      });
-    } catch {
-      return rateLimitResponse;
-    }
+    return passthroughRateLimit(rateLimitResponse);
   }
 
   const status = await getRateLimitStatus(request, 'provider');
