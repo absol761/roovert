@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
 import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
+import { passthroughRateLimit } from '../../lib/security/rateLimitHelpers';
 import { validateTrackingRequest, validateBodySize, createValidationErrorResponse } from '../../lib/security/validation';
 
 export async function POST(request: NextRequest) {
@@ -9,15 +10,7 @@ export async function POST(request: NextRequest) {
     // Security: Rate limiting for tracking endpoints
     const rateLimitResponse = await applyRateLimit(request, 'tracking');
     if (rateLimitResponse) {
-      try {
-        const errorData = await rateLimitResponse.json();
-        return NextResponse.json(errorData, { 
-          status: 429, 
-          headers: Object.fromEntries(rateLimitResponse.headers.entries()) 
-        });
-      } catch {
-        return rateLimitResponse;
-      }
+      return passthroughRateLimit(rateLimitResponse);
     }
 
     // Security: Validate request body size

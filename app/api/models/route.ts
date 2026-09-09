@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS } from '../../lib/models';
 import { applyRateLimit } from '../../lib/security/rateLimit';
+import { passthroughRateLimit } from '../../lib/security/rateLimitHelpers';
 import { getAvailableProviderModels } from '../../lib/providers';
 
 /**
@@ -28,15 +29,7 @@ export async function GET(request: NextRequest) {
     // Security: Rate limiting - read-only, publicly-cacheable data
     const rateLimitResponse = await applyRateLimit(request, 'stats');
     if (rateLimitResponse) {
-      try {
-        const errorData = await rateLimitResponse.json();
-        return NextResponse.json(errorData, {
-          status: 429,
-          headers: Object.fromEntries(rateLimitResponse.headers.entries())
-        });
-      } catch {
-        return rateLimitResponse;
-      }
+      return passthroughRateLimit(rateLimitResponse);
     }
 
     const allModels = [...MODELS, ...OPENROUTER_MODELS, ...HUGGINGFACE_MODELS];

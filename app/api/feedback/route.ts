@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/app/lib/db';
 import { kv } from '@vercel/kv';
 import { applyRateLimit } from '../../lib/security/rateLimit';
+import { passthroughRateLimit } from '../../lib/security/rateLimitHelpers';
 import { validateBodySize, validateFeedbackRequest, createValidationErrorResponse } from '../../lib/security/validation';
 
 // Round timestamps to the hour - enough resolution to see trends over time
@@ -19,15 +20,7 @@ export async function POST(request: NextRequest) {
     // 'tracking' bucket - this is analytics, not a cost-bearing action)
     const rateLimitResponse = await applyRateLimit(request, 'tracking');
     if (rateLimitResponse) {
-      try {
-        const errorData = await rateLimitResponse.json();
-        return NextResponse.json(errorData, {
-          status: 429,
-          headers: Object.fromEntries(rateLimitResponse.headers.entries())
-        });
-      } catch {
-        return rateLimitResponse;
-      }
+      return passthroughRateLimit(rateLimitResponse);
     }
 
     // Security: Validate request body size

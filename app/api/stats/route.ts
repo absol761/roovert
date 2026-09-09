@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/app/lib/db';
 import { applyRateLimit, incrementRateLimit } from '../../lib/security/rateLimit';
+import { passthroughRateLimit } from '../../lib/security/rateLimitHelpers';
 import { getRedis } from '@/app/lib/redis';
 
 /**
@@ -54,15 +55,7 @@ export async function GET(request: NextRequest) {
     // Security: Rate limiting for stats endpoints (more lenient for public stats)
     const rateLimitResponse = await applyRateLimit(request, 'stats');
     if (rateLimitResponse) {
-      try {
-        const errorData = await rateLimitResponse.json();
-        return NextResponse.json(errorData, {
-          status: 429,
-          headers: Object.fromEntries(rateLimitResponse.headers.entries())
-        });
-      } catch {
-        return rateLimitResponse;
-      }
+      return passthroughRateLimit(rateLimitResponse);
     }
 
     // Security: Increment rate limit after validation
