@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -21,8 +21,21 @@ import { useSmoothedText } from '../hooks/useSmoothedText';
  * partial markdown (a dangling `**`, an unclosed fence) well enough that
  * incremental rendering reads as live progress rather than a jarring pop
  * to fully-styled markdown once the stream ends.
+ *
+ * Wrapped in React.memo: app/page.tsx renders one of these per history
+ * turn inside a single ~3000-line component, so ANY unrelated state update
+ * there (typing in the composer, a different turn streaming, scroll
+ * bookkeeping, etc.) re-renders the whole tree, including every already-
+ * finished MarkdownMessage. Without memo, each of those re-renders re-runs
+ * the full remark-gfm/rehype-highlight markdown parse for every historical
+ * message even though its `content`/`isStreaming` props never changed -
+ * confirmed by instrumenting a render counter: 10 unrelated keystrokes in
+ * the composer produced 10 extra re-renders of an already-settled history
+ * entry's MarkdownMessage. `content`/`isStreaming` are plain primitives, so
+ * memo's default shallow comparison is sufficient - no custom comparator
+ * needed.
  */
-export function MarkdownMessage({ content, isStreaming = false }: { content: string; isStreaming?: boolean }) {
+function MarkdownMessageImpl({ content, isStreaming = false }: { content: string; isStreaming?: boolean }) {
   const displayedContent = useSmoothedText(content, isStreaming);
   const [copiedBlockIndex, setCopiedBlockIndex] = useState<number | null>(null);
   // Brief self-resetting "Copy failed" state for the same button, shown when
@@ -124,3 +137,6 @@ export function MarkdownMessage({ content, isStreaming = false }: { content: str
     </ReactMarkdown>
   );
 }
+
+export const MarkdownMessage = memo(MarkdownMessageImpl);
+MarkdownMessage.displayName = 'MarkdownMessage';

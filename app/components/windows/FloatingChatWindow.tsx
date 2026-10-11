@@ -93,6 +93,71 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
   const [isDragging, setIsDragging] = useState(false);
   const [snapPreview, setSnapPreview] = useState<Quadrant | null>(null);
 
+  // Drag/resize move handlers fire on every native pointermove event, which
+  // on a high-polling-rate mouse/trackpad can arrive far more often than the
+  // screen actually repaints (confirmed via a render counter: 60 synthetic
+  // pointermove events produced 62 component re-renders with no throttling
+  // at all - effectively one setState-driven render per pixel of movement).
+  // These refs coalesce every pointermove between two animation frames into
+  // a single setState call each, so the window still tracks the pointer
+  // exactly but re-renders at most once per frame instead of once per event.
+  const dragRafRef = useRef<number | null>(null);
+  const pendingDragUpdateRef = useRef<{ x: number; y: number; quadrant: Quadrant | null } | null>(null);
+  const resizeRafRef = useRef<number | null>(null);
+  const pendingResizeUpdateRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // Pure cancel, no setState - only for the unmount cleanup below, where
+  // committing a final position to a component that's going away would be
+  // pointless (and risks a "set state after unmount" warning).
+  const cancelScheduledDragFrame = () => {
+    if (dragRafRef.current !== null) {
+      cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
+    pendingDragUpdateRef.current = null;
+  };
+
+  const cancelScheduledResizeFrame = () => {
+    if (resizeRafRef.current !== null) {
+      cancelAnimationFrame(resizeRafRef.current);
+      resizeRafRef.current = null;
+    }
+    pendingResizeUpdateRef.current = null;
+  };
+
+  // Applies any still-pending coalesced update immediately, then cancels the
+  // frame that would have applied it. Used when a drag/resize is ending
+  // (pointerup/pointercancel) - without this, a pending update scheduled for
+  // the next frame but not yet flushed would simply be dropped, leaving the
+  // window up to one frame behind the pointer's actual last position at the
+  // moment of release instead of exactly where handleDragMove/handleResizeMove
+  // last computed it to be.
+  const flushScheduledDragFrame = () => {
+    if (dragRafRef.current !== null) {
+      cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
+    const pending = pendingDragUpdateRef.current;
+    pendingDragUpdateRef.current = null;
+    if (pending) {
+      setPosition({ x: pending.x, y: pending.y });
+      setSnapPreview(pending.quadrant);
+    }
+  };
+
+  const flushScheduledResizeFrame = () => {
+    if (resizeRafRef.current !== null) {
+      cancelAnimationFrame(resizeRafRef.current);
+      resizeRafRef.current = null;
+    }
+    const pending = pendingResizeUpdateRef.current;
+    pendingResizeUpdateRef.current = null;
+    if (pending) {
+      setPosition({ x: pending.x, y: pending.y });
+      setSize({ width: pending.width, height: pending.height });
+    }
+  };
+
   const [modelId, setModelId] = useState(MODELS[0].id);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const modelMenuRef = useRef<HTMLDivElement>(null);
@@ -116,6 +181,8 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
     setMounted(true);
     return () => {
       abortControllerRef.current?.abort();
+      cancelScheduledDragFrame();
+      cancelScheduledResizeFrame();
     };
   }, []);
 
@@ -184,13 +251,33 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
     // to hang off-screen by up to 200px.
     const maxX = Math.max(window.innerWidth - size.width, 0);
     const maxY = Math.max(window.innerHeight - size.height, 0);
-    setPosition({ x: Math.min(Math.max(nextX, 0), maxX), y: Math.min(Math.max(nextY, 0), maxY) });
-    setSnapPreview(quadrantNearPointer(e.clientX, e.clientY));
+    // Coalesce every pointermove between animation frames into one pending
+    // update (see dragRafRef above) instead of calling setState on every
+    // single event.
+    pendingDragUpdateRef.current = {
+      x: Math.min(Math.max(nextX, 0), maxX),
+      y: Math.min(Math.max(nextY, 0), maxY),
+      quadrant: quadrantNearPointer(e.clientX, e.clientY),
+    };
+    if (dragRafRef.current === null) {
+      dragRafRef.current = requestAnimationFrame(() => {
+        dragRafRef.current = null;
+        const pending = pendingDragUpdateRef.current;
+        pendingDragUpdateRef.current = null;
+        if (!pending) return;
+        setPosition({ x: pending.x, y: pending.y });
+        setSnapPreview(pending.quadrant);
+      });
+    }
   };
 
   const handleDragEnd = () => {
     const last = dragState.current;
     dragState.current = null;
+    // Commit whatever position was still pending for the next frame so the
+    // window ends up exactly where the pointer was released, then (below)
+    // the corner-snap logic may override it again if applicable.
+    flushScheduledDragFrame();
     setIsDragging(false);
     setSnapPreview(null);
     if (!last) return;
@@ -213,6 +300,7 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
   // corner-snap the way handleDragEnd does.
   const handleDragCancel = () => {
     dragState.current = null;
+    flushScheduledDragFrame();
     setIsDragging(false);
     setSnapPreview(null);
   };
@@ -267,12 +355,25 @@ export function FloatingChatWindow({ id, initialX, initialY, zIndex, onClose, on
       next.y = start.originY + (start.originH - next.height);
     }
 
-    setPosition({ x: next.x, y: next.y });
-    setSize({ width: next.width, height: next.height });
+    // Coalesce every pointermove between animation frames into one pending
+    // update (see resizeRafRef above) instead of calling setState twice on
+    // every single event.
+    pendingResizeUpdateRef.current = next;
+    if (resizeRafRef.current === null) {
+      resizeRafRef.current = requestAnimationFrame(() => {
+        resizeRafRef.current = null;
+        const pending = pendingResizeUpdateRef.current;
+        pendingResizeUpdateRef.current = null;
+        if (!pending) return;
+        setPosition({ x: pending.x, y: pending.y });
+        setSize({ width: pending.width, height: pending.height });
+      });
+    }
   };
 
   const handleResizeEnd = () => {
     resizeState.current = null;
+    flushScheduledResizeFrame();
   };
 
   const sendMessage = async () => {
