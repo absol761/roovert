@@ -19,10 +19,11 @@ For the historical audit that originally identified the gaps these measures addr
 | Bucket | Window | Max Requests | Used by |
 |---|---|---|---|
 | `general` | 1 min | 30 | Edge proxy default; `/api/admin/visitors` uses a stricter 10/min override |
-| `ai-query` | 1 min | 10 | `/api/query-gateway` |
+| `ai-query` | 1 min | 10 | `/api/query-gateway`, `/api/openrouter`, `/api/huggingface`, `/api/provider` (each also layers its own more specific bucket below on top) |
 | `huggingface` | 1 hour | 30 | Hugging Face chat models (`/api/huggingface`, HF legs of Multi-Perspective) |
 | `huggingface-image` | 1 hour | 10 | `/api/huggingface-image` (image generation — much more expensive per request) |
 | `openrouter` | 24 hours | 45 | `/api/openrouter` |
+| `provider` | 1 hour | 30 | `/api/provider` (Cerebras/Gemini/Mistral/DeepSeek/Together AI plus any `CUSTOM_PROVIDERS` entry) |
 | `tracking` | 1 min | 60 | `/api/track`, `/api/track-initialize`, `/api/visit`, `/api/feedback` |
 | `stats` | 1 min | 100 | `/api/stats` |
 | `share` | 1 hour | 20 | Creating a share link (`/api/share` POST) |
@@ -32,7 +33,7 @@ For the historical audit that originally identified the gaps these measures addr
 
 **Location:** `app/lib/security/validation.ts`.
 
-Schema-based validation with type checks, length limits, and rejection of unexpected fields. Applied to `/api/query-gateway`, `/api/openrouter`, `/api/huggingface`, `/api/huggingface-image`, `/api/visit`, `/api/track`, `/api/share`, and `/api/feedback`.
+Schema-based validation with type checks, length limits, and rejection of unexpected fields. Applied to `/api/query-gateway`, `/api/openrouter`, `/api/huggingface`, `/api/huggingface-image`, `/api/provider`, `/api/visit`, `/api/track`, `/api/share`, and `/api/feedback`.
 
 | Field | Max Length |
 |---|---|
@@ -63,7 +64,7 @@ Sanitization strips null bytes and control characters, trims whitespace, and enf
 
 ## 4. API Key Handling
 
-- All API keys and secrets live in environment variables only (`GROQ_API_KEY`, `OPENROUTER_API_KEY`, `HUGGINGFACE_API_KEY`, `ADMIN_API_KEY`, `KV_REST_API_*`, `UPSTASH_REDIS_REST_*`) — none are hardcoded in source.
+- All API keys and secrets live in environment variables only (`GROQ_API_KEY`, `OPENROUTER_API_KEY`, `HUGGINGFACE_API_KEY`, `CEREBRAS_API_KEY`, `GEMINI_API_KEY`, `MISTRAL_API_KEY`, `DEEPSEEK_API_KEY`, `TOGETHER_API_KEY`, `CUSTOM_PROVIDERS`, `ADMIN_API_KEY`, `KV_REST_API_*`, `UPSTASH_REDIS_REST_*`) — none are hardcoded in source.
 - Keys are never sent to the client; all provider calls happen server-side in API routes.
 - Missing required keys produce a generic error/graceful degradation rather than an exception that could leak internals (e.g. `/api/query-gateway` returns a user-friendly streamed error if `GROQ_API_KEY` is unset).
 
@@ -81,7 +82,7 @@ Uses `react-markdown` with `remark-gfm` and `rehype-highlight` only — notably,
 
 ## 7. Security Headers
 
-**Location:** `next.config.ts`.
+**Location:** `next.config.ts` (static headers below); the `Content-Security-Policy` header itself is set dynamically per-request in `proxy.ts` instead, since it embeds a fresh nonce on every request.
 
 | Header | Value |
 |---|---|
@@ -96,10 +97,10 @@ Uses `react-markdown` with `remark-gfm` and `rehype-highlight` only — notably,
 | `Cross-Origin-Opener-Policy` | `same-origin` |
 | `Cross-Origin-Resource-Policy` | `same-origin` |
 
-Current CSP:
+Current CSP (nonce is a fresh random value generated per request in `proxy.ts`):
 ```
 default-src 'self';
-script-src 'self' 'unsafe-inline' https://cdn.segment.com;
+script-src 'self' 'nonce-<per-request>' https://cdn.segment.com;
 style-src 'self' 'unsafe-inline';
 img-src 'self' data: https:;
 font-src 'self' data:;
@@ -109,7 +110,7 @@ base-uri 'self';
 form-action 'self';
 ```
 
-`'unsafe-eval'` has been removed from `script-src`. **`'unsafe-inline'` is still present for both `script-src` and `style-src`** — this is a known remaining gap (tracked separately; check `next.config.ts` directly for the current value before assuming it's been tightened further, since it may change without this doc being updated in lockstep).
+`'unsafe-eval'` has been removed from `script-src`, and `'unsafe-inline'` has since been replaced there too by a per-request nonce (the same nonce is applied to the one inline `<script>` in `app/layout.tsx` via the `x-nonce` header). **`'unsafe-inline'` is still present for `style-src`** — this is a known remaining gap (tracked separately; check `proxy.ts`/`next.config.ts` directly for the current value before assuming it's been tightened further, since it may change without this doc being updated in lockstep).
 
 `poweredByHeader` is disabled (no `X-Powered-By` fingerprinting) and `productionBrowserSourceMaps` is disabled (no source maps shipped in production).
 
@@ -130,7 +131,7 @@ There is no explicit CORS configuration (no `Access-Control-Allow-Origin` or rel
 
 ## Known Gaps / Next Steps
 
-- `'unsafe-inline'` remains in the CSP `script-src`/`style-src` (see §7). Removing it would require moving to nonces or hashes for inline scripts/styles.
+- `'unsafe-inline'` remains in the CSP `style-src` (see §7). Removing it would require moving to nonces or hashes for inline styles (`script-src` already moved to a per-request nonce).
 - No structured request logging or alerting on rate-limit violations beyond the `console.error`/`console.warn` calls scattered through the route handlers.
 - No explicit CORS policy (see §8) — acceptable today since there's no legitimate cross-origin caller, but worth being deliberate about if that changes.
 - Rate limiting and validation are applied per-route rather than via a single shared middleware wrapper, so a new route can forget to opt in — worth double-checking new endpoints against the tables in §1/§2 before shipping them.
