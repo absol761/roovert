@@ -188,18 +188,7 @@ export default function PrivacyPage() {
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium mb-3">2.4 Analytics Information (With Consent)</h3>
-                  <p className="text-[var(--foreground)]/80 leading-relaxed mb-3">
-                    If you consent to analytics cookies, we use Segment.io to collect:
-                  </p>
-                  <ul className="list-disc list-inside space-y-2 text-[var(--foreground)]/80 ml-4">
-                    <li><strong>Page Views:</strong> Which pages you visit and when.</li>
-                    <li><strong>Anonymized IP Addresses:</strong> All IP addresses are anonymized to 0.0.0.0 before being sent to analytics services.</li>
-                    <li><strong>No Personal Identification:</strong> We do not use Segment.io&rsquo;s identify() function. All tracking is completely anonymous.</li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium mb-3">2.5 Information We Do NOT Collect</h3>
+                  <h3 className="text-lg font-medium mb-3">2.4 Information We Do NOT Collect</h3>
                   <p className="text-[var(--foreground)]/80 leading-relaxed mb-3">
                     We do not collect:
                   </p>
@@ -238,7 +227,6 @@ export default function PrivacyPage() {
                   <h3 className="text-lg font-medium mb-3">4.1 Data Storage</h3>
                   <ul className="list-disc list-inside space-y-2 ml-4">
                     <li><strong>Visitor Hashes:</strong> Stored in Vercel KV (Redis) or SQLite database. These are one-way hashes that cannot be reversed.</li>
-                    <li><strong>Analytics Data:</strong> Stored by Segment.io (if you consent) in accordance with their privacy policy.</li>
                     <li><strong>Local Data:</strong> Your chat history and settings are stored only in your browser&rsquo;s localStorage and are never sent to our servers.</li>
                   </ul>
                 </div>
@@ -246,7 +234,6 @@ export default function PrivacyPage() {
                   <h3 className="text-lg font-medium mb-3">4.2 Data Retention</h3>
                   <ul className="list-disc list-inside space-y-2 ml-4">
                     <li>Visitor hashes are retained indefinitely to maintain accurate unique visitor counts.</li>
-                    <li>Analytics data (if consented) is retained according to Segment.io&rsquo;s retention policies.</li>
                     <li>You can clear your local data at any time by clearing your browser&rsquo;s localStorage.</li>
                   </ul>
                 </div>
@@ -267,7 +254,6 @@ export default function PrivacyPage() {
               <div className="space-y-4 text-[var(--foreground)]/80 leading-relaxed">
                 <p>We use the following third-party services:</p>
                 <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li><strong>Segment.io:</strong> Analytics service (only loaded with your consent). All IP addresses are anonymized before being sent. See <a href="https://segment.com/legal/privacy/" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">Segment&rsquo;s Privacy Policy</a>.</li>
                   <li><strong>Vercel:</strong> Hosting and infrastructure provider. See <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">Vercel&rsquo;s Privacy Policy</a>.</li>
                 </ul>
               </div>
