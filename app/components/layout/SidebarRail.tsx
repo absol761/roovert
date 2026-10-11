@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   PanelLeft,
@@ -121,6 +122,7 @@ export function SidebarRail({
   micBurst,
 }: SidebarRailProps) {
   const prefersReducedMotion = useReducedMotion();
+  const router = useRouter();
   const topActions: RailAction[] = [
     {
       key: 'history',
@@ -145,7 +147,7 @@ export function SidebarRail({
       label: 'Careers',
       icon: <Briefcase className="w-[18px] h-[18px]" />,
       onClick: () => {
-        window.location.href = '/careers';
+        router.push('/careers');
       },
       hidden: isChatMode,
     },
