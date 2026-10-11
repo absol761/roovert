@@ -715,6 +715,20 @@ export default function Page() {
     // handler catches up. Same fix as switchConversation/deleteConversation.
     setRegeneratingIdx(null);
     setRegeneratingText('');
+    // Same stale-state class as regeneratingIdx/regeneratingText above: these
+    // are also per-turn UI state tied to the conversation being left (set at
+    // the top of handleSubmit for every new query), not persisted history.
+    // Aborting only stops the fetch - it doesn't clear whatever had already
+    // streamed in, so without resetting them here a multi-perspective
+    // comparison, an extended-thinking panel, an error status note, or the
+    // instant "just submitted" message bubble could all still be showing
+    // (frozen, mid-stream) over the new empty conversation.
+    setPendingUserMessage(null);
+    setReasoning(null);
+    setLiveReasoningExpanded(false);
+    setPerspectiveResponses(null);
+    setPerspectiveDoneModels(new Set());
+    setStatusNote(null);
     // Same fix as openGlobalFeed below: the real scroll position lives on
     // window/document, not #main-content. Without this, clicking New Chat
     // while scrolled down into "Browse AI Models"/"Built With Itself"/etc.
@@ -786,6 +800,21 @@ export default function Page() {
     // happens to share the same index, until the abort's catch handler runs.
     setRegeneratingIdx(null);
     setRegeneratingText('');
+    // Same stale-state class as regeneratingIdx/regeneratingText above: these
+    // are also per-turn UI state tied to the conversation being left (set at
+    // the top of handleSubmit for every new query), not persisted history.
+    // Aborting only stops the fetch - it doesn't clear whatever had already
+    // streamed in, so without resetting them here the new conversation could
+    // briefly (or, for perspectiveResponses/statusNote/reasoning - which
+    // nothing self-clears - indefinitely) render the old conversation's
+    // multi-perspective comparison, extended-thinking panel, error status
+    // note, or instant "just submitted" message bubble.
+    setPendingUserMessage(null);
+    setReasoning(null);
+    setLiveReasoningExpanded(false);
+    setPerspectiveResponses(null);
+    setPerspectiveDoneModels(new Set());
+    setStatusNote(null);
   };
 
   const renameConversation = (id: string, rawTitle: string) => {
@@ -826,6 +855,20 @@ export default function Page() {
     // switching into.
     setRegeneratingIdx(null);
     setRegeneratingText('');
+    // Same stale-state class as regeneratingIdx/regeneratingText above: these
+    // are also per-turn UI state tied to the conversation being left (set at
+    // the top of handleSubmit for every new query), not persisted history.
+    // Aborting only stops the fetch - it doesn't clear whatever had already
+    // streamed in, so without resetting them here the fallback conversation
+    // could render the deleted one's multi-perspective comparison,
+    // extended-thinking panel, error status note, or instant "just
+    // submitted" message bubble.
+    setPendingUserMessage(null);
+    setReasoning(null);
+    setLiveReasoningExpanded(false);
+    setPerspectiveResponses(null);
+    setPerspectiveDoneModels(new Set());
+    setStatusNote(null);
     if (fallback) {
       setActiveConversationId(fallback.id);
       setHistory(fallback.history);
