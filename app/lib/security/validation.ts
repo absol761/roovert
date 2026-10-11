@@ -60,14 +60,19 @@ export function validateString(
     return { valid: false, error: `${fieldName} must be a string` };
   }
 
+  // Check the length of the trimmed-but-not-yet-truncated input *before*
+  // sanitizing it, so an overlong value is rejected with a 400 instead of
+  // being silently truncated and accepted. (sanitizeString() truncates to
+  // maxLength internally, which would otherwise make this check unreachable.)
+  const trimmed = input.trim();
+  if (trimmed.length > maxLength) {
+    return { valid: false, error: `${fieldName} exceeds maximum length of ${maxLength} characters` };
+  }
+
   const sanitized = sanitizeString(input, maxLength);
 
   if (required && sanitized.length === 0) {
     return { valid: false, error: `${fieldName} cannot be empty` };
-  }
-
-  if (sanitized.length > maxLength) {
-    return { valid: false, error: `${fieldName} exceeds maximum length of ${maxLength} characters` };
   }
 
   return { valid: true, sanitized };
