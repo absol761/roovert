@@ -55,18 +55,39 @@ describe('validateString', () => {
     expect(result.error).toMatch(/cannot be empty/);
   });
 
-  it('silently truncates input over the max length rather than rejecting it', () => {
-    // sanitizeString() truncates before validateString()'s length check ever
-    // runs, so the "exceeds maximum length" error path is unreachable from
-    // here - documenting the actual (truncate, not reject) behavior.
+  it('rejects a string over the max length with a 400-style error instead of silently truncating it', () => {
+    // Regression test: validateString() used to call sanitizeString() (which
+    // truncates to maxLength) before ever checking the length itself, so the
+    // "exceeds maximum length" branch was dead code and an overlong string
+    // was silently truncated and accepted. The check now runs against the
+    // untruncated (trimmed) input, so it can actually reject.
     const result = validateString('a'.repeat(101), 'query', 100, true);
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/exceeds maximum length/);
+    expect(result.sanitized).toBeUndefined();
+  });
+
+  it('accepts a string exactly at the max length', () => {
+    const result = validateString('a'.repeat(100), 'query', 100, true);
     expect(result.valid).toBe(true);
     expect(result.sanitized).toHaveLength(100);
+  });
+
+  it('accepts a string under the max length', () => {
+    const result = validateString('a'.repeat(99), 'query', 100, true);
+    expect(result.valid).toBe(true);
+    expect(result.sanitized).toHaveLength(99);
   });
 
   it('accepts and sanitizes valid input', () => {
     const result = validateString('  hello world  ', 'query', 100, true);
     expect(result).toEqual({ valid: true, sanitized: 'hello world' });
+  });
+
+  it('does not count trimmed-away leading/trailing whitespace against the max length', () => {
+    const result = validateString(`  ${'a'.repeat(100)}  `, 'query', 100, true);
+    expect(result.valid).toBe(true);
+    expect(result.sanitized).toHaveLength(100);
   });
 });
 

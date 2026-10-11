@@ -96,23 +96,17 @@ describe('POST /api/huggingface-image - validation', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  // validateString's sanitizeString truncates to MAX_LENGTHS.IMAGE_PROMPT
-  // (1000 chars) *before* the length check runs, so an overlong string
-  // prompt is silently truncated rather than rejected with a 400 - the
-  // "exceeds maximum length" branch is unreachable for a string input.
-  // This pins down that real (if slightly surprising) behavior instead of
-  // assuming a rejection.
-  it('silently truncates a prompt over the 1000-char IMAGE_PROMPT limit to 1000 chars rather than rejecting it', async () => {
+  // validateString() now rejects an overlong string outright instead of
+  // silently truncating it and letting the request through (see
+  // app/lib/security/validation.ts and its test for the underlying fix).
+  it('rejects a prompt over the 1000-char IMAGE_PROMPT limit with a 400 instead of silently truncating it', async () => {
     const fetchMock = stubHfFetch();
     const longPrompt = 'a'.repeat(1001);
     const response = await POST(makeRequest({ prompt: longPrompt }));
-    expect(response.status).toBe(200);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const sentPrompt = (JSON.parse(init.body as string) as { inputs: string }).inputs;
-    expect(sentPrompt).toHaveLength(1000);
-    expect(sentPrompt).toBe('a'.repeat(1000));
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect((body.errors as string[]).join(' ')).toMatch(/exceeds maximum length/);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('rejects a request whose declared Content-Length exceeds the 1MB body-size cap with a 400', async () => {
