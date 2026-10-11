@@ -24,6 +24,6 @@ This is one piece of the broader environment setup covered in [DEPLOYMENT.md](./
 
 ## Verification
 Once connected and redeployed:
-- The "Unique Minds" count will start at 0 (or whatever initial value is set) and increment by exactly 1 for every *new* device that visits the site.
+- The `unique_visitors` counter (incremented via `kv.incr`) will start at 0 and increment by exactly 1 for every *new* device that visits the site. It isn't shown in a public widget — view it via the `/api/admin/visitors` endpoint (requires `ADMIN_API_KEY`; see [SECURITY.md](./SECURITY.md) §3).
 - It will persist forever, even after updates.
 

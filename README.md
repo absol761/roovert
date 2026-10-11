@@ -33,15 +33,9 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 # Optional: Admin API key (for testing /api/admin/visitors endpoint locally)
 # If not set, admin endpoint will return 503 in local development
 ADMIN_API_KEY=your_admin_key_here
-
-# Optional: Segment.io Analytics (for anonymous user analytics)
-# Get your write key from https://app.segment.com/
-NEXT_PUBLIC_SEGMENT_WRITE_KEY=your_segment_write_key_here
 ```
 
 Never commit `.env.local` or any file containing secrets.
-
-**Note:** The Segment write key is optional. If not provided, analytics will be disabled and no warning will be shown in production.
 
 Run the development server:
 
@@ -127,7 +121,6 @@ Optional environment variables:
 - `CUSTOM_PROVIDERS` - JSON array adding any other OpenAI-compatible endpoint (e.g. a self-hosted Ollama/vLLM/LM Studio instance) with zero code changes - see [Bring your own model provider](#bring-your-own-model-provider) below
 - `KV_REST_API_URL` / `KV_REST_API_TOKEN` - visitor tracking storage (falls back to local SQLite)
 - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` - shared rate-limit storage (required for multi-instance production deployments)
-- `NEXT_PUBLIC_SEGMENT_WRITE_KEY` - Segment.io write key for anonymous analytics (get from [app.segment.com](https://app.segment.com/))
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full deployment walkthrough (Vercel dashboard/CLI, verification, troubleshooting), [docs/CUSTOM_DOMAIN_SETUP.md](docs/CUSTOM_DOMAIN_SETUP.md) for pointing a custom domain at your deployment, [docs/PROVIDERS.md](docs/PROVIDERS.md) for the full "bring your own model provider" reference, and [docs/SECURITY.md](docs/SECURITY.md) for the current security posture.
 

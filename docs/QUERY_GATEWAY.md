@@ -23,10 +23,14 @@ Model IDs are validated against a fixed allowlist before use (see [SECURITY.md](
 
 | Model ID | Underlying model |
 |---|---|
-| `ooverta` | `meta-llama/llama-4-scout-17b-16e-instruct` (the default model) |
-| `llama-4-scout` | `meta-llama/llama-4-scout-17b-16e-instruct` |
-| `llama-3.3-70b` | `llama-3.3-70b-versatile` |
-| `llama-3.1-8b` | `llama-3.1-8b-instant` |
+| `ooverta` | `qwen/qwen3.6-27b` (the default model) |
+| `gpt-oss-120b` | `openai/gpt-oss-120b` |
+| `gpt-oss-20b` | `openai/gpt-oss-20b` |
+| `llama-4-scout` | `qwen/qwen3.6-27b` (legacy alias, kept so a client still holding this old id falls onto a working model) |
+| `llama-3.3-70b` | `openai/gpt-oss-120b` (legacy alias) |
+| `llama-3.1-8b` | `openai/gpt-oss-20b` (legacy alias) |
+
+Production's Groq org allows only a restricted model set (no Llama chat models), which is why the legacy `llama-*` ids above now resolve to Qwen/GPT-OSS models rather than actual Llama models — see the `MODEL_MAP` comment in `app/api/query-gateway/route.ts`.
 
 **Hugging Face-backed (`HUGGINGFACE_MODEL_MAP`, only reachable via Multi-Perspective's combine slots):** Qwen 2.5 72B/7B, DeepSeek V3, DeepSeek R1, Phi-4, Kimi K3, GPT-OSS 120B, Qwen 3 235B — see `app/lib/huggingface.ts` for the exact model ID mapping. Reasoning-capable models (Kimi K3, DeepSeek R1) have their `<think>`/`reasoning_content` chain-of-thought stripped before display.
 
