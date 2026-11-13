@@ -2422,13 +2422,23 @@ while (true) {
                     {/* Conversation History */}
                     <div className="space-y-6 mb-6">
                       {history
-                        .filter(entry => {
+                        // Pair each entry with its index *before* filtering,
+                        // rather than recovering it afterwards with
+                        // `history.indexOf(entry)` - indexOf does a linear
+                        // scan, so calling it once per rendered entry made
+                        // this whole block O(n^2) in conversation length.
+                        // That ran on every render of this (single, giant)
+                        // component, including once per SSE chunk while a
+                        // response streams in, so a long-ish conversation
+                        // (tens of turns) turned every streamed token into
+                        // thousands of extra comparisons on the main thread.
+                        .map((entry, originalIdx) => ({ entry, originalIdx }))
+                        .filter(({ entry }) => {
                           if (!searchQuery) return true;
                           const query = searchQuery.toLowerCase();
                           return entry.query.toLowerCase().includes(query) || entry.response.toLowerCase().includes(query);
                         })
-                        .map((entry) => {
-                          const originalIdx = history.indexOf(entry);
+                        .map(({ entry, originalIdx }) => {
                           return (
                             <div key={originalIdx} className="space-y-4">
                               {/* User Message - a lighter surface tint (no
