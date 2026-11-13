@@ -1,7 +1,7 @@
 /**
  * Notebook math recognition — pure functions, no React.
  *
- * Two independent, deliberately narrow recognizers (see
+ * Three independent, deliberately narrow recognizers (see
  * docs/design/NOTEBOOK_FEATURE_SPEC.md §1b/R3 and §3 for the full rationale):
  *
  *  1. `isArithmeticLine` / `evaluateArithmetic` — a strict allowlist regex plus
@@ -11,6 +11,17 @@
  *     ordinary prose that happens to contain a stray `=` (see spec A3/A7/A9).
  *  2. `extractLatexSpans` — finds explicit `$...$` / `$$...$$` delimiters the
  *     user typed themselves. Nothing is ever inferred or auto-wrapped.
+ *  3. `extractShorthandExponents` — finds bare `base^exponent` tokens (e.g.
+ *     `x^2`, `n^-1`, `x^(n+1)`) with no `$` delimiters at all, so they can be
+ *     rendered as real superscript live, the same way typing exponent
+ *     notation looks in every tool this was researched against. Caret-only,
+ *     deliberately: underscore would be the natural counterpart for
+ *     subscript, but `_` already means italics in Markdown and appears
+ *     constantly in snake_case identifiers (`my_variable`), so a bare-`_`
+ *     shorthand would misfire far too often to meet this feature's own bar
+ *     for avoiding false positives. `^` has no competing meaning in prose or
+ *     code and is virtually unambiguous as exponentiation when it directly
+ *     touches its base with no surrounding whitespace.
  *
  * `evaluateArithmetic` never uses JavaScript's `eval` or the `Function`
  * constructor to run anything — arbitrary
@@ -448,4 +459,63 @@ export function extractLatexSpans(text: string): LatexSpan[] {
   }
 
   return spans;
+}
+
+// ---------------------------------------------------------------------------
+// 4. extractShorthandExponents
+// ---------------------------------------------------------------------------
+
+export interface ShorthandExponentToken {
+  /** The full matched text (e.g. `"x^2"`, `"n^-1"`, `"x^(n+1)"`) - itself valid, renderable LaTeX with no delimiters needed. */
+  raw: string;
+  /** Index of the first character of `raw` in the original text (inclusive). */
+  start: number;
+  /** Index one past the last character of `raw` in the original text (exclusive). */
+  end: number;
+}
+
+// Base: a single letter or digit immediately before `^`, with no whitespace
+// in between - this is what makes "a ^ b" (spaced, far more likely to be
+// prose or a stray caret than exponentiation) not match, while "x^2" does.
+// Exponent: a short signed alnum run (`2`, `-2`, `10`, `n`) or a single-level
+// parenthesized group (`(n+1)`) - deliberately not full LaTeX, just enough
+// to cover the shorthand this is meant for.
+const SHORTHAND_EXPONENT_PATTERN = /[A-Za-z0-9]\^(-?[A-Za-z0-9]+|\([^()]*\))/g;
+
+/**
+ * Finds every bare `base^exponent` token in `text` with no `$`/`$$`
+ * delimiters at all (see this file's module comment for why `^` only, never
+ * `_`). Each match's `raw` text is itself valid LaTeX on its own (KaTeX
+ * doesn't require delimiters to render a bare expression), so callers can
+ * feed it straight into the same renderer `extractLatexSpans` results use.
+ *
+ * `excludeRanges` (typically the spans `extractLatexSpans` already found in
+ * the same text) lets callers skip matches inside text that's already going
+ * to render as a whole LaTeX span - a `^` inside `$x^2$` shouldn't also get
+ * picked up as a second, independent shorthand match. A match is skipped if
+ * it overlaps any excluded range at all, not just if fully contained.
+ */
+export function extractShorthandExponents(
+  text: string,
+  excludeRanges: Array<{ start: number; end: number }> = []
+): ShorthandExponentToken[] {
+  if (typeof text !== 'string' || text.length === 0) {
+    return [];
+  }
+
+  const tokens: ShorthandExponentToken[] = [];
+  SHORTHAND_EXPONENT_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = SHORTHAND_EXPONENT_PATTERN.exec(text)) !== null) {
+    const start = match.index;
+    const end = start + match[0].length;
+    const overlapsExcluded = excludeRanges.some((r) => start < r.end && end > r.start);
+    if (!overlapsExcluded) {
+      tokens.push({ raw: match[0], start, end });
+    }
+    // Matches never overlap each other here (each one fully consumes its
+    // base+exponent), so no manual lastIndex adjustment is needed beyond
+    // what exec() already does on a `g` regex.
+  }
+  return tokens;
 }

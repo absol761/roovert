@@ -1551,3 +1551,60 @@ button:hover,
     var(--paper-rule) 32px
   );
 }
+
+/* CodeMirror editor host (NotebookPage.tsx) - sizing/reset only; color,
+   font-size, line-height, caret color, and the placeholder color are set
+   via EditorView.theme() in the component itself since those need the
+   live --paper-* token values at construction time, not just at this
+   stylesheet's load time. */
+.notebook-editor-host .cm-editor {
+  height: 100%;
+  outline: none;
+}
+.notebook-editor-host .cm-scroller {
+  overflow: visible;
+}
+
+/* Arithmetic ghost-result widget (NotebookPage.tsx's ArithmeticResultWidget) -
+   replaces the old MathLine.tsx component now that results render as a
+   CodeMirror widget instead of a React node. Per spec §6 pitfall #2, the
+   value text itself is full-opacity --paper-accent, never further-muted. */
+.notebook-math-ghost {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  margin-left: 0.5rem;
+  padding: 0 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--paper-accent);
+}
+.notebook-math-ghost-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.25rem;
+  padding: 0.125rem;
+  border-radius: 0.25rem;
+  color: var(--paper-accent);
+  opacity: 0.6;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.notebook-math-ghost-dismiss:hover,
+.notebook-math-ghost-dismiss:focus-visible {
+  opacity: 1;
+}
+
+/* Inline/block KaTeX rendering (NotebookPage.tsx's KatexWidget), for both
+   $...$/$$...$$ spans and bare shorthand-exponent tokens (x^2). */
+.notebook-latex-render-block {
+  display: block;
+  margin: 0.5em 0;
+}
+.notebook-latex-fallback {
+  font-family: var(--font-mono, monospace);
+  color: var(--paper-ink-muted);
+}
