@@ -360,6 +360,20 @@ function findInlineClose(text: string, openIdx: number): number {
   if (firstContentChar === undefined || /\s/.test(firstContentChar) || firstContentChar === '$') {
     return -1;
   }
+  // A `$` immediately followed by a digit (e.g. "$5", "$30,000") reads as
+  // currency, not the start of inline math, in the overwhelming majority of
+  // real notes. Rejecting it outright — rather than trying to find *some*
+  // later `$` to pair it with — matters here specifically because a single
+  // stray currency `$` earlier in the same line can otherwise "steal" the
+  // opening delimiter of an unrelated, genuinely well-formed `$...$` span
+  // later in that line (e.g. "costs $5. Inline math $x^2$ here." would
+  // otherwise wrongly match "$5. Inline math $x^2$" as one span, consuming
+  // the real span's own opening `$`). Genuine LaTeX only rarely opens on a
+  // bare digit, and when it does, a leading space (`$ 2+2$`) or switching to
+  // block delimiters (`$$2+2$$`) both still work.
+  if (/\d/.test(firstContentChar)) {
+    return -1;
+  }
 
   for (let j = openIdx + 1; j < text.length; j++) {
     // Inline math can't cross a blank line (paragraph break) — fail closed

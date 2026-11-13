@@ -64,6 +64,13 @@ const ShortcutsHelpModal = dynamic(
 const FloatingChatWindow = dynamic(
   () => import('./components/windows/FloatingChatWindow').then(m => m.FloatingChatWindow)
 );
+// Off by default (see NOTEBOOK_ENABLED_STORAGE_KEY below) and only ever
+// mounted once a user both enables it in Settings and opens it from the
+// sidebar rail - dynamic-importing it keeps its code (including the KaTeX
+// dependency) out of every other visitor's bundle entirely.
+const NotebookModal = dynamic(
+  () => import('./components/notebook/NotebookModal').then(m => m.NotebookModal)
+);
 
 type ChatContent = string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
 
@@ -113,6 +120,11 @@ const MAX_CONVERSATIONS = 30;
 // Where the response style pick (Normal/Concise/Explanatory/Formal) is
 // persisted so it survives a reload, same as the conversation above.
 const RESPONSE_STYLE_STORAGE_KEY = 'roovert_response_style';
+// Whether the Notebook feature (NOTEBOOK_FEATURE_SPEC.md) is enabled at all.
+// Off by default for every visitor - this is the one flag that makes the
+// sidebar icon and the Settings toggle's own "ACTIVE" state persist across a
+// reload once a user opts in.
+const NOTEBOOK_ENABLED_STORAGE_KEY = 'roovert_notebook_enabled';
 // Where the response length pick (Short/Medium/Long) is persisted so it
 // survives a reload, same pattern as the response style above.
 const OUTPUT_LENGTH_STORAGE_KEY = 'roovert_output_length';
@@ -365,6 +377,26 @@ export default function Page() {
   const [floatingWindows, setFloatingWindows] = useState<{ id: string; x: number; y: number; zIndex: number }[]>([]);
   const [nextWindowZIndex, setNextWindowZIndex] = useState(1000);
   const [isLooksOpen, setIsLooksOpen] = useState(false);
+  const [isNotebookOpen, setIsNotebookOpen] = useState(false);
+  // Off by default on both the server-rendered HTML and the client's first
+  // render - unlike responseStyle below, this value directly controls
+  // visible DOM (the sidebar's Notebook icon via SidebarRail's `hidden`
+  // prop), so a lazy initializer that reads localStorage would make the
+  // client's first render disagree with the server-rendered markup whenever
+  // a returning visitor already had it enabled, triggering a real React
+  // hydration-mismatch error. Reading the persisted value is deferred to the
+  // effect below, which only runs after hydration completes.
+  const [notebookEnabled, setNotebookEnabled] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(NOTEBOOK_ENABLED_STORAGE_KEY) === 'true') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from localStorage on mount; can't run during SSR/render, so an effect is the only option
+        setNotebookEnabled(true);
+      }
+    } catch {
+      // Storage unavailable - stay disabled, same as a first-time visitor.
+    }
+  }, []);
   const [isGlobalFeedOpen, setIsGlobalFeedOpen] = useState(false);
   // Cmd/Ctrl+K quick-actions palette and its "?" shortcuts-help overlay -
   // both are plain client-side modals with no state beyond open/closed.
@@ -667,6 +699,16 @@ export default function Page() {
       // best-effort and must never crash the app.
     }
   }, [responseStyle]);
+
+  // Persist the Notebook enabled/disabled flag whenever it changes.
+  useEffect(() => {
+    try {
+      localStorage.setItem(NOTEBOOK_ENABLED_STORAGE_KEY, String(notebookEnabled));
+    } catch {
+      // Storage unavailable - persistence is best-effort and must never
+      // crash the app.
+    }
+  }, [notebookEnabled]);
 
   // Persist the response length choice whenever it changes.
   useEffect(() => {
@@ -1857,6 +1899,8 @@ export default function Page() {
           onOpenLooks={() => setIsLooksOpen(true)}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenNewWindow={openNewWindow}
+          notebookEnabled={notebookEnabled}
+          onOpenNotebook={() => setIsNotebookOpen(true)}
           showVisualizerButton={showVisualizerButton}
           visualizerEnabled={visualizerEnabled}
           onToggleVisualizer={toggleVisualizerFromNav}
@@ -1916,6 +1960,8 @@ export default function Page() {
             setNeuralNoiseEnabled={setNeuralNoiseEnabled}
             showVisualizerButton={showVisualizerButton}
             setShowVisualizerButton={setShowVisualizerButton}
+            notebookEnabled={notebookEnabled}
+            setNotebookEnabled={setNotebookEnabled}
             availableModels={availableModels}
           />
         )}
@@ -1930,6 +1976,19 @@ export default function Page() {
             onClose={() => setIsLooksOpen(false)}
             currentLook={look}
             setLook={setLook}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Notebook Modal - off by default; only reachable once notebookEnabled
+          is true (see the Settings "Notebook" toggle) and the sidebar's
+          Notebook icon has been clicked. */}
+      <AnimatePresence>
+        {notebookEnabled && isNotebookOpen && (
+          <NotebookModal
+            isOpen={isNotebookOpen}
+            onClose={() => setIsNotebookOpen(false)}
+            modelId={selectedModel.id}
           />
         )}
       </AnimatePresence>

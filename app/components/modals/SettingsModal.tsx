@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, X, Monitor, Eye, EyeOff, Zap, Download, Save, Trash2, Share2, Check, Loader2 } from 'lucide-react';
+import { Settings, X, Monitor, Eye, EyeOff, Zap, Download, Save, Trash2, Share2, Check, Loader2, NotebookPen } from 'lucide-react';
 import { type Model } from '../../lib/models';
 import { LAYOUTS } from '../../lib/looks';
 import { useModalDismiss } from '../../hooks/useModalDismiss';
@@ -63,6 +63,8 @@ interface SettingsModalProps {
   setNeuralNoiseEnabled: (value: boolean) => void;
   showVisualizerButton: boolean;
   setShowVisualizerButton: (value: boolean) => void;
+  notebookEnabled: boolean;
+  setNotebookEnabled: (value: boolean) => void;
   availableModels: Model[];
 }
 
@@ -85,6 +87,8 @@ export function SettingsModal({
   setNeuralNoiseEnabled,
   showVisualizerButton,
   setShowVisualizerButton,
+  notebookEnabled,
+  setNotebookEnabled,
   availableModels = [],
 }: SettingsModalProps) {
   useModalDismiss(isOpen, onClose);
@@ -297,6 +301,25 @@ export function SettingsModal({
                     }`}
                 >
                   <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${showVisualizerButton ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    <NotebookPen className="w-3.5 h-3.5" />
+                    Notebook
+                    {notebookEnabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20">ACTIVE</span>}
+                  </div>
+                  <div className="text-xs text-[var(--muted)]">AI-assisted notes with auto math - adds an icon to the sidebar</div>
+                </div>
+                <button
+                  onClick={() => setNotebookEnabled(!notebookEnabled)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${notebookEnabled ? 'bg-[var(--accent)]' : 'bg-[var(--surface-strong)]'
+                    }`}
+                >
+                  <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${notebookEnabled ? 'translate-x-5' : 'translate-x-0'
                     }`} />
                 </button>
               </div>

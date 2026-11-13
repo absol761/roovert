@@ -264,6 +264,18 @@ describe('extractLatexSpans', () => {
     expect(spans).toHaveLength(0);
   });
 
+  it('does not let an earlier currency `$` steal a later span\'s opening delimiter', () => {
+    // A real integration-time bug: without rejecting "$" + digit outright,
+    // the lone currency "$5" here had no nearby valid close, so the scan
+    // kept going and wrongly paired it with the closing "$" of the
+    // genuinely well-formed "$x^2 + 1$" later in the same line - producing
+    // one bogus span instead of zero spans plus one correct one.
+    const text = 'This is just regular prose with a $5 price tag. Inline math $x^2 + 1$ looks right.';
+    const spans = extractLatexSpans(text);
+    expect(spans).toHaveLength(1);
+    expect(spans[0].raw).toBe('$x^2 + 1$');
+  });
+
   it('does not let inline math cross a blank line / paragraph break', () => {
     const text = '$a\n\nb$ unrelated';
     const spans = extractLatexSpans(text);
