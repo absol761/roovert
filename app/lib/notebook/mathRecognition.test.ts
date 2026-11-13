@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isArithmeticLine, evaluateArithmetic, extractLatexSpans } from './mathRecognition';
+import { isArithmeticLine, evaluateArithmetic, extractLatexSpans, extractShorthandExponents } from './mathRecognition';
 
 describe('isArithmeticLine', () => {
   it('accepts simple arithmetic with no spaces', () => {
@@ -307,5 +307,79 @@ describe('extractLatexSpans', () => {
     for (let i = 1; i < spans.length; i++) {
       expect(spans[i].start).toBeGreaterThanOrEqual(spans[i - 1].end);
     }
+  });
+});
+
+describe('extractShorthandExponents', () => {
+  it('recognizes a simple variable exponent', () => {
+    const tokens = extractShorthandExponents('x^2');
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0]).toEqual({ raw: 'x^2', start: 0, end: 3 });
+  });
+
+  it('recognizes a negative exponent', () => {
+    const tokens = extractShorthandExponents('n^-1');
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].raw).toBe('n^-1');
+  });
+
+  it('recognizes a multi-digit exponent', () => {
+    const tokens = extractShorthandExponents('x^10');
+    expect(tokens[0].raw).toBe('x^10');
+  });
+
+  it('recognizes a parenthesized exponent group', () => {
+    const tokens = extractShorthandExponents('x^(n+1)');
+    expect(tokens[0].raw).toBe('x^(n+1)');
+  });
+
+  it('recognizes a digit base (e.g. inside an otherwise-algebraic line)', () => {
+    const tokens = extractShorthandExponents('2^10 is 1024');
+    expect(tokens[0].raw).toBe('2^10');
+  });
+
+  it('finds multiple tokens in the same line', () => {
+    const tokens = extractShorthandExponents('x^2 + y^2 = r^2');
+    expect(tokens.map((t) => t.raw)).toEqual(['x^2', 'y^2', 'r^2']);
+  });
+
+  it('does not match a caret with whitespace around it (likely not exponentiation)', () => {
+    expect(extractShorthandExponents('a ^ b')).toEqual([]);
+    expect(extractShorthandExponents('a^ b')).toEqual([]);
+    expect(extractShorthandExponents('a ^b')).toEqual([]);
+  });
+
+  it('does not match a caret with nothing valid before it (e.g. a regex anchor or footnote marker)', () => {
+    expect(extractShorthandExponents('^abc')).toEqual([]);
+    expect(extractShorthandExponents('[^1]: a footnote')).toEqual([]);
+  });
+
+  it('skips a match that overlaps an excluded range', () => {
+    const text = '$x^2$ is already a latex span';
+    // Simulates the caller passing extractLatexSpans' own span range for
+    // the same text - the x^2 inside it should not also be picked up here.
+    const tokens = extractShorthandExponents(text, [{ start: 0, end: 5 }]);
+    expect(tokens).toEqual([]);
+  });
+
+  it('still matches a token outside the excluded range', () => {
+    const text = '$a$ and x^2 separately';
+    const tokens = extractShorthandExponents(text, [{ start: 0, end: 3 }]);
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].raw).toBe('x^2');
+  });
+
+  it('returns an empty array for plain prose with no carets', () => {
+    expect(extractShorthandExponents('just plain prose, nothing to see here')).toEqual([]);
+  });
+
+  it('returns an empty array for non-string input', () => {
+    expect(extractShorthandExponents(undefined as unknown as string)).toEqual([]);
+  });
+
+  it('never throws on pathological input', () => {
+    expect(() => extractShorthandExponents('^^^^^^')).not.toThrow();
+    expect(() => extractShorthandExponents('a^'.repeat(50))).not.toThrow();
+    expect(() => extractShorthandExponents('')).not.toThrow();
   });
 });
