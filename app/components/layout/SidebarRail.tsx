@@ -15,6 +15,7 @@ import {
   MicOff,
   Settings,
   AppWindow,
+  NotebookPen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -88,6 +89,11 @@ export interface SidebarRailProps {
   // FloatingChatWindow.tsx) - a draggable, independent chat surface that
   // replaces the old workaround of opening a second literal browser tab.
   onOpenNewWindow: () => void;
+  // Notebook feature - off by default, gated behind Settings (same pattern
+  // as showVisualizerButton below). `hidden: !notebookEnabled` on the rail
+  // entry is what makes the whole feature invisible until a user opts in.
+  notebookEnabled: boolean;
+  onOpenNotebook: () => void;
   // Visualizer toggle - gated behind Settings ("showVisualizerButton"),
   // mirrors the exact behavior/animated mic-reactive rings the old nav
   // button had, just relocated into the rail.
@@ -114,6 +120,8 @@ export function SidebarRail({
   onOpenLooks,
   onOpenSettings,
   onOpenNewWindow,
+  notebookEnabled,
+  onOpenNotebook,
   showVisualizerButton,
   visualizerEnabled,
   onToggleVisualizer,
@@ -162,6 +170,13 @@ export function SidebarRail({
       label: 'New window',
       icon: <AppWindow className="w-[18px] h-[18px]" />,
       onClick: onOpenNewWindow,
+    },
+    {
+      key: 'notebook',
+      label: 'Notebook',
+      icon: <NotebookPen className="w-[18px] h-[18px]" />,
+      onClick: onOpenNotebook,
+      hidden: !notebookEnabled,
     },
   ];
 
