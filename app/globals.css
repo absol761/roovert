@@ -1491,3 +1491,63 @@ button:hover,
 [data-look='skeuomorphic'] body::before {
   background: none;
 }
+
+/* === Notebook paper styles — scoped to [data-notebook-root], never documentElement === */
+
+[data-notebook-root][data-notebook-paper='white'] {
+  --paper-bg: #f6f3eb;        /* warm eggshell, not #fff — see §5a */
+  --paper-ink: #2a2722;       /* near-black warm ink, not #000 */
+  --paper-ink-muted: rgba(42, 39, 34, 0.66); /* 4.72:1 on --paper-bg, see §6 table */
+  --paper-rule: rgba(42, 39, 34, 0.09);      /* faint ruled-line color, decorative only */
+  --paper-accent: #2f5c8a;    /* muted "fountain pen" blue — recognized-math ink, AI affordance */
+  --paper-grain-opacity: 0.35;
+}
+
+[data-notebook-root][data-notebook-paper='black'] {
+  --paper-bg: #15140f;        /* warm near-black, not #000 — avoids OLED crush, keeps grain visible */
+  --paper-ink: #e8e3d6;       /* warm off-white ink */
+  --paper-ink-muted: rgba(232, 227, 214, 0.62); /* 6.09:1 on --paper-bg */
+  --paper-rule: rgba(232, 227, 214, 0.08);
+  --paper-accent: #c9a66b;    /* muted metallic gold — "gold pen on black paper" */
+  --paper-grain-opacity: 0.30;
+}
+
+[data-notebook-root][data-notebook-paper='construction'] {
+  --paper-bg: #32495f;        /* matte slate-construction-paper blue */
+  --paper-ink: #f2efe6;       /* warm off-white ink */
+  --paper-ink-muted: rgba(242, 239, 230, 0.70); /* 4.91:1 on --paper-bg */
+  --paper-rule: rgba(242, 239, 230, 0.10);
+  --paper-accent: #f0b35e;    /* warm amber-orange — complementary "grease pencil" accent on blue */
+  --paper-grain-opacity: 0.30;
+}
+
+/* Shared grain layer — identical feTurbulence technique to the Leatherbound look
+   (SKEUOMORPHIC_LOOK_SPEC.md §3c), re-tuned finer/flatter for paper vs. leather:
+   baseFrequency 0.35 (paper) vs. 0.85 (leather). Zero binary assets. */
+[data-notebook-root] .notebook-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='paperGrain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.35' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23paperGrain)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  mix-blend-mode: overlay;
+  opacity: var(--paper-grain-opacity);
+}
+
+[data-notebook-root] {
+  background: var(--paper-bg);
+  color: var(--paper-ink);
+}
+
+/* Optional ruled lines — off by default per note (see §5c), toggled by adding
+   .notebook-page--ruled, never baked unconditionally into the paper itself. */
+.notebook-page--ruled {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 31px,
+    var(--paper-rule) 31px,
+    var(--paper-rule) 32px
+  );
+}
