@@ -2566,7 +2566,24 @@ while (true) {
                                                 ];
                                               }).flat();
 
-                                              const res = await fetch('/api/query-gateway', {
+                                              // Same endpoint-selection handleSubmit uses - this previously
+                                              // always POSTed to /api/query-gateway regardless of which
+                                              // model was selected, so regenerating while an OpenRouter/
+                                              // Hugging Face/dynamic-provider model was active silently
+                                              // mis-routed to Groq's gateway, which doesn't recognize those
+                                              // model ids.
+                                              const regenIsOpenRouterModel = OPENROUTER_MODELS.some(m => m.id === selectedModelId);
+                                              const regenIsHuggingFaceModel = HUGGINGFACE_MODELS.some(m => m.id === selectedModelId);
+                                              const regenIsProviderModel = providerModels.some(m => m.id === selectedModelId);
+                                              const regenApiEndpoint = regenIsOpenRouterModel
+                                                ? '/api/openrouter'
+                                                : regenIsHuggingFaceModel
+                                                  ? '/api/huggingface'
+                                                  : regenIsProviderModel
+                                                    ? '/api/provider'
+                                                    : '/api/query-gateway';
+
+                                              const res = await fetch(regenApiEndpoint, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({
@@ -2688,7 +2705,11 @@ while (true) {
                                         ))}
                                       </div>
                                     ) : originalIdx === regeneratingIdx ? (
-                                      <div className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content">
+                                      <div
+                                        className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content"
+                                        aria-live="polite"
+                                        aria-atomic="false"
+                                      >
                                         <MarkdownMessage content={regeneratingText} isStreaming={true} />
                                         <div className="flex items-center gap-3 mt-3">
                                           <span
@@ -2816,7 +2837,11 @@ while (true) {
                                           </div>
                                         )}
                                         {content && (
-                                          <div className="text-[var(--foreground)] text-base markdown-content">
+                                          <div
+                                            className="text-[var(--foreground)] text-base markdown-content"
+                                            aria-live="polite"
+                                            aria-atomic="false"
+                                          >
                                             <MarkdownMessage content={content} isStreaming={!isDone} />
                                           </div>
                                         )}
@@ -2879,6 +2904,8 @@ while (true) {
                                         exit={{ opacity: 0 }}
                                         transition={{ duration: 0.2 }}
                                         className="max-w-[70ch] text-[var(--foreground)] text-base markdown-content"
+                                        aria-live="polite"
+                                        aria-atomic="false"
                                       >
                                         <MarkdownMessage content={response} isStreaming={isProcessing} />
                                         {isProcessing && (
