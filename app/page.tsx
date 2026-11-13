@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, Fragment } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Sparkles, Zap, User, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2 } from 'lucide-react';
+import { Send, Sparkles, Zap, User, Settings, X, Globe, ChevronDown, Maximize, Minimize, Square, Paperclip, Edit2, RefreshCw, Search, Code, Star, ArrowRight, Paintbrush, Mic, MessageSquarePlus, ImageIcon, History, ThumbsUp, ThumbsDown, Download, Focus, Keyboard, Cpu, Copy, Check, Share2, Layers, TriangleAlert } from 'lucide-react';
 import { useMobile } from './hooks/useMobile';
 import { MarkdownMessage } from './components/MarkdownMessage';
 import { RoovertMark } from './components/RoovertMark';
@@ -26,6 +26,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { MODELS, OPENROUTER_MODELS, HUGGINGFACE_MODELS, type Model } from './lib/models';
@@ -125,6 +126,12 @@ const RESPONSE_STYLE_STORAGE_KEY = 'roovert_response_style';
 // sidebar icon and the Settings toggle's own "ACTIVE" state persist across a
 // reload once a user opts in.
 const NOTEBOOK_ENABLED_STORAGE_KEY = 'roovert_notebook_enabled';
+// Provider categories currently known to be entirely broken in production
+// (HF: depleted Inference Providers credits; OpenRouter: invalid API key -
+// see the availableModels comment in the component below). Used purely to
+// sort those groups to the bottom of the model picker and mute/tag them
+// there - never to hide them or block selecting them.
+const DEGRADED_MODEL_CATEGORIES = new Set(['Hugging Face', 'OpenRouter']);
 // Where the response length pick (Short/Medium/Long) is persisted so it
 // survives a reload, same pattern as the response style above.
 const OUTPUT_LENGTH_STORAGE_KEY = 'roovert_output_length';
@@ -332,10 +339,16 @@ export default function Page() {
   // filtering each static provider's models out if that provider's rate
   // limit is currently exhausted). MODELS (Groq) is listed first since
   // those are the models confirmed working on production's restricted
-  // Groq account - HF and OpenRouter currently fail (depleted Inference
-  // Providers credits / invalid key respectively), so they sort after;
-  // the dynamic provider models are appended last since they're additive
-  // extras a deployer opts into, not part of the app's curated defaults.
+  // Groq account. The dynamic provider models come next - they only show up
+  // at all when a deployer has actually set that provider's API key (see
+  // getAvailableProviderModels in app/lib/providers.ts), so their mere
+  // presence is a weak signal they're more likely to work than the two
+  // groups below. HF and OpenRouter sort last: HF's Inference Providers
+  // credits are currently depleted and OpenRouter's key is currently
+  // invalid, so every model in both groups fails end-to-end right now (see
+  // DEGRADED_MODEL_CATEGORIES below, which also mutes them in the picker
+  // and tags them so this isn't just a silent reorder). Still shown, not
+  // hidden, since either could be fixed and a user may want to retry.
   // Memoized (rather than a fresh array literal every render, like the rest
   // of this file's derived arrays) specifically because it's now a
   // dependency of the fallback-selection effect below - see
@@ -344,9 +357,9 @@ export default function Page() {
   // and never settle.
   const availableModels = useMemo(() => [
     ...MODELS,
+    ...providerModels,
     ...(hideHuggingFaceModels ? [] : HUGGINGFACE_MODELS),
     ...(hideOpenRouterModels ? [] : OPENROUTER_MODELS),
-    ...providerModels,
   ], [hideHuggingFaceModels, hideOpenRouterModels, providerModels]);
 
   // Default selection is GPT-OSS 120B, not Multi-Perspective. Multi-
@@ -945,6 +958,39 @@ export default function Page() {
   // Filter out unavailable models (use the combined list from above)
   const filteredAvailableModels = availableModels.filter(m => !unavailableModels.has(m.id));
   const selectedModel = filteredAvailableModels.find(m => m.id === selectedModelId) || filteredAvailableModels[0];
+
+  // Picker-display-only ordering: pushes the two provider groups known to
+  // be entirely broken right now (see the availableModels comment above) to
+  // the bottom of the dropdown, below every other model, while still
+  // listing them (DEGRADED_MODEL_CATEGORIES below also mutes/tags them in
+  // the picker rather than hiding them - the underlying fix is restoring
+  // OpenRouter's key / HF's credits, not permanently removing the option).
+  // Built via two filter() passes (each preserves relative order on its
+  // own) rather than a single sort() - Array.prototype.sort mutates in
+  // place, which the React Compiler's lint rules flag even on a freshly-
+  // built local array. Never used for selection/routing logic, only for
+  // the order the picker renders in - `filteredAvailableModels` (unsorted)
+  // stays the source of truth everywhere else (fallback selection,
+  // flattened lookups, etc.).
+  // Each entry's `isDegraded`/`isMultiPerspective` flags are computed here,
+  // not inside the JSX .map() below that renders this list - calling
+  // `Set.has()` from within a JSX-returning render callback trips the
+  // react-compiler lint rules' mutation analysis (apparently broadly enough
+  // to also flag unrelated, pre-existing code elsewhere in this component),
+  // even though `.has()` never mutates anything. Precomputing plain
+  // booleans here, in ordinary component-body code, sidesteps that
+  // entirely and the render map only ever does cheap property reads.
+  const modelPickerEntries = [
+    ...filteredAvailableModels.filter(m => !DEGRADED_MODEL_CATEGORIES.has(m.category)),
+    ...filteredAvailableModels.filter(m => DEGRADED_MODEL_CATEGORIES.has(m.category)),
+  ].map((model, index, arr) => ({
+    model,
+    isDegraded: DEGRADED_MODEL_CATEGORIES.has(model.category),
+    isMultiPerspective: model.id === 'multi-perspective',
+    // True for exactly the first degraded-group entry, so the render map
+    // can drop a single separator right at that boundary.
+    isFirstDegraded: DEGRADED_MODEL_CATEGORIES.has(model.category) && !DEGRADED_MODEL_CATEGORIES.has(arr[index - 1]?.category ?? ''),
+  }));
 
   // If selected model becomes unavailable, switch to another available one -
   // preferring a model from a *different* provider group (see
@@ -3128,16 +3174,31 @@ while (true) {
                           <ChevronDown className={`w-3 h-3 transition-transform ${isModelMenuOpen ? 'rotate-180' : ''}`} />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" side="top" className="w-56 max-h-64 overflow-y-auto custom-scrollbar">
-                        {filteredAvailableModels.map(model => (
-                          <DropdownMenuItem
-                            key={model.id}
-                            onSelect={() => setSelectedModelId(model.id)}
-                            className={`flex items-center justify-between text-xs ${selectedModelId === model.id ? 'text-[var(--accent)]' : ''}`}
-                          >
-                            {model.name}
-                            {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}
-                          </DropdownMenuItem>
+                      <DropdownMenuContent align="end" side="top" className="w-60 max-h-64 overflow-y-auto custom-scrollbar">
+                        {modelPickerEntries.map(({ model, isDegraded, isMultiPerspective, isFirstDegraded }) => (
+                          <Fragment key={model.id}>
+                            {isFirstDegraded && <DropdownMenuSeparator />}
+                            <DropdownMenuItem
+                              onSelect={() => setSelectedModelId(model.id)}
+                              className={`flex items-center justify-between gap-2 text-xs ${selectedModelId === model.id ? 'text-[var(--accent)]' : isDegraded ? 'opacity-60' : ''
+                                } ${isMultiPerspective ? 'py-2' : ''}`}
+                              title={isDegraded ? 'This provider is currently reporting errors (invalid key/credits) - may not respond.' : undefined}
+                            >
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                {isMultiPerspective && <Layers className="w-3.5 h-3.5 text-[var(--accent)] shrink-0" />}
+                                <span className="flex flex-col min-w-0">
+                                  <span className="truncate">{model.name}</span>
+                                  {isMultiPerspective && (
+                                    <span className="text-[10px] text-[var(--muted)] font-normal">Combine two models at once</span>
+                                  )}
+                                </span>
+                              </span>
+                              <span className="flex items-center gap-1 shrink-0">
+                                {isDegraded && <TriangleAlert className="w-3 h-3 text-amber-500" />}
+                                {selectedModelId === model.id && <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />}
+                              </span>
+                            </DropdownMenuItem>
+                          </Fragment>
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
